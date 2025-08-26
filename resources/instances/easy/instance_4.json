@@ -1,0 +1,191 @@
+{
+    "jobs": [
+        {
+            "job_id": "0fa1b163-8dba-41b4-82cc-cffc29760226",
+            "name": "job_0",
+            "tasks": [
+                {
+                    "task_id": "e3909cb6-aa32-4c48-a3b5-eee7a93da2a7",
+                    "name": "task_0_0",
+                    "processing_time": 100,
+                    "requires": [
+                        "capability_1"
+                    ],
+                    "priority": 4
+                },
+                {
+                    "task_id": "ee4469d9-465e-4e26-9d78-d81578c71546",
+                    "name": "task_0_1",
+                    "processing_time": 107,
+                    "requires": [
+                        "capability_1"
+                    ]
+                },
+                {
+                    "task_id": "a050129a-f17f-487e-ad08-8b7fc0514265",
+                    "name": "task_0_2",
+                    "processing_time": 158,
+                    "requires": [
+                        "capability_1"
+                    ],
+                    "priority": 3
+                }
+            ],
+            "priority": 5
+        },
+        {
+            "job_id": "84537d89-5599-4d31-8467-03c05596da0a",
+            "name": "job_1",
+            "tasks": [
+                {
+                    "task_id": "096c50eb-f848-48ff-ba5d-cbb4e28912f0",
+                    "name": "task_1_0",
+                    "processing_time": 121,
+                    "requires": [
+                        "capability_0"
+                    ],
+                    "priority": 3
+                },
+                {
+                    "task_id": "f33df1b5-6cf4-4f1c-afaf-401a3036e235",
+                    "name": "task_1_1",
+                    "processing_time": 142,
+                    "requires": [
+                        "capability_0"
+                    ],
+                    "priority": 2
+                },
+                {
+                    "task_id": "b78a3744-e2e5-4c3d-8059-95fa35d39a07",
+                    "name": "task_1_2",
+                    "processing_time": 159,
+                    "requires": [
+                        "capability_4"
+                    ],
+                    "priority": 3
+                },
+                {
+                    "task_id": "62a234dd-550f-4454-8e10-b67920f09274",
+                    "name": "task_1_3",
+                    "processing_time": 121,
+                    "dependencies": [
+                        "b78a3744-e2e5-4c3d-8059-95fa35d39a07",
+                        "096c50eb-f848-48ff-ba5d-cbb4e28912f0"
+                    ],
+                    "requires": [
+                        "capability_4"
+                    ],
+                    "priority": 4
+                },
+                {
+                    "task_id": "518432c1-489a-4eac-b6c5-813609d06059",
+                    "name": "task_1_4",
+                    "processing_time": 163,
+                    "dependencies": [
+                        "f33df1b5-6cf4-4f1c-afaf-401a3036e235",
+                        "62a234dd-550f-4454-8e10-b67920f09274"
+                    ],
+                    "requires": [
+                        "capability_3"
+                    ]
+                }
+            ],
+            "priority": 4
+        },
+        {
+            "job_id": "d8f4532b-d4aa-4ce2-b13a-a710679837d5",
+            "name": "job_2",
+            "tasks": [
+                {
+                    "task_id": "6beba231-f759-40fd-9b63-15f57d1ff3c2",
+                    "name": "task_2_0",
+                    "processing_time": 78,
+                    "requires": [
+                        "capability_3"
+                    ],
+                    "priority": 3
+                },
+                {
+                    "task_id": "ba565dbe-30e6-4062-af28-f4b05201335d",
+                    "name": "task_2_1",
+                    "processing_time": 70,
+                    "requires": [
+                        "capability_0"
+                    ]
+                },
+                {
+                    "task_id": "7b90b237-fb8e-490a-bc2e-df0155c70c8b",
+                    "name": "task_2_2",
+                    "processing_time": 72,
+                    "dependencies": [
+                        "6beba231-f759-40fd-9b63-15f57d1ff3c2",
+                        "ba565dbe-30e6-4062-af28-f4b05201335d"
+                    ],
+                    "requires": [
+                        "capability_2"
+                    ],
+                    "priority": 5
+                }
+            ],
+            "priority": 5
+        }
+    ],
+    "machines": [
+        {
+            "machine_id": "1662ffcc-26d8-4b23-a99b-b494c5e81236",
+            "name": "machine_0_0",
+            "capabilities": [
+                "capability_0"
+            ]
+        },
+        {
+            "machine_id": "ab404aef-a83f-4805-b79f-d469de8d6246",
+            "name": "machine_1_0",
+            "capabilities": [
+                "capability_1"
+            ]
+        },
+        {
+            "machine_id": "af2daa75-f5e0-4dde-81ef-984ee60da5ee",
+            "name": "machine_1_1",
+            "capabilities": [
+                "capability_1"
+            ]
+        },
+        {
+            "machine_id": "cfb5b9ed-87d2-46a3-aedc-1b08dc2a818c",
+            "name": "machine_2_0",
+            "capabilities": [
+                "capability_2"
+            ]
+        },
+        {
+            "machine_id": "08eceb7b-0771-4de6-a982-8fcaec069530",
+            "name": "machine_3_0",
+            "capabilities": [
+                "capability_3"
+            ]
+        },
+        {
+            "machine_id": "f8ad39b2-15c0-4fd1-aa07-21a6b44cbe27",
+            "name": "machine_3_1",
+            "capabilities": [
+                "capability_3"
+            ]
+        },
+        {
+            "machine_id": "5c55dc9b-0eed-4d44-a5d5-4a6ce425f9b6",
+            "name": "machine_4_0",
+            "capabilities": [
+                "capability_4"
+            ]
+        },
+        {
+            "machine_id": "41349618-05fc-42bc-b12b-6abfcd475030",
+            "name": "machine_4_1",
+            "capabilities": [
+                "capability_4"
+            ]
+        }
+    ]
+}

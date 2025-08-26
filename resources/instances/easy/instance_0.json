@@ -1,0 +1,183 @@
+{
+    "jobs": [
+        {
+            "job_id": "39b7310d-5353-464d-9d54-989870fbe6a8",
+            "name": "job_0",
+            "tasks": [
+                {
+                    "task_id": "05ec7047-c3e5-468d-a131-376710b36faf",
+                    "name": "task_0_0",
+                    "processing_time": 96,
+                    "requires": [
+                        "capability_3"
+                    ],
+                    "priority": 4
+                },
+                {
+                    "task_id": "3349c71d-8af2-46a0-92cd-6f812079311f",
+                    "name": "task_0_2",
+                    "processing_time": 132,
+                    "dependencies": [
+                        "05ec7047-c3e5-468d-a131-376710b36faf"
+                    ],
+                    "requires": [
+                        "capability_3"
+                    ],
+                    "priority": 5
+                },
+                {
+                    "task_id": "c6fdd93d-f644-423f-b13c-71a2ab565b2d",
+                    "name": "task_0_1",
+                    "processing_time": 166,
+                    "requires": [
+                        "capability_2"
+                    ],
+                    "priority": 5
+                },
+                {
+                    "task_id": "2b5df735-cfe4-4a5a-b149-73d38303adc1",
+                    "name": "task_0_3",
+                    "processing_time": 73,
+                    "dependencies": [
+                        "c6fdd93d-f644-423f-b13c-71a2ab565b2d",
+                        "3349c71d-8af2-46a0-92cd-6f812079311f"
+                    ],
+                    "requires": [
+                        "capability_4"
+                    ]
+                }
+            ],
+            "priority": 2
+        },
+        {
+            "job_id": "442345f3-0c93-414b-83ec-66bb7c94180a",
+            "name": "job_1",
+            "tasks": [
+                {
+                    "task_id": "c9cdb6bc-f654-47fd-8f04-bb7d6f3b1759",
+                    "name": "task_1_0",
+                    "processing_time": 166,
+                    "requires": [
+                        "capability_2"
+                    ],
+                    "priority": 4
+                },
+                {
+                    "task_id": "0166c3e8-239c-48ba-821c-0643c057339f",
+                    "name": "task_1_2",
+                    "processing_time": 157,
+                    "dependencies": [
+                        "c9cdb6bc-f654-47fd-8f04-bb7d6f3b1759"
+                    ],
+                    "requires": [
+                        "capability_0"
+                    ],
+                    "priority": 2
+                },
+                {
+                    "task_id": "dc4d8be8-4c88-4e15-9c69-91d17458d647",
+                    "name": "task_1_1",
+                    "processing_time": 178,
+                    "requires": [
+                        "capability_0"
+                    ],
+                    "priority": 2
+                },
+                {
+                    "task_id": "f2588f18-d3bc-4a6e-b0b7-0110a7455352",
+                    "name": "task_1_3",
+                    "processing_time": 67,
+                    "dependencies": [
+                        "0166c3e8-239c-48ba-821c-0643c057339f",
+                        "dc4d8be8-4c88-4e15-9c69-91d17458d647"
+                    ],
+                    "requires": [
+                        "capability_4"
+                    ]
+                },
+                {
+                    "task_id": "ff73bef1-09ae-440c-a095-c8bfa303542f",
+                    "name": "task_1_4",
+                    "processing_time": 160,
+                    "dependencies": [
+                        "f2588f18-d3bc-4a6e-b0b7-0110a7455352"
+                    ],
+                    "requires": [
+                        "capability_4"
+                    ],
+                    "priority": 4
+                }
+            ],
+            "priority": 2
+        },
+        {
+            "job_id": "518b1925-9b7f-48c5-a86e-edf77cfc418d",
+            "name": "job_2",
+            "tasks": [
+                {
+                    "task_id": "520a59f4-a01a-4504-bbd7-0d7fadadf4d8",
+                    "name": "task_2_0",
+                    "processing_time": 133,
+                    "requires": [
+                        "capability_4"
+                    ],
+                    "priority": 5
+                },
+                {
+                    "task_id": "2b113752-8e28-44fc-8f37-db3f2e927264",
+                    "name": "task_2_1",
+                    "processing_time": 151,
+                    "requires": [
+                        "capability_4"
+                    ],
+                    "priority": 3
+                }
+            ],
+            "priority": 5
+        }
+    ],
+    "machines": [
+        {
+            "machine_id": "a5d59f23-7a84-4a8a-a573-ff7cba2610ba",
+            "name": "machine_0_0",
+            "capabilities": [
+                "capability_0"
+            ]
+        },
+        {
+            "machine_id": "86d16ca2-836d-45bd-99e1-659cfde76e0b",
+            "name": "machine_1_0",
+            "capabilities": [
+                "capability_1"
+            ]
+        },
+        {
+            "machine_id": "84dbf783-2987-420f-b612-47dcf35d4cbd",
+            "name": "machine_2_0",
+            "capabilities": [
+                "capability_2"
+            ]
+        },
+        {
+            "machine_id": "01808780-f6c0-4c55-9805-eadbcafb1c06",
+            "name": "machine_3_0",
+            "capabilities": [
+                "capability_3"
+            ]
+        },
+        {
+            "machine_id": "95d6a714-0b9a-436f-9f79-d8b3c9ef5a5f",
+            "name": "machine_4_0",
+            "capabilities": [
+                "capability_4"
+            ]
+        },
+        {
+            "machine_id": "b99c7539-a177-43b6-976d-623f3f903e2e",
+            "name": "machine_4_1",
+            "capabilities": [
+                "capability_4"
+            ]
+        }
+    ]
+}

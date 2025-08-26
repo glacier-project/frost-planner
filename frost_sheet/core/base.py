@@ -1,7 +1,7 @@
-import sys
 import uuid
-from typing import Optional 
+from typing import Optional
 from pydantic import BaseModel, Field, model_validator
+
 
 def _generate_unique_task_ids(jobs: list["Job"]) -> list["Job"]:
     """
@@ -31,6 +31,7 @@ def _generate_unique_task_ids(jobs: list["Job"]) -> list["Job"]:
 
     return jobs
 
+
 def _sort_tasks(tasks: list["Task"]) -> list["Task"]:
     """Performs a topological sort on the given list of tasks based on their dependencies using the Kahn's algorithm.
 
@@ -38,8 +39,9 @@ def _sort_tasks(tasks: list["Task"]) -> list["Task"]:
     """
     # nodes = {n.task_id: n for n in tasks}
     incoming_edges = {m.task_id: [dep for dep in m.dependencies] for m in tasks}
-    neighbors = {n.task_id: [m for m in tasks if n.task_id in m.dependencies] for n in tasks}
-
+    neighbors = {
+        n.task_id: [m for m in tasks if n.task_id in m.dependencies] for n in tasks
+    }
 
     sorted_tasks = []
     stack = [task for task in tasks if not task.dependencies]
@@ -54,7 +56,6 @@ def _sort_tasks(tasks: list["Task"]) -> list["Task"]:
 
         # iterate over all outgoing edges
         for neighbor in neighbors[task.task_id]:
-            
             # remove the edge from the graph
             incoming_edges[neighbor.task_id].remove(task.task_id)
 
@@ -63,16 +64,17 @@ def _sort_tasks(tasks: list["Task"]) -> list["Task"]:
                 stack.append(neighbor)
 
     # if there are edges left, then we have a cycle
-    if len(sorted_tasks) != len(tasks): # any(neighbors.values())
+    if len(sorted_tasks) != len(tasks):  # any(neighbors.values())
         raise ValueError("Graph is not a DAG, it contains at least one cycle")
 
     return sorted_tasks
+
 
 class Task(BaseModel):
     """
     Represents a single, indivisible unit of work.
 
-    A task is defined by its unique identifier, the machines that can process it, and its duration. 
+    A task is defined by its unique identifier, the machines that can process it, and its duration.
 
     Attributes:
         task_id (str): A global unique identifier for the task.
@@ -88,23 +90,44 @@ class Task(BaseModel):
 
     task_id: str = Field(description="A global unique identifier for the task.")
     name: str = Field("Unnamed Task", description="The name of the task.")
-    processing_time: int = Field(gt=1, description="The time required to process the task.")
-    dependencies: list[str] = Field(default_factory=list, description="The identifiers of the tasks that must be completed before this task can start.")
-    requires: list[str] = Field(default_factory=list, description="The capabilities required to complete the task.")
-    machines: list[str] = Field(default_factory=list, description="The identifiers of the machines that can process this task.")
-    priority: int = Field(default=1, gt=0, description="The priority of the task. Lower values indicate higher priority.")
-    start_time: Optional[int] = Field(default=None, ge=0, description="The start time of the task.")
-    end_time: Optional[int] = Field(default=None, ge=0, description="The end time of the task.")
+    processing_time: int = Field(
+        gt=1, description="The time required to process the task."
+    )
+    dependencies: list[str] = Field(
+        default_factory=list,
+        description="The identifiers of the tasks that must be completed before this task can start.",
+    )
+    requires: list[str] = Field(
+        default_factory=list,
+        description="The capabilities required to complete the task.",
+    )
+    machines: list[str] = Field(
+        default_factory=list,
+        description="The identifiers of the machines that can process this task.",
+    )
+    priority: int = Field(
+        default=1,
+        gt=0,
+        description="The priority of the task. Lower values indicate higher priority.",
+    )
+    start_time: Optional[int] = Field(
+        default=None, ge=0, description="The start time of the task."
+    )
+    end_time: Optional[int] = Field(
+        default=None, ge=0, description="The end time of the task."
+    )
 
-    
     def __str__(self) -> str:
-        return (f"Task(task_id={self.task_id}, name={self.name}, "
-                f"processing_time={self.processing_time}, dependencies={self.dependencies}, "
-                f"priority={self.priority})")
+        return (
+            f"Task(task_id={self.task_id}, name={self.name}, "
+            f"processing_time={self.processing_time}, dependencies={self.dependencies}, "
+            f"priority={self.priority})"
+        )
 
     def __repr__(self) -> str:
         return self.__str__()
-    
+
+
 class Job(BaseModel):
     """Represents a job consisting of multiple tasks.
 
@@ -113,10 +136,17 @@ class Job(BaseModel):
         name (str): The name of the job.
         tasks (list[Task]): The tasks associated with the job.
     """
+
     job_id: str = Field(description="A global unique identifier for the job.")
     name: str = Field("Unnamed Job", description="The name of the job.")
-    tasks: list[Task] = Field(default_factory=list, description="The tasks associated with the job.")
-    priority: int = Field(default=1, gt=0, description="The priority of the job. Lower values indicate higher priority.")
+    tasks: list[Task] = Field(
+        default_factory=list, description="The tasks associated with the job."
+    )
+    priority: int = Field(
+        default=1,
+        gt=0,
+        description="The priority of the job. Lower values indicate higher priority.",
+    )
 
     @property
     def start_time(self) -> int:
@@ -153,14 +183,16 @@ class Job(BaseModel):
                 end_time = t.end_time
 
         return end_time
-    
+
     @model_validator(mode="after")
     def _validate_tasks(self) -> "Job":
         # check that all the tasks have different ids
         task_ids = set()
         for t in self.tasks:
             if t.task_id in task_ids:
-                raise ValueError(f"Task IDs must be unique inside a job. Task ID {t.task_id} is duplicated.")
+                raise ValueError(
+                    f"Task IDs must be unique inside a job. Task ID {t.task_id} is duplicated."
+                )
             task_ids.add(t.task_id)
 
         # topological sort
@@ -168,14 +200,16 @@ class Job(BaseModel):
 
         return self
 
-
     def __str__(self) -> str:
-        return (f"Job(job_id={self.job_id}, name={self.name}, "
-                f"tasks={self.tasks}, priority={self.priority})")
+        return (
+            f"Job(job_id={self.job_id}, name={self.name}, "
+            f"tasks={self.tasks}, priority={self.priority})"
+        )
 
     def __repr__(self) -> str:
         return self.__str__()
-    
+
+
 class Machine(BaseModel):
     """Represents a machine that can process tasks.
 
@@ -184,13 +218,40 @@ class Machine(BaseModel):
         name (str): The name of the machine.
         capabilities (list[str]): The capabilities of the machine (e.g., "cutting", "welding").
     """
+
     machine_id: str = Field(description="A global unique identifier for the machine.")
     name: str = Field(default="Unnamed Machine", description="The name of the machine.")
-    capabilities: list[str] = Field(default_factory=list, description="The capabilities of the machine.")
+    capabilities: list[str] = Field(
+        default_factory=list, description="The capabilities of the machine."
+    )
 
     def __str__(self) -> str:
-        return (f"Machine(machine_id={self.machine_id}, name={self.name}, "
-                f"capabilities={self.capabilities})")
+        return (
+            f"Machine(machine_id={self.machine_id}, name={self.name}, "
+            f"capabilities={self.capabilities})"
+        )
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+
+class SchedulingInstance(BaseModel):
+    """Represents a scheduling instance containing a set of jobs that need to be scheduled on a set of machines.
+
+    Attributes:
+        jobs (list[Job]): The jobs to be scheduled.
+        machines (list[Machine]): The machines available for scheduling.
+    """
+
+    jobs: list[Job] = Field(
+        default_factory=list, description="The jobs to be scheduled."
+    )
+    machines: list[Machine] = Field(
+        default_factory=list, description="The machines available for scheduling."
+    )
+
+    def __str__(self) -> str:
+        return f"SchedulingInstance(jobs={self.jobs}, machines={self.machines})"
 
     def __repr__(self) -> str:
         return self.__str__()
