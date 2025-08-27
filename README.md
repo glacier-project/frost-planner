@@ -1,7 +1,7 @@
-# 🧊 IceSheet
+# 🧊 FrostSheet
 A Python library for solving Flexible Job-Shop scheduling problems.
 
-IceSheet is a powerful and intuitive Python framework for modeling and solving scheduling instances, from classic Job-Shop and Flow-Shop problems to custom, real-world resource allocation tasks.
+FrostSheet is a powerful and intuitive Python framework for modeling and solving scheduling instances, from classic Job-Shop and Flow-Shop problems to custom, real-world resource allocation tasks.
 
 ## 🚀 Installation
 
