@@ -70,6 +70,6 @@ def plot_gantt_chart(schedule: Schedule, figsize: Tuple[int, int] = (12, 8)) -> 
         mpatches.Patch(color=color, label=f"Job {job_id}")
         for job_id, color in sorted(job_color.items())
     ]
-    ax.legend(handles=patches, fontsize=11)
+    ax.legend(handles=patches, fontsize=11, loc="upper right")
 
     plt.show()

@@ -2,6 +2,7 @@ import sys
 from abc import ABC, abstractmethod
 from frost_sheet.core.base import Task, Machine, SchedulingInstance
 from frost_sheet.core.schedule import Schedule, ScheduledTask
+from frost_sheet.solver import _create_schedule
 
 
 class BaseSolver(ABC):
@@ -58,58 +59,6 @@ class BaseSolver(ABC):
         assert all([machine in machines for machine in machines])
 
         task.machines = [m.machine_id for m in machines]
-
-    def _get_machine_intervals_for_task(
-        self,
-        task: Task,
-        machine_intervals: dict[str, list[tuple[int, int]]],
-        earliest_start: int,
-    ) -> dict[str, list[tuple[int, int]]]:
-        """Gets the time intervals for a task on a specific machine.
-
-        Args:
-            task (Task): The task to get intervals for.
-            machine_intervals (dict[str, list[tuple[int, int]]]): The machine intervals to get intervals from.
-            earliest_start (int): The earliest start time for the task based on its dependencies.
-
-        Returns:
-            dict[str, list[tuple[int, int]]]: A dictionary mapping machine IDs to their available time intervals for the task.
-        """
-
-        s_intervals = {}
-
-        for machine_id, intervals in machine_intervals.items():
-            if machine_id not in task.machines:
-                continue
-
-            task_start_time = task.start_time if task.start_time else 0
-            task_start_time = max(task_start_time, earliest_start)
-            task_end_time = task.end_time if task.end_time else self.horizon
-            ms_intervals = []
-
-            # adds all the intervals that can fit the task
-            for start, end in intervals:
-                # exit if the next intervals starts after the task's end time
-                if start >= task_end_time:
-                    break
-
-                # skip if the interval ends before the task's start time
-                if end < task_start_time:
-                    continue
-
-                # earliest start time
-                start = max(start, task_start_time)
-                # latest end time
-                end = min(end, task_end_time)
-
-                # check if the task can fit in the interval
-                if task.processing_time > (end - start):
-                    continue
-
-                ms_intervals.append((start, end))
-            s_intervals[machine_id] = ms_intervals
-
-        return s_intervals
 
     def _allocate_task(
         self,
@@ -179,14 +128,6 @@ class BaseSolver(ABC):
         scheduled_tasks = self._allocate_tasks(machine_intervals)
 
         # create schedule from scheduled_tasks
-        machine_schedule = {
-            machine.machine_id: [
-                task
-                for task in scheduled_tasks
-                if task.machine_id == machine.machine_id
-            ]
-            for machine in self.instance.machines
-        }
-        return Schedule(
-            machines=self.instance.machines, machine_schedule=machine_schedule
+        return _create_schedule(
+            scheduled_tasks=scheduled_tasks, machines=self.instance.machines
         )

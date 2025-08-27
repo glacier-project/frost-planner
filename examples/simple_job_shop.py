@@ -1,6 +1,7 @@
 import argparse
 from frost_sheet.core.base import SchedulingInstance
 from frost_sheet.solver.dummy_solver import DummySolver
+from frost_sheet.solver.stochastic_solver import StochasticSolver
 from frost_sheet.visualization.gantt import plot_gantt_chart
 
 
@@ -18,7 +19,7 @@ def parse_args():
         "--solver",
         type=str,
         default="dummy",
-        choices=["dummy"],
+        choices=["dummy", "stochastic"],
         help="Solver to use for scheduling",
     )
     return parser.parse_args()
@@ -42,9 +43,14 @@ def main():
     print(f"|--># Machines: {len(machines)}")
     print(f"|--># Jobs: {len(jobs)}")
 
-    solver = DummySolver(
-        instance=instance,
-    )
+    if args.solver == "dummy":
+        solver = DummySolver(
+            instance=instance,
+        )
+    else:
+        solver = StochasticSolver(
+            instance=instance,
+        )
 
     schedule = solver.schedule()
 
