@@ -2,6 +2,8 @@ import uuid
 from typing import Optional, Dict
 from pydantic import BaseModel, Field, model_validator
 
+from frost_sheet.utils import cwarning
+
 
 def _generate_unique_task_ids(jobs: list["Job"]) -> list["Job"]:
     """
@@ -24,10 +26,9 @@ def _generate_unique_task_ids(jobs: list["Job"]) -> list["Job"]:
 
     for j in jobs:
         for t in j.tasks:
-            task_id = str(uuid.uuid4())
-            id_map[t.task_id] = task_id
-
-            t.task_id = task_id
+            id = str(uuid.uuid4())
+            id_map[t.id] = id
+            t.id = id
             t.dependencies = [id_map[dep] for dep in t.dependencies]
         j.job_id = str(uuid.uuid4())
 
@@ -42,11 +43,9 @@ def _sort_tasks(tasks: list["Task"]) -> list["Task"]:
     This function assumes that the input list of tasks is a directed acyclic
     graph (DAG).
     """
-    # nodes = {n.task_id: n for n in tasks}
-    incoming_edges = {m.task_id: [dep for dep in m.dependencies] for m in tasks}
-    neighbors = {
-        n.task_id: [m for m in tasks if n.task_id in m.dependencies] for n in tasks
-    }
+    # nodes = {n.id: n for n in tasks}
+    incoming_edges = {m.id: [dep for dep in m.dependencies] for m in tasks}
+    neighbors = {n.id: [m for m in tasks if n.id in m.dependencies] for n in tasks}
 
     sorted_tasks = []
     stack = [task for task in tasks if not task.dependencies]
@@ -60,12 +59,12 @@ def _sort_tasks(tasks: list["Task"]) -> list["Task"]:
         sorted_tasks.append(task)
 
         # iterate over all outgoing edges
-        for neighbor in neighbors[task.task_id]:
+        for neighbor in neighbors[task.id]:
             # remove the edge from the graph
-            incoming_edges[neighbor.task_id].remove(task.task_id)
+            incoming_edges[neighbor.id].remove(task.id)
 
             # add neighbor to the stack if it has no other incoming edges
-            if not incoming_edges[neighbor.task_id]:
+            if not incoming_edges[neighbor.id]:
                 stack.append(neighbor)
 
     # if there are edges left, then we have a cycle
@@ -83,7 +82,7 @@ class Task(BaseModel):
     it, and its duration.
 
     Attributes:
-        task_id (str):
+        id (str):
             A global unique identifier for the task.
         name (str):
             The name of the task.
@@ -104,7 +103,7 @@ class Task(BaseModel):
             The end time of the task.
     """
 
-    task_id: str = Field(
+    id: str = Field(
         description="A global unique identifier for the task.",
     )
     name: str = Field(
@@ -147,7 +146,7 @@ class Task(BaseModel):
     def __str__(self) -> str:
         return (
             f"Task("
-            f"task_id={self.task_id}, "
+            f"id={self.id}, "
             f"name={self.name}, "
             f"processing_time={self.processing_time}, "
             f"dependencies={self.dependencies}, "
@@ -242,12 +241,12 @@ class Job(BaseModel):
         # Make sure all task IDs are unique.
         task_ids = set()
         for t in self.tasks:
-            if t.task_id in task_ids:
+            if t.id in task_ids:
                 raise ValueError(
                     f"Task IDs must be unique inside a job. "
-                    f"Task ID {t.task_id} is duplicated."
+                    f"Task ID {t.id} is duplicated."
                 )
-            task_ids.add(t.task_id)
+            task_ids.add(t.id)
         # Perform topological sort.
         self.tasks = _sort_tasks(self.tasks)
         return self
@@ -270,7 +269,7 @@ class Machine(BaseModel):
     Represents a machine that can process tasks.
 
     Attributes:
-        machine_id (str):
+        id (str):
             A global unique identifier for the machine.
         name (str):
             The name of the machine.
@@ -278,7 +277,7 @@ class Machine(BaseModel):
             The capabilities of the machine (e.g., "cutting", "welding").
     """
 
-    machine_id: str = Field(
+    id: str = Field(
         description="A global unique identifier for the machine.",
     )
     name: str = Field(
@@ -293,7 +292,7 @@ class Machine(BaseModel):
     def __str__(self) -> str:
         return (
             f"Machine("
-            f"machine_id={self.machine_id}, "
+            f"id={self.id}, "
             f"name={self.name}, "
             f"capabilities={self.capabilities})"
         )
@@ -328,6 +327,48 @@ class SchedulingInstance(BaseModel):
         description="Travel times between machines (source_machine_id "
         "-> {destination_machine_id -> time}).",
     )
+
+    def get_machine(self, id: str) -> Machine | None:
+        """
+        Retrieves a machine by its ID.
+
+        Args:
+            id (str):
+                The ID of the machine to retrieve.
+
+        Returns:
+            Machine | None:
+                The machine with the specified ID, or None if not found.
+        """
+        for machine in self.machines:
+            if machine.id == id:
+                return machine
+        return None
+
+    def get_travel_time(self, m0: Machine, m1: Machine) -> int:
+        """
+        Retrieves the travel time between two machines.
+
+        Args:
+            m0 (Machine):
+                The source machine.
+            m1 (Machine):
+                The destination machine.
+
+        Returns:
+            int:
+                The travel time between the two machines, or -1 if not found.
+        """
+        if m0.id == m1.id:
+            return 0
+        if m0.id not in self.travel_times:
+            cwarning(f"No travel times defined for machine {m0}.")
+            return -1
+        travel_time = self.travel_times[m0.id].get(m1.id, None)
+        if travel_time is None:
+            cwarning(f"No travel times defined from machine {m0} to machine {m1}.")
+            return -1
+        return travel_time
 
     def __str__(self) -> str:
         return (
