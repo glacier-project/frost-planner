@@ -1,77 +1,7 @@
 import uuid
-from typing import Optional, Dict
 from pydantic import BaseModel, Field, model_validator
 
 from frost_sheet.utils import cwarning
-
-
-def _generate_unique_task_ids(jobs: list["Job"]) -> list["Job"]:
-    """
-    Make task IDs unique across all jobs by generating new UUIDs. This function
-    takes a list of Job objects and reassigns all task IDs within those jobs to
-    ensure uniqueness. It also updates any task dependencies to reference the
-    new IDs, maintaining the dependency relationships.
-
-    Args:
-        jobs (list[Job]):
-            A list of Job objects containing tasks with potentially duplicate
-            IDs.
-    Returns:
-        list[Job]:
-            The same list of Job objects with all task IDs made unique and
-            dependencies updated accordingly.
-    """
-
-    id_map = {}
-
-    for j in jobs:
-        for t in j.tasks:
-            id = str(uuid.uuid4())
-            id_map[t.id] = id
-            t.id = id
-            t.dependencies = [id_map[dep] for dep in t.dependencies]
-        j.job_id = str(uuid.uuid4())
-
-    return jobs
-
-
-def _sort_tasks(tasks: list["Task"]) -> list["Task"]:
-    """
-    Performs a topological sort on the given list of tasks based on their
-    dependencies using the Kahn's algorithm.
-
-    This function assumes that the input list of tasks is a directed acyclic
-    graph (DAG).
-    """
-    # nodes = {n.id: n for n in tasks}
-    incoming_edges = {m.id: [dep for dep in m.dependencies] for m in tasks}
-    neighbors = {n.id: [m for m in tasks if n.id in m.dependencies] for n in tasks}
-
-    sorted_tasks = []
-    stack = [task for task in tasks if not task.dependencies]
-
-    if not stack:
-        # If there are no tasks without dependencies, the graph is not a DAG
-        raise ValueError("At least one task must have no dependencies")
-
-    while stack:
-        task = stack.pop()
-        sorted_tasks.append(task)
-
-        # iterate over all outgoing edges
-        for neighbor in neighbors[task.id]:
-            # remove the edge from the graph
-            incoming_edges[neighbor.id].remove(task.id)
-
-            # add neighbor to the stack if it has no other incoming edges
-            if not incoming_edges[neighbor.id]:
-                stack.append(neighbor)
-
-    # if there are edges left, then we have a cycle
-    if len(sorted_tasks) != len(tasks):  # any(neighbors.values())
-        raise ValueError("Graph is not a DAG, it contains at least one cycle")
-
-    return sorted_tasks
 
 
 class Task(BaseModel):
@@ -132,12 +62,12 @@ class Task(BaseModel):
         gt=0,
         description="The priority of the task. Lower values indicate higher priority.",
     )
-    start_time: Optional[int] = Field(
+    start_time: int | None = Field(
         default=None,
         ge=0,
         description="The start time of the task.",
     )
-    end_time: Optional[int] = Field(
+    end_time: int | None = Field(
         default=None,
         ge=0,
         description="The end time of the task.",
@@ -308,18 +238,20 @@ class SchedulingInstance(BaseModel):
             The jobs to be scheduled.
         machines (list[Machine]):
             The machines available for scheduling.
-        travel_times (Dict[str, Dict[str, int]]):
+        travel_times (dict[str, dict[str, int]]):
             The travel times between machines (source_machine_id ->
             {destination_machine_id -> time}).
     """
 
     jobs: list[Job] = Field(
-        default_factory=list, description="The jobs to be scheduled."
+        default_factory=list,
+        description="The jobs to be scheduled.",
     )
     machines: list[Machine] = Field(
-        default_factory=list, description="The machines available for scheduling."
+        default_factory=list,
+        description="The machines available for scheduling.",
     )
-    travel_times: Dict[str, Dict[str, int]] = Field(
+    travel_times: dict[str, dict[str, int]] = Field(
         default_factory=dict,
         description="Travel times between machines (source_machine_id "
         "-> {destination_machine_id -> time}).",
@@ -377,3 +309,84 @@ class SchedulingInstance(BaseModel):
 
     def __repr__(self) -> str:
         return self.__str__()
+
+
+def _generate_unique_task_ids(jobs: list[Job]) -> list[Job]:
+    """
+    Make task IDs unique across all jobs by generating new UUIDs. This function
+    takes a list of Job objects and reassigns all task IDs within those jobs to
+    ensure uniqueness. It also updates any task dependencies to reference the
+    new IDs, maintaining the dependency relationships.
+
+    Args:
+        jobs (list[Job]):
+            A list of Job objects containing tasks with potentially duplicate
+            IDs.
+    Returns:
+        list[Job]:
+            The same list of Job objects with all task IDs made unique and
+            dependencies updated accordingly.
+    """
+
+    id_map = {}
+
+    for j in jobs:
+        for t in j.tasks:
+            id = str(uuid.uuid4())
+            id_map[t.id] = id
+            t.id = id
+            t.dependencies = [id_map[dep] for dep in t.dependencies]
+        j.job_id = str(uuid.uuid4())
+
+    return jobs
+
+
+def _sort_tasks(tasks: list[Task]) -> list[Task]:
+    """
+    Performs a topological sort on the given list of tasks based on their
+    dependencies using the Kahn's algorithm.
+
+    This function assumes that the input list of tasks is a directed acyclic
+    graph (DAG).
+
+    Args:
+        tasks (list[Task]):
+        The list of tasks to sort.
+
+    Raises:
+        ValueError:
+            If the input list of tasks is not a DAG.
+
+    Returns:
+        list[Task]:
+            The sorted list of tasks.
+    """
+    # nodes = {n.id: n for n in tasks}
+    incoming_edges = {m.id: [dep for dep in m.dependencies] for m in tasks}
+    neighbors = {n.id: [m for m in tasks if n.id in m.dependencies] for n in tasks}
+
+    sorted_tasks: list[Task] = []
+    stack = [task for task in tasks if not task.dependencies]
+
+    if not stack:
+        # If there are no tasks without dependencies, the graph is not a DAG
+        raise ValueError("At least one task must have no dependencies")
+
+    while stack:
+        task = stack.pop()
+        sorted_tasks.append(task)
+
+        # iterate over all outgoing edges
+        for neighbor in neighbors[task.id]:
+            # remove the edge from the graph
+            incoming_edges[neighbor.id].remove(task.id)
+
+            # add neighbor to the stack if it has no other incoming edges
+            if not incoming_edges[neighbor.id]:
+                stack.append(neighbor)
+
+    # if there are edges left, then we have a cycle
+    if len(sorted_tasks) != len(tasks):  # any(neighbors.values())
+        raise ValueError("Graph is not a DAG, it contains at least one cycle")
+
+    return sorted_tasks
