@@ -41,18 +41,19 @@ class BaseSolver(ABC):
         requirements.
 
         Args:
-            task (Task): The task to find suitable machines for.
+            task (Task):
+                The task to find suitable machines for.
 
         Returns:
-            list[str]: A list of machine IDs that can execute the task.
+            list[Machine]:
+                A list of machines that can execute the task.
         """
-        suitable_machines = []
+        suitable_machines: list[Machine] = []
         machines = self.instance.machines
         for m in machines:
-            for r in task.requires:
-                if r in m.capabilities:
-                    suitable_machines.append(m)
-                    break
+            # A machine is suitable if it has ALL required capabilities
+            if all(req in m.capabilities for req in task.requires):
+                suitable_machines.append(m)
         return suitable_machines
 
     def _set_machines_for_task(

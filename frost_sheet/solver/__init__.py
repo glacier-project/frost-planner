@@ -201,50 +201,49 @@ def _schedule_by_order(
                 # If no intervals are available for this machine, skip it.
                 continue
 
-            # The earliest time this task could start on the current
-            # 'machine_id' based solely on the machine's availability.
-            current_machine_earliest_start = intervals[0][0]
+            for start_interval, end_interval in intervals:
+                # The earliest time this task could start on the current
+                # 'machine_id' based solely on the machine's availability.
+                current_machine_earliest_start = start_interval
 
-            # Calculate the adjusted start time, considering both machine
-            # availability and the completion of dependencies, including travel
-            # time if applicable.
-            adjusted_start_time = current_machine_earliest_start
+                # Calculate the adjusted start time, considering both machine
+                # availability and the completion of dependencies, including travel
+                # time if applicable.
+                adjusted_start_time = current_machine_earliest_start
 
-            # Account for travel time from predecessor tasks if they are on
-            # different machines.
-            for dep_id in task.dependencies:
-                dep_scheduled_task = scheduled_tasks[dep_id]
+                # Account for travel time from predecessor tasks if they are on
+                # different machines.
+                for dep_id in task.dependencies:
+                    dep_scheduled_task = scheduled_tasks[dep_id]
 
-                # If the dependent task was processed on a different machine
-                # than the current 'machine_id' being considered for the current
-                # task, then a travel time delay must be added.
-                if dep_scheduled_task.machine.id != machine_id:
-                    # Retrieve the travel time from the source machine
-                    # (dependency's machine) to the destination machine (current
-                    # 'machine_id'). Default to 0 if no specific travel time is
-                    # defined for the pair.
-                    travel_time = travel_times.get(
-                        dep_scheduled_task.machine.id, {}
-                    ).get(machine_id, 0)
-                    # The task cannot start until the dependent task finishes
-                    # AND the piece has traveled to the current machine.
-                    adjusted_start_time = max(
-                        adjusted_start_time,
-                        dep_scheduled_task.end_time + travel_time,
-                    )
-                else:
-                    # If the dependent task is on the same machine, no travel
-                    # time is incurred.
-                    adjusted_start_time = max(
-                        adjusted_start_time,
-                        dep_scheduled_task.end_time,
-                    )
+                    # If the dependent task was processed on a different machine
+                    # than the current 'machine_id' being considered for the current
+                    # task, then a travel time delay must be added.
+                    if dep_scheduled_task.machine.id != machine_id:
+                        travel_time = travel_times.get(
+                            dep_scheduled_task.machine.id, {}
+                        ).get(machine_id, 0)
+                        adjusted_start_time = max(
+                            adjusted_start_time,
+                            dep_scheduled_task.end_time + travel_time,
+                        )
+                    else:
+                        # If the dependent task is on the same machine, no travel
+                        # time is incurred.
+                        adjusted_start_time = max(
+                            adjusted_start_time,
+                            dep_scheduled_task.end_time,
+                        )
 
-            # Compare this 'adjusted_start_time' with the best found so far. We
-            # want to find the machine that allows the task to start earliest.
-            if not selected_machine or adjusted_start_time < selected_start_time:
-                selected_start_time = adjusted_start_time
-                selected_machine = machine_dict[machine_id]
+                # Check if the task, with its adjusted start time, still fits within
+                # the current interval.
+                if adjusted_start_time + task.processing_time <= end_interval:
+                    # If it fits, this is a potential candidate.
+                    if not selected_machine or adjusted_start_time < selected_start_time:
+                        selected_start_time = adjusted_start_time
+                        selected_machine = machine_dict[machine_id]
+                    # We found a valid slot in this interval, no need to check further intervals for this machine
+                    break # Move to the next machine
 
         # After checking all suitable machines, ensure a machine was found. If
         # not, it means the task cannot be scheduled within the given horizon or
