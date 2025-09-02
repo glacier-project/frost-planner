@@ -1,6 +1,7 @@
 import argparse
-from frost_sheet.core.schedule import Schedule, ScheduledTask, validate_schedule
-from frost_sheet.core.base import Machine, SchedulingInstance
+from frost_sheet.core.schedule import Schedule, ScheduledTask
+from frost_sheet.core.validate import validate_schedule
+from frost_sheet.core.base import SchedulingInstance
 from frost_sheet.solver.dummy_solver import DummySolver
 from frost_sheet.solver.stochastic_solver import StochasticSolver
 from frost_sheet.visualization.gantt import plot_gantt_chart
@@ -58,7 +59,7 @@ def dump_schedule(
             # Get the scheduled task.
             st = scheduled_tasks_map.get(task.id)
             if not st:
-                cprint(f"    [red]Task not found in schedule.[/red]")
+                cprint("    [red]Task not found in schedule.[/red]")
                 continue
             # Print the travel time.
             if prev_st:
@@ -75,32 +76,32 @@ def dump_schedule(
 
 
 def main():
-
     args = parse_args()
+
+    cprint("Loading instance...", style="bold cyan")
+
     instance = load_instance(args.instance)
 
-    machines = instance.machines
-    jobs = instance.jobs
-
-    machine_dict = {m.id: m for m in machines}
-
-    print("Loaded Scheduling Instance:")
-    print(f"|--># Machines: {len(machines)}")
-    print(f"|--># Jobs: {len(jobs)}")
+    cprint("Loaded Scheduling Instance:")
+    cprint(f"  Machines : {len(instance.machines)}")
+    cprint(f"  Jobs     : {len(instance.jobs)}")
+    cprint(f"  Tasks    : {len([task for job in instance.jobs for task in job.tasks])}")
 
     if args.solver == "dummy":
-        solver = DummySolver(
-            instance=instance,
-        )
+        solver = DummySolver(instance=instance)
     else:
-        solver = StochasticSolver(
-            instance=instance,
-        )
+        solver = StochasticSolver(instance=instance)
+
+    cprint("Solving...", style="bold cyan")
 
     solution = solver.schedule()
 
+    cprint("Validating schedule...", style="bold cyan")
+
     if not validate_schedule(solution, instance):
         cerror("Generated schedule is invalid.")
+    else:
+        cprint("Generated schedule is valid.", style="bold green")
 
     dump_schedule(solution, instance)
 

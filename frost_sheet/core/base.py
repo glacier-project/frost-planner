@@ -291,10 +291,7 @@ class Machine(BaseModel):
 
     def __str__(self) -> str:
         return (
-            f"Machine("
-            f"id={self.id}, "
-            f"name={self.name}, "
-            f"capabilities={self.capabilities})"
+            f"Machine(id={self.id}, name={self.name}, capabilities={self.capabilities})"
         )
 
     def __repr__(self) -> str:

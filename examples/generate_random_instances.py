@@ -23,7 +23,7 @@ MEDIUM_CONFIG = InstanceConfiguration(
 )
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate random instances")
     parser.add_argument(
         "-c",
@@ -56,7 +56,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
     if args.config == "easy":
         config = EASY_CONFIG
