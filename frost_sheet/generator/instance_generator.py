@@ -1,7 +1,6 @@
 import random
 import uuid
 from dataclasses import dataclass
-from typing import Optional
 from frost_sheet.core.base import Job, Task, Machine, SchedulingInstance
 
 
@@ -49,7 +48,7 @@ class InstanceGenerator:
         seed (int): Random seed for reproducibility.
     """
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: int | None = None):
         self.seed = seed
         if seed is not None:
             random.seed(seed)
@@ -144,7 +143,7 @@ class InstanceGenerator:
                 )
             )
 
-        travel_times = {}
+        travel_times: dict[str, dict[str, int]] = {}
         for m1 in machines:
             travel_times[m1.id] = {}
             for m2 in machines:
