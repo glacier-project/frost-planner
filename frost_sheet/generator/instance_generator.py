@@ -39,14 +39,16 @@ class InstanceGenerator:
     """Generate synthetic job-shop scheduling instances.
 
     This class provides methods to generate random job-shop scheduling instances
-    for testing and benchmarking purposes. The generated instances can be customized
-    in terms of the number of jobs, tasks, and machines.
-    Jobs, tasks, and machine parameters range can be adjusted by providing an
-    InstanceSpec object.
+    for testing and benchmarking purposes. The generated instances can be
+    customized in terms of the number of jobs, tasks, and machines. Jobs, tasks,
+    and machine parameters range can be adjusted by providing an InstanceSpec
+    object.
 
     Attributes:
-        spec (InstanceSpec): The specification for the instance to generate.
-        seed (int): Random seed for reproducibility.
+        spec (InstanceSpec):
+            The specification for the instance to generate.
+        seed (int):
+            Random seed for reproducibility.
     """
 
     def __init__(self, seed: int | None = None):
@@ -55,39 +57,86 @@ class InstanceGenerator:
             random.seed(seed)
 
     def create_instance(
-        self, configuration: InstanceConfiguration = InstanceConfiguration()
+        self,
+        configuration: InstanceConfiguration,
     ) -> SchedulingInstance:
-        # 1. Generate all tasks first to understand their capability requirements
-        all_tasks: list[Task] = []
+        """
+        Create a scheduling instance based on the provided configuration.
+
+        Args:
+            configuration (InstanceConfiguration):
+                The configuration for the instance.
+
+        Returns:
+            SchedulingInstance:
+                The generated scheduling instance.
+        """
+        jobs, required_capability_combinations, all_capabilities = (
+            self._generate_jobs_and_tasks(configuration)
+        )
+        machines = self._generate_machines(
+            configuration, required_capability_combinations, all_capabilities
+        )
+        travel_times = self._generate_travel_times(configuration, machines)
+
+        return SchedulingInstance(
+            jobs=jobs,
+            machines=machines,
+            travel_times=travel_times,
+        )
+
+    def _generate_jobs_and_tasks(
+        self,
+        configuration: InstanceConfiguration,
+    ) -> tuple[list[Job], set[tuple[str, ...]], list[str]]:
+        """
+        Generate jobs and tasks for the scheduling instance.
+
+        Args:
+            configuration (InstanceConfiguration):
+                The configuration for the instance.
+
+        Returns:
+            tuple[list[Job], set[tuple[str, ...]], list[str]]:
+                A tuple containing the generated jobs, required capability
+                combinations, and all capabilities.
+        """
+        # Store all required capabilities.
         all_required_capabilities: set[str] = set()
-        required_capability_combinations: set[tuple[str, ...]] = set() # Store sorted tuples of capabilities
+        # Store sorted tuples of capabilities.
+        required_capability_combinations: set[tuple[str, ...]] = set()
 
         jobs: list[Job] = []
-        all_possible_capabilities = [f"capability_{k}" for k in range(configuration.num_machine_capabilities)]
+        all_capabilities = [
+            f"capability_{k}" for k in range(configuration.num_machine_capabilities)
+        ]
 
         for i in range(configuration.num_jobs):
             num_tasks = random.randint(
                 configuration.min_tasks_per_job, configuration.max_tasks_per_job
             )
-            tasks_in_job: list[Task] = []
+            tasks: list[Task] = []
             for j in range(num_tasks):
                 processing_time = random.randint(
                     configuration.min_processing_time, configuration.max_processing_time
                 )
                 dependencies: list[str] = [
                     t.id
+                    # Use tasks for dependencies within the same job.
                     for t in (
                         random.sample(
-                            tasks_in_job, # Use tasks_in_job for dependencies within the same job
+                            tasks,
                             k=random.randint(
                                 configuration.min_task_dependencies,
                                 min(
-                                    len(tasks_in_job),
+                                    len(tasks),
                                     configuration.max_task_dependencies,
                                 ),
                             ),
                         )
-                        if j > configuration.min_task_without_dependencies # Use min_task_without_dependencies
+                        # Use min_task_without_dependencies to ensure some tasks
+                        # have no dependencies.
+                        if j > configuration.min_task_without_dependencies
                         else []
                     )
                 ]
@@ -99,10 +148,11 @@ class InstanceGenerator:
                 )
                 # Ensure we pick from the full set of possible capabilities
                 task_caps = random.sample(
-                    all_possible_capabilities,
+                    all_capabilities,
                     k=num_task_caps,
                 )
-                task_caps.sort() # Sort to ensure unique combinations are stored consistently
+                # Sort to ensure unique combinations are stored consistently.
+                task_caps.sort()
                 required_capability_combinations.add(tuple(task_caps))
                 all_required_capabilities.update(task_caps)
 
@@ -118,71 +168,117 @@ class InstanceGenerator:
                     ),
                 )
 
-                tasks_in_job.append(task)
-                all_tasks.append(task) # Collect all tasks
+                tasks.append(task)
 
             jobs.append(
                 Job(
                     job_id=str(uuid.uuid4()),
                     name=f"J_{i}",
-                    tasks=tasks_in_job,
+                    tasks=tasks,
                     priority=random.randint(
                         configuration.min_job_priority,
                         configuration.max_job_priority,
                     ),
                 )
             )
+        return jobs, required_capability_combinations, all_capabilities
 
-        # 2. Generate Machines based on collected requirements
+    def _generate_machines(
+        self,
+        configuration: InstanceConfiguration,
+        required_capability_combinations: set[tuple[str, ...]],
+        all_capabilities: list[str],
+    ) -> list[Machine]:
+        """
+        Generate a list of machines based on the configuration and required
+        capabilities.
+
+        Args:
+            configuration (InstanceConfiguration):
+                The configuration settings for the instance generator.
+            required_capability_combinations (set[tuple[str, ...]]):
+                A set of tuples representing the required capability
+                combinations for the machines.
+            all_capabilities (list[str]):
+                A list of all possible capabilities that machines can have.
+
+        Returns:
+            list[Machine]:
+                A list of generated machines.
+        """
         machines: list[Machine] = []
         generated_machine_capabilities: set[tuple[str, ...]] = set()
-        machine_counter = 0 # Initialize machine counter
+        # Initialize machine counter.
+        machine_counter = 0
 
         # Ensure a machine exists for every required capability combination
         for combo in required_capability_combinations:
             machines.append(
                 Machine(
                     id=str(uuid.uuid4()),
-                    name=f"M_{machine_counter}", # Use simple name
+                    name=f"M_{machine_counter}",
                     capabilities=list(combo),
                 )
             )
             generated_machine_capabilities.add(combo)
-            machine_counter += 1 # Increment counter
+            machine_counter += 1
 
-        # Ensure all individual capabilities are covered (if not already by combinations)
-        for cap in all_possible_capabilities:
-            if (cap,) not in generated_machine_capabilities: # Check if a machine with just this capability exists
+        # Ensure all individual capabilities are covered (if not already by
+        # combinations).
+        for cap in all_capabilities:
+            # Check if a machine with just this capability exists.
+            if (cap,) not in generated_machine_capabilities:
                 machines.append(
                     Machine(
                         id=str(uuid.uuid4()),
-                        name=f"M_{machine_counter}", # Use simple name
+                        name=f"M_{machine_counter}",
                         capabilities=[cap],
                     )
                 )
                 generated_machine_capabilities.add((cap,))
-                machine_counter += 1 # Increment counter
+                machine_counter += 1
 
         # Add additional machines up to num_machines, with random capabilities
         # This ensures we meet the total num_machines specified in config
         num_machines_to_add = configuration.num_machines - len(machines)
         if num_machines_to_add > 0:
-            for i in range(num_machines_to_add):
+            for _ in range(num_machines_to_add):
                 num_caps_for_this_machine = random.randint(
                     configuration.min_machine_capabilities_per_machine,
                     configuration.max_machine_capabilities_per_machine,
                 )
-                machine_caps = random.sample(all_possible_capabilities, k=num_caps_for_this_machine)
+                machine_caps = random.sample(
+                    all_capabilities, k=num_caps_for_this_machine
+                )
                 machines.append(
                     Machine(
                         id=str(uuid.uuid4()),
-                        name=f"M_{machine_counter}", # Use simple name
+                        name=f"M_{machine_counter}",
                         capabilities=machine_caps,
                     )
                 )
-                machine_counter += 1 # Increment counter
+                machine_counter += 1
+        return machines
 
+    def _generate_travel_times(
+        self,
+        configuration: InstanceConfiguration,
+        machines: list[Machine],
+    ) -> dict[str, dict[str, int]]:
+        """
+        Generate travel times between machines.
 
+        Args:
+            configuration (InstanceConfiguration):
+                The configuration settings for the instance generator.
+            machines (list[Machine]):
+                The list of generated machines.
+
+        Returns:
+            dict[str, dict[str, int]]:
+                A dictionary mapping each machine ID to another dictionary
+                mapping the IDs of other machines to their travel times.
+        """
         travel_times: dict[str, dict[str, int]] = {}
         for m1 in machines:
             travel_times[m1.id] = {}
@@ -193,7 +289,4 @@ class InstanceGenerator:
                     configuration.min_travel_time,
                     configuration.max_travel_time,
                 )
-
-        return SchedulingInstance(
-            jobs=jobs, machines=machines, travel_times=travel_times
-        )
+        return travel_times

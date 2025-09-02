@@ -119,14 +119,14 @@ def main() -> None:
 
     solution = solver.schedule()
 
+    dump_schedule(solution, instance)
+
     cprint("Validating schedule...", style="bold cyan")
 
     if not validate_schedule(solution, instance):
-        cerror("Generated schedule is invalid.")
+        cerror("  Generated schedule is invalid.")
     else:
-        cprint("Generated schedule is valid.", style="bold green")
-
-    dump_schedule(solution, instance)
+        cprint("  Generated schedule is valid.", style="bold green")
 
     if args.gantt:
         plot_gantt_chart(solution)

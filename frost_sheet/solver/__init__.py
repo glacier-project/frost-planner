@@ -10,15 +10,23 @@ def _get_machine_intervals_for_task(
     earliest_start: int,
     horizon: int,
 ) -> dict[str, list[tuple[int, int]]]:
-    """Gets the time intervals for a task on a specific machine.
+    """
+    Gets the time intervals for a task on a specific machine.
 
     Args:
-        task (Task): The task to get intervals for.
-        machine_intervals (dict[str, list[tuple[int, int]]]): The machine intervals to get intervals from.
-        earliest_start (int): The earliest start time for the task based on its dependencies.
-        horizon (int): The time horizon for the scheduling.
+        task (Task):
+            The task to get intervals for.
+        machine_intervals (dict[str, list[tuple[int, int]]]):
+            The machine intervals to get intervals from.
+        earliest_start (int):
+            The earliest start time for the task based on its dependencies.
+        horizon (int):
+            The time horizon for the scheduling.
+
     Returns:
-        dict[str, list[tuple[int, int]]]: A dictionary mapping machine IDs to their available time intervals for the task.
+        dict[str, list[tuple[int, int]]]:
+            A dictionary mapping machine IDs to their available time intervals
+            for the task.
     """
 
     s_intervals: dict[str, list[tuple[int, int]]] = {}
@@ -63,6 +71,23 @@ def _allocate_task(
     machine: Machine,
     machine_intervals: dict[str, list[tuple[int, int]]],
 ) -> ScheduledTask:
+    """
+    Allocates a task to a machine at a specific start time.
+
+    Args:
+        start_time (int):
+            The start time for the task allocation.
+        task (Task):
+            The task to allocate.
+        machine (Machine):
+            The machine to allocate the task to.
+        machine_intervals (dict[str, list[tuple[int, int]]]):
+            The machine intervals to allocate the task within.
+
+    Returns:
+        ScheduledTask:
+            The scheduled task allocation.
+    """
     # find the selected interval
     interval_idx: int = -1
     start: int = 0
@@ -77,11 +102,13 @@ def _allocate_task(
     if start == start_time and end == end_time:
         machine_intervals[machine.id].pop(interval_idx)
 
-    # if the start of the interval is equal to the task's start time, reduce its length
+    # if the start of the interval is equal to the task's start time, reduce its
+    # length.
     elif start == start_time:
         machine_intervals[machine.id][interval_idx] = (end_time, end)
 
-    # if the end of the interval is equal to the task's end time, reduce its length
+    # if the end of the interval is equal to the task's end time, reduce its
+    # length.
     elif end == end_time:
         machine_intervals[machine.id][interval_idx] = (start, start_time)
 
@@ -102,14 +129,18 @@ def _create_schedule(
     scheduled_tasks: list[ScheduledTask],
     machines: list[Machine],
 ) -> Schedule:
-    """Creates a schedule from the list of scheduled tasks and available machines.
+    """
+    Creates a schedule from the list of scheduled tasks and available machines.
 
     Args:
-        scheduled_tasks (list[ScheduledTask]): The list of scheduled tasks.
-        machines (list[Machine]): The list of available machines.
+        scheduled_tasks (list[ScheduledTask]):
+            The list of scheduled tasks.
+        machines (list[Machine]):
+            The list of available machines.
 
     Returns:
-        Schedule: The schedule created from the scheduled tasks and machines.
+        Schedule:
+            The schedule created from the scheduled tasks and machines.
     """
     mapping = {
         machine.id: [task for task in scheduled_tasks if task.machine.id == machine.id]
@@ -245,7 +276,8 @@ def _schedule_by_order(
                     ):
                         selected_start_time = adjusted_start_time
                         selected_machine = machine_dict[machine_id]
-                    # We found a valid slot in this interval, no need to check further intervals for this machine
+                    # We found a valid slot in this interval, no need to check
+                    # further intervals for this machine.
                     break  # Move to the next machine
 
         # After checking all suitable machines, ensure a machine was found. If
