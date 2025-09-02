@@ -31,10 +31,10 @@ class InstanceConfiguration:
     min_task_priority: int = 1
     max_task_priority: int = 5
 
-    # min_machine_speed: float = 0.5
-    # max_machine_speed: float = 2.0
-    # min_setup_time: int = 0
-    # max_setup_time: int = 20
+    min_travel_time: int = 1
+    max_travel_time: int = 10
+    # 0.0 to 1.0, probability of a travel time existing between two machines.
+    travel_time_density: float = 0.5
 
 
 class InstanceGenerator:
@@ -102,7 +102,10 @@ class InstanceGenerator:
                             tasks,
                             k=random.randint(
                                 configuration.min_task_dependencies,
-                                min(len(tasks), configuration.max_task_dependencies),
+                                min(
+                                    len(tasks),
+                                    configuration.max_task_dependencies,
+                                ),
                             ),
                         )
                         if j > num_tasks_without_dependencies
@@ -125,7 +128,8 @@ class InstanceGenerator:
                     dependencies=dependencies,
                     requires=requires,
                     priority=random.randint(
-                        configuration.min_task_priority, configuration.max_task_priority
+                        configuration.min_task_priority,
+                        configuration.max_task_priority,
                     ),
                 )
 
@@ -136,9 +140,24 @@ class InstanceGenerator:
                     name=f"job_{i}",
                     tasks=tasks,
                     priority=random.randint(
-                        configuration.min_job_priority, configuration.max_job_priority
+                        configuration.min_job_priority,
+                        configuration.max_job_priority,
                     ),
                 )
             )
 
-        return SchedulingInstance(jobs=jobs, machines=machines)
+        travel_times = {}
+        for m1 in machines:
+            travel_times[m1.machine_id] = {}
+            for m2 in machines:
+                if m1.machine_id == m2.machine_id:
+                    continue
+                if random.random() < configuration.travel_time_density:
+                    travel_times[m1.machine_id][m2.machine_id] = random.randint(
+                        configuration.min_travel_time,
+                        configuration.max_travel_time,
+                    )
+
+        return SchedulingInstance(
+            jobs=jobs, machines=machines, travel_times=travel_times
+        )
