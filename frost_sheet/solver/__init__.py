@@ -21,7 +21,7 @@ def _get_machine_intervals_for_task(
         dict[str, list[tuple[int, int]]]: A dictionary mapping machine IDs to their available time intervals for the task.
     """
 
-    s_intervals = {}
+    s_intervals: dict[str, list[tuple[int, int]]] = {}
 
     for machine_id, intervals in machine_intervals.items():
         if machine_id not in task.machines:
@@ -30,7 +30,7 @@ def _get_machine_intervals_for_task(
         task_start_time = task.start_time if task.start_time else 0
         task_start_time = max(task_start_time, earliest_start)
         task_end_time = task.end_time if task.end_time else horizon
-        ms_intervals = []
+        ms_intervals: list[tuple[int, int]] = []
 
         # adds all the intervals that can fit the task
         for start, end in intervals:
@@ -239,11 +239,14 @@ def _schedule_by_order(
                 # the current interval.
                 if adjusted_start_time + task.processing_time <= end_interval:
                     # If it fits, this is a potential candidate.
-                    if not selected_machine or adjusted_start_time < selected_start_time:
+                    if (
+                        not selected_machine
+                        or adjusted_start_time < selected_start_time
+                    ):
                         selected_start_time = adjusted_start_time
                         selected_machine = machine_dict[machine_id]
                     # We found a valid slot in this interval, no need to check further intervals for this machine
-                    break # Move to the next machine
+                    break  # Move to the next machine
 
         # After checking all suitable machines, ensure a machine was found. If
         # not, it means the task cannot be scheduled within the given horizon or
