@@ -26,22 +26,32 @@ MEDIUM_CONFIG = InstanceConfiguration(
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate random instances")
     parser.add_argument(
+        "-c",
         "--config",
         choices=["easy", "medium"],
         default="easy",
         help="Configuration level",
     )
     parser.add_argument(
-        "--seed", type=int, default=None, help="Random seed for reproducibility"
+        "-s",
+        "--seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducibility",
     )
     parser.add_argument(
+        "-o",
         "--output-dir",
         type=str,
         default=".",
         help="Output directory for the generated instances",
     )
     parser.add_argument(
-        "--num-instances", type=int, default=1, help="Number of instances to generate"
+        "-n",
+        "--num-instances",
+        type=int,
+        default=1,
+        help="Number of instances to generate",
     )
     return parser.parse_args()
 
@@ -67,7 +77,9 @@ def main():
         with open(instance_path, "w") as f:
             f.write(
                 instance.model_dump_json(
-                    indent=4, exclude_defaults=True, exclude_none=True
+                    indent=4,
+                    exclude_defaults=True,
+                    exclude_none=True,
                 )
             )
 
