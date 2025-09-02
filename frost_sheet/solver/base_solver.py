@@ -33,10 +33,7 @@ class BaseSolver(ABC):
                 A dictionary mapping machine IDs to their availability
                 intervals.
         """
-        return {
-            machine.machine_id: [(0, self.horizon)]
-            for machine in self.instance.machines
-        }
+        return {machine.id: [(0, self.horizon)] for machine in self.instance.machines}
 
     def _get_suitable_machines(self, task: Task) -> list[Machine]:
         """
@@ -75,13 +72,13 @@ class BaseSolver(ABC):
 
         assert all([machine in machines for machine in machines])
 
-        task.machines = [m.machine_id for m in machines]
+        task.machines = [m.id for m in machines]
 
     def _allocate_task(
         self,
         start_time: int,
         task: Task,
-        machine_id: str,
+        machine: Machine,
         machine_intervals: dict[str, list[tuple[int, int]]],
     ) -> ScheduledTask:
         """
@@ -92,8 +89,8 @@ class BaseSolver(ABC):
                 The start time for the task allocation.
             task (Task):
                 The task to allocate.
-            machine_id (str):
-                The ID of the machine to allocate the task to.
+            machine (Machine):
+                The machine to allocate the task to.
             machine_intervals (dict[str, list[tuple[int, int]]]):
                 The availability intervals for each machine.
 
@@ -105,33 +102,33 @@ class BaseSolver(ABC):
         interval_idx: int = -1
         start: int = 0
         end: int = 0
-        for start, end in machine_intervals[machine_id]:
+        for start, end in machine_intervals[machine.id]:
             if start <= start_time and end >= start_time + task.processing_time:
-                interval_idx = machine_intervals[machine_id].index((start, end))
+                interval_idx = machine_intervals[machine.id].index((start, end))
                 break
 
         # if the interval is exactly the same as the task's time, remove it
         end_time = start_time + task.processing_time
         if start == start_time and end == end_time:
-            machine_intervals[machine_id].pop(interval_idx)
+            machine_intervals[machine.id].pop(interval_idx)
         # if the start of the interval is equal to the task's start time, reduce
         # its length
         elif start == start_time:
-            machine_intervals[machine_id][interval_idx] = (end_time, end)
+            machine_intervals[machine.id][interval_idx] = (end_time, end)
         # if the end of the interval is equal to the task's end time, reduce its
         # length
         elif end == end_time:
-            machine_intervals[machine_id][interval_idx] = (start, start_time)
+            machine_intervals[machine.id][interval_idx] = (start, start_time)
         # if the task is contained within the interval, split the interval
         else:
-            machine_intervals[machine_id][interval_idx] = (start, start_time)
-            machine_intervals[machine_id].insert(interval_idx + 1, (end_time, end))
+            machine_intervals[machine.id][interval_idx] = (start, start_time)
+            machine_intervals[machine.id].insert(interval_idx + 1, (end_time, end))
 
         return ScheduledTask(
             start_time=start_time,
             end_time=start_time + task.processing_time,
             task=task,
-            machine_id=machine_id,
+            machine=machine,
         )
 
     @abstractmethod
