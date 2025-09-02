@@ -11,20 +11,26 @@ BAR_WIDTH = 0.5
 C_PALETTE = "Pastel1"
 
 
-def plot_gantt_chart(schedule: Schedule, figsize: Tuple[int, int] = (12, 8)) -> None:
+def plot_gantt_chart(
+    solution: Schedule,
+    figsize: Tuple[int, int] = (12, 8),
+) -> None:
     """
     Plot a Gantt chart from a Schedule object.
 
     Args:
-        schedule: Schedule object containing tasks with start times, durations, and resources
-        figsize: Figure size as (width, height)
+        solution (Schedule):
+            Schedule object containing tasks with start times, durations, and
+            resources.
+        figsize (Tuple[int, int], optional):
+            Figure size as (width, height). Defaults to (12, 8).
     """
-    fig, ax = plt.subplots(figsize=figsize)
+    _, ax = plt.subplots(figsize=figsize)
 
-    x_max = max([t.end_time for s in schedule.machine_schedule.values() for t in s])
-    y_ticks = [(i * Y_DELTA) + Y_START for i in range(len(schedule.machines))]
+    x_max = max([t.end_time for s in solution.mapping.values() for t in s])
+    y_ticks = [(i * Y_DELTA) + Y_START for i in range(len(solution.machines))]
     ax.set_yticks(y_ticks)
-    ax.set_yticklabels([m.name for m in schedule.machines])
+    ax.set_yticklabels([m.name for m in solution.machines])
     ax.set_xlim(0, x_max)
     ax.set_xlabel("Time")
     ax.set_ylabel("Machine")
@@ -35,7 +41,7 @@ def plot_gantt_chart(schedule: Schedule, figsize: Tuple[int, int] = (12, 8)) -> 
     cmap = matplotlib.colormaps[C_PALETTE]
     job_color = {}
 
-    for i, (m, tasks) in enumerate(schedule.machine_schedule.items()):
+    for i, (m, tasks) in enumerate(solution.mapping.items()):
         bars = []
         colors = []
 
