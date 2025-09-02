@@ -14,8 +14,9 @@ MEDIUM_CONFIG = InstanceConfiguration(
     min_tasks_per_job=5,
     max_tasks_per_job=8,
     num_machine_capabilities=8,
-    min_machine_per_capability=2,
-    max_machine_per_capability=4,
+    num_machines=20,
+    min_machine_capabilities_per_machine=1,
+    max_machine_capabilities_per_machine=3,
     min_task_dependencies=1,
     max_task_dependencies=3,
     min_task_capabilities=1,
@@ -23,30 +24,40 @@ MEDIUM_CONFIG = InstanceConfiguration(
 )
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate random instances")
     parser.add_argument(
+        "-c",
         "--config",
         choices=["easy", "medium"],
         default="easy",
         help="Configuration level",
     )
     parser.add_argument(
-        "--seed", type=int, default=None, help="Random seed for reproducibility"
+        "-s",
+        "--seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducibility",
     )
     parser.add_argument(
+        "-o",
         "--output-dir",
         type=str,
         default=".",
         help="Output directory for the generated instances",
     )
     parser.add_argument(
-        "--num-instances", type=int, default=1, help="Number of instances to generate"
+        "-n",
+        "--num-instances",
+        type=int,
+        default=1,
+        help="Number of instances to generate",
     )
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
     if args.config == "easy":
         config = EASY_CONFIG
@@ -67,7 +78,9 @@ def main():
         with open(instance_path, "w") as f:
             f.write(
                 instance.model_dump_json(
-                    indent=4, exclude_defaults=True, exclude_none=True
+                    indent=4,
+                    exclude_defaults=True,
+                    exclude_none=True,
                 )
             )
 

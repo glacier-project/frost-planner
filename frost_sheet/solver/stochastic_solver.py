@@ -99,12 +99,16 @@ class StochasticSolver(BaseSolver):
         """
         machine_intervals = deepcopy(machine_intervals)
         scheduled_tasks = _schedule_by_order(
-            jobs, self.instance.machines, machine_intervals, self.horizon
+            jobs,
+            self.instance.machines,
+            machine_intervals,
+            self.horizon,
+            self.instance.travel_times,
         )
 
-        return scheduled_tasks, max(
-            task.end_time for task in scheduled_tasks
-        ) if scheduled_tasks else 0
+        return scheduled_tasks, (
+            max(task.end_time for task in scheduled_tasks) if scheduled_tasks else 0
+        )
 
     @override
     def _allocate_tasks(
