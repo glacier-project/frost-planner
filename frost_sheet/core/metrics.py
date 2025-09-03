@@ -15,9 +15,8 @@ def calculate_makespan(schedule: Schedule) -> float:
             The makespan (completion time of the last task).
     """
     all_end_times = []
-    for scheduled_tasks_on_machine in schedule.mapping.values():
-        for st in scheduled_tasks_on_machine:
-            all_end_times.append(st.end_time)
+    for st in schedule.get_tasks():
+        all_end_times.append(st.end_time)
     if not all_end_times:
         return 0.0
     return max(all_end_times)
@@ -36,9 +35,8 @@ def calculate_total_flow_time(schedule: Schedule) -> float:
             The total flow time (sum of completion times of all tasks).
     """
     total_flow_time = 0.0
-    for scheduled_tasks_on_machine in schedule.mapping.values():
-        for st in scheduled_tasks_on_machine:
-            total_flow_time += st.end_time
+    for st in schedule.get_tasks():
+        total_flow_time += st.end_time
     return total_flow_time
 
 

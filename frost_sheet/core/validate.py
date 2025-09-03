@@ -84,9 +84,8 @@ def _validate_all_instance_tasks_scheduled(
     valid = True
     instance_task_ids = {task.id for job in instance.jobs for task in job.tasks}
     scheduled_task_ids = set()
-    for scheduled_tasks in schedule.mapping.values():
-        for st in scheduled_tasks:
-            scheduled_task_ids.add(st.task.id)
+    for st in schedule.get_tasks():
+        scheduled_task_ids.add(st.task.id)
 
     if instance_task_ids != scheduled_task_ids:
         missing_tasks = instance_task_ids - scheduled_task_ids
@@ -104,17 +103,16 @@ def _validate_all_instance_tasks_scheduled(
 def _validate_machine_capabilities(schedule: Schedule) -> bool:
     """Validates that assigned machines have the required capabilities for tasks."""
     valid = True
-    for scheduled_tasks in schedule.mapping.values():
-        for st in scheduled_tasks:
-            task_requirements = set(st.task.requires)
-            machine_capabilities = set(st.machine.capabilities)
-            if not task_requirements.issubset(machine_capabilities):
-                missing_capabilities = task_requirements - machine_capabilities
-                cerror(
-                    f"Task {st.task.id} requires capabilities {list(missing_capabilities)} "
-                    f"but machine {st.machine.id} only has {list(machine_capabilities)}."
-                )
-                valid = False
+    for st in schedule.get_tasks():
+        task_requirements = set(st.task.requires)
+        machine_capabilities = set(st.machine.capabilities)
+        if not task_requirements.issubset(machine_capabilities):
+            missing_capabilities = task_requirements - machine_capabilities
+            cerror(
+                f"Task {st.task.id} requires capabilities {list(missing_capabilities)} "
+                f"but machine {st.machine.id} only has {list(machine_capabilities)}."
+            )
+            valid = False
     return valid
 
 
@@ -125,32 +123,30 @@ def _validate_task_dependencies(
     valid = True
     # Create a quick lookup for scheduled tasks by their task ID
     scheduled_tasks_map: dict[str, ScheduledTask] = {}
-    for scheduled_tasks_on_machine in schedule.mapping.values():
-        for st in scheduled_tasks_on_machine:
-            scheduled_tasks_map[st.task.id] = st
+    for st in schedule.get_tasks():
+        scheduled_tasks_map[st.task.id] = st
 
-    for scheduled_tasks_on_machine in schedule.mapping.values():
-        for st in scheduled_tasks_on_machine:
-            for dep_id in st.task.dependencies:
-                dependent_st = scheduled_tasks_map.get(dep_id)
-                if not dependent_st:
-                    cerror(
-                        f"Task {st.task.id} depends on task {dep_id}, "
-                        f"but {dep_id} is not found in the schedule."
-                    )
-                    valid = False
-                    continue
+    for st in schedule.get_tasks():
+        for dep_id in st.task.dependencies:
+            dependent_st = scheduled_tasks_map.get(dep_id)
+            if not dependent_st:
+                cerror(
+                    f"Task {st.task.id} depends on task {dep_id}, "
+                    f"but {dep_id} is not found in the schedule."
+                )
+                valid = False
+                continue
 
-                travel_time = instance.get_travel_time(dependent_st.machine, st.machine)
-                if dependent_st.end_time + travel_time > st.start_time:
-                    cerror(
-                        f"Dependency violation for task {st.task.id}: "
-                        f"Dependent task {dependent_st.task.id} ends at {dependent_st.end_time} "
-                        f"on machine {dependent_st.machine.id}. Travel time to {st.machine.id} "
-                        f"is {travel_time}. Expected start time >= {dependent_st.end_time + travel_time}, "
-                        f"but actual start time is {st.start_time}."
-                    )
-                    valid = False
+            travel_time = instance.get_travel_time(dependent_st.machine, st.machine)
+            if dependent_st.end_time + travel_time > st.start_time:
+                cerror(
+                    f"Dependency violation for task {st.task.id}: "
+                    f"Dependent task {dependent_st.task.id} ends at {dependent_st.end_time} "
+                    f"on machine {dependent_st.machine.id}. Travel time to {st.machine.id} "
+                    f"is {travel_time}. Expected start time >= {dependent_st.end_time + travel_time}, "
+                    f"but actual start time is {st.start_time}."
+                )
+                valid = False
     return valid
 
 

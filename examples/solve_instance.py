@@ -1,3 +1,4 @@
+import time
 import argparse
 from frost_sheet.core.schedule import Schedule, ScheduledTask
 from frost_sheet.core.validate import validate_schedule
@@ -5,8 +6,9 @@ from frost_sheet.core.base import SchedulingInstance
 from frost_sheet.solver.base_solver import BaseSolver
 from frost_sheet.solver.dummy_solver import DummySolver
 from frost_sheet.solver.stochastic_solver import StochasticSolver
+from frost_sheet.solver.genetic_solver import GeneticAlgorithmSolver
 from frost_sheet.visualization.gantt import plot_gantt_chart
-from frost_sheet.utils import cprint, cerror
+from frost_sheet.utils import cprint, cerror, crule
 from frost_sheet.core.metrics import (
     calculate_makespan,
     calculate_total_flow_time,
@@ -37,7 +39,7 @@ def parse_args() -> argparse.Namespace:
         "--solver",
         type=str,
         default="dummy",
-        choices=["dummy", "stochastic"],
+        choices=["dummy", "stochastic", "genetic"],
         help="Solver to use for scheduling",
     )
     return parser.parse_args()
@@ -75,7 +77,7 @@ def dump_schedule(
 
     jobs = instance.jobs
 
-    cprint("[green]Generated Schedule:[/green]")
+    crule("Generated Schedule", style="blue")
     for job in jobs:
         job_start_time = solution.get_job_start_time(job)
         job_end_time = solution.get_job_end_time(job)
@@ -108,6 +110,7 @@ def dump_schedule(
                     )
             cprint(f"    [cyan]{scheduled_task_to_str(st)}[/cyan]")
             prev_st = st
+    crule("", style="blue")
 
 
 def dump_metrics(
@@ -128,7 +131,7 @@ def dump_metrics(
     total_flow_time = calculate_total_flow_time(solution)
     lateness_by_job = calculate_lateness(solution, instance)
     # Display the schedule metrics.
-    cprint("\n[blue]Schedule Metrics:[/blue]")
+    cprint("[blue]Schedule Metrics:[/blue]")
     cprint(f"  [blue]Makespan:[/blue] {makespan}")
     cprint(f"  [blue]Total Flow Time:[/blue] {total_flow_time}")
     cprint("  [blue]Lateness by Job:[/blue]")
@@ -155,14 +158,20 @@ def main() -> None:
     solver: BaseSolver
     if args.solver == "dummy":
         solver = DummySolver(instance=instance)
+    elif args.solver == "genetic":
+        solver = GeneticAlgorithmSolver(instance=instance)
     else:
         solver = StochasticSolver(instance=instance)
 
     cprint("Solving...", style="yellow")
 
+    start_time = time.time()
     solution = solver.schedule()
+    end_time = time.time()
 
     dump_schedule(solution, instance)
+
+    cprint(f"Scheduling completed in {end_time - start_time:.4f} seconds.", style="green")
 
     cprint("Validating schedule...", style="yellow")
 

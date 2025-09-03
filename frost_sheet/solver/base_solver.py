@@ -2,7 +2,7 @@ import sys
 from abc import ABC, abstractmethod
 from frost_sheet.core.base import Task, Machine, SchedulingInstance
 from frost_sheet.core.schedule import Schedule, ScheduledTask
-from frost_sheet.solver import _create_schedule
+from frost_sheet.solver import _create_schedule, _perform_task_interval_allocation
 
 
 class BaseSolver(ABC):
@@ -23,6 +23,18 @@ class BaseSolver(ABC):
     ) -> None:
         self.instance: SchedulingInstance = instance
         self.horizon: int = horizon
+        # Add pre-computed maps.
+        self.machine_id_map: dict[str, Machine] = {
+            m.id: m for m in self.instance.machines
+        }
+        self.task_id_map: dict[str, Task] = {
+            t.id: t for job in self.instance.jobs for t in job.tasks
+        }
+        self.suitable_machines_map: dict[str, list[Machine]] = {
+            t.id: self.instance.get_suitable_machines(t)
+            for job in self.instance.jobs
+            for t in job.tasks
+        }
 
     def _create_machine_intervals(self) -> dict[str, list[tuple[int, int]]]:
         """
@@ -59,32 +71,7 @@ class BaseSolver(ABC):
             ScheduledTask:
                 The scheduled task after allocation.
         """
-        # find the selected interval
-        interval_idx: int = -1
-        start: int = 0
-        end: int = 0
-        for start, end in machine_intervals[machine.id]:
-            if start <= start_time and end >= start_time + task.processing_time:
-                interval_idx = machine_intervals[machine.id].index((start, end))
-                break
-
-        # if the interval is exactly the same as the task's time, remove it
-        end_time = start_time + task.processing_time
-        if start == start_time and end == end_time:
-            machine_intervals[machine.id].pop(interval_idx)
-        # if the start of the interval is equal to the task's start time, reduce
-        # its length
-        elif start == start_time:
-            machine_intervals[machine.id][interval_idx] = (end_time, end)
-        # if the end of the interval is equal to the task's end time, reduce its
-        # length
-        elif end == end_time:
-            machine_intervals[machine.id][interval_idx] = (start, start_time)
-        # if the task is contained within the interval, split the interval
-        else:
-            machine_intervals[machine.id][interval_idx] = (start, start_time)
-            machine_intervals[machine.id].insert(interval_idx + 1, (end_time, end))
-
+        _perform_task_interval_allocation(start_time, task, machine, machine_intervals)
         return ScheduledTask(
             start_time=start_time,
             end_time=start_time + task.processing_time,

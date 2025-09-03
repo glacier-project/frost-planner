@@ -29,7 +29,7 @@ def plot_gantt_chart(
     """
     _, ax = plt.subplots(figsize=figsize)
 
-    x_max = max([t.end_time for s in solution.mapping.values() for t in s])
+    x_max = max([st.end_time for st in solution.get_tasks()])
     y_ticks = [(i * Y_DELTA) + Y_START for i in range(len(solution.machines))]
     ax.set_yticks(y_ticks)
     ax.set_yticklabels([m.name for m in solution.machines])
@@ -43,7 +43,7 @@ def plot_gantt_chart(
     cmap = matplotlib.colormaps[C_PALETTE]
     job_color = {}
 
-    for i, (m, tasks) in enumerate(solution.mapping.items()):
+    for i, (machine, tasks) in enumerate(solution.mapping.items()):
         bars = []
         colors = []
 
