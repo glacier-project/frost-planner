@@ -1,4 +1,3 @@
-import uuid
 from pydantic import BaseModel, Field, model_validator
 
 from frost_sheet.utils import cwarning
@@ -33,6 +32,8 @@ class Task(BaseModel):
             The end time of the task.
     """
 
+    model_config = {"frozen": True}
+
     id: str = Field(
         description="A global unique identifier for the task.",
     )
@@ -53,24 +54,10 @@ class Task(BaseModel):
         default_factory=list,
         description="The capabilities required to complete the task.",
     )
-    machines: list[str] = Field(
-        default_factory=list,
-        description="The identifiers of the machines that can process this task.",
-    )
     priority: int = Field(
         default=1,
         gt=0,
         description="The priority of the task. Lower values indicate higher priority.",
-    )
-    start_time: int | None = Field(
-        default=None,
-        ge=0,
-        description="The start time of the task.",
-    )
-    end_time: int | None = Field(
-        default=None,
-        ge=0,
-        description="The end time of the task.",
     )
 
     def __str__(self) -> str:
@@ -80,6 +67,7 @@ class Task(BaseModel):
             f"name={self.name}, "
             f"processing_time={self.processing_time}, "
             f"dependencies={self.dependencies}, "
+            f"requires={self.requires}, "
             f"priority={self.priority})"
         )
 
@@ -92,7 +80,7 @@ class Job(BaseModel):
     Represents a job consisting of multiple tasks.
 
     Attributes:
-        job_id (str):
+        id (str):
             A global unique identifier for the job.
         name (str):
             The name of the job.
@@ -102,7 +90,9 @@ class Job(BaseModel):
             The priority of the job. Lower values indicate higher priority.
     """
 
-    job_id: str = Field(
+    model_config = {"frozen": True}
+
+    id: str = Field(
         description="A global unique identifier for the job.",
     )
     name: str = Field(
@@ -118,42 +108,11 @@ class Job(BaseModel):
         gt=0,
         description="The priority of the job. Lower values indicate higher priority.",
     )
-
-    @property
-    def start_time(self) -> int:
-        """
-        Returns the earliest start time of all tasks in the job. If no tasks are
-        present or all tasks have no start time, returns 0.
-
-        Returns:
-            int:
-                The earliest start time of all tasks in the job.
-        """
-        start_time = None
-        for t in self.tasks:
-            if not t.start_time:
-                continue
-            if start_time is None or t.start_time < start_time:
-                start_time = t.start_time
-        return start_time if start_time is not None else 0
-
-    @property
-    def end_time(self) -> int:
-        """
-        Returns the latest end time of all tasks in the job. If no tasks are
-        present or all tasks have no end time, returns 0.
-
-        Returns:
-            int:
-                The latest end time of all tasks in the job.
-        """
-        end_time = 0
-        for t in self.tasks:
-            if not t.end_time:
-                continue
-            if t.end_time > end_time:
-                end_time = t.end_time
-        return end_time
+    due_date: int | None = Field(
+        default=None,
+        ge=0,
+        description="The due date for the job. If the job finishes after this date, it is considered tardy.",
+    )
 
     @model_validator(mode="after")
     def _validate_tasks(self) -> "Job":
@@ -177,14 +136,12 @@ class Job(BaseModel):
                     f"Task ID {t.id} is duplicated."
                 )
             task_ids.add(t.id)
-        # Perform topological sort.
-        self.tasks = _sort_tasks(self.tasks)
         return self
 
     def __str__(self) -> str:
         return (
             f"Job("
-            f"job_id={self.job_id}, "
+            f"id={self.id}, "
             f"name={self.name}, "
             f"tasks={self.tasks}, "
             f"priority={self.priority})"
@@ -206,6 +163,8 @@ class Machine(BaseModel):
         capabilities (list[str]):
             The capabilities of the machine (e.g., "cutting", "welding").
     """
+
+    model_config = {"frozen": True}
 
     id: str = Field(
         description="A global unique identifier for the machine.",
@@ -242,6 +201,8 @@ class SchedulingInstance(BaseModel):
             The travel times between machines (source_machine_id ->
             {destination_machine_id -> time}).
     """
+
+    model_config = {"frozen": True}
 
     jobs: list[Job] = Field(
         default_factory=list,
@@ -299,6 +260,26 @@ class SchedulingInstance(BaseModel):
             return -1
         return travel_time
 
+    def get_suitable_machines(self, task: Task) -> list[Machine]:
+        """
+        Finds all suitable machines for the given task based on its
+        requirements.
+
+        Args:
+            task (Task):
+                The task to find suitable machines for.
+
+        Returns:
+            list[Machine]:
+                A list of machines that can execute the task.
+        """
+        suitable_machines: list[Machine] = []
+        for m in self.machines:
+            # A machine is suitable if it has ALL required capabilities
+            if all(req in m.capabilities for req in task.requires):
+                suitable_machines.append(m)
+        return suitable_machines
+
     def __str__(self) -> str:
         return (
             f"SchedulingInstance("
@@ -309,36 +290,6 @@ class SchedulingInstance(BaseModel):
 
     def __repr__(self) -> str:
         return self.__str__()
-
-
-def _generate_unique_task_ids(jobs: list[Job]) -> list[Job]:
-    """
-    Make task IDs unique across all jobs by generating new UUIDs. This function
-    takes a list of Job objects and reassigns all task IDs within those jobs to
-    ensure uniqueness. It also updates any task dependencies to reference the
-    new IDs, maintaining the dependency relationships.
-
-    Args:
-        jobs (list[Job]):
-            A list of Job objects containing tasks with potentially duplicate
-            IDs.
-    Returns:
-        list[Job]:
-            The same list of Job objects with all task IDs made unique and
-            dependencies updated accordingly.
-    """
-
-    id_map = {}
-
-    for j in jobs:
-        for t in j.tasks:
-            id = str(uuid.uuid4())
-            id_map[t.id] = id
-            t.id = id
-            t.dependencies = [id_map[dep] for dep in t.dependencies]
-        j.job_id = str(uuid.uuid4())
-
-    return jobs
 
 
 def _sort_tasks(tasks: list[Task]) -> list[Task]:

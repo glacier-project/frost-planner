@@ -1,7 +1,11 @@
+import os
 import random
 import uuid
 from dataclasses import dataclass
-from frost_sheet.core.base import Job, Task, Machine, SchedulingInstance
+
+from pydantic import ValidationError
+from frost_sheet.core.base import Job, Task, Machine, SchedulingInstance, _sort_tasks
+from frost_sheet.utils import cprint, crule
 
 
 @dataclass
@@ -11,6 +15,8 @@ class InstanceConfiguration:
     num_jobs: int = 10
     min_job_priority: int = 1
     max_job_priority: int = 5
+    min_job_due_date_offset: int = 100
+    max_job_due_date_offset: int = 1000
     min_tasks_per_job: int = 2
     max_tasks_per_job: int = 5
 
@@ -110,16 +116,22 @@ class InstanceGenerator:
         all_capabilities = [
             f"capability_{k}" for k in range(configuration.num_machine_capabilities)
         ]
-
+        # Build jobs and tasks.
         for i in range(configuration.num_jobs):
+            # Generate the number of tasks for the job.
             num_tasks = random.randint(
-                configuration.min_tasks_per_job, configuration.max_tasks_per_job
+                configuration.min_tasks_per_job,
+                configuration.max_tasks_per_job,
             )
+            # Build the task list.
             tasks: list[Task] = []
             for j in range(num_tasks):
+                # Generate task processing time.
                 processing_time = random.randint(
-                    configuration.min_processing_time, configuration.max_processing_time
+                    configuration.min_processing_time,
+                    configuration.max_processing_time,
                 )
+                # Generate task dependencies.
                 dependencies: list[str] = [
                     t.id
                     # Use tasks for dependencies within the same job.
@@ -140,8 +152,7 @@ class InstanceGenerator:
                         else []
                     )
                 ]
-
-                # Generate task requirements
+                # Generate task requirements.
                 num_task_caps = random.randint(
                     configuration.min_task_capabilities,
                     configuration.max_task_capabilities,
@@ -153,31 +164,41 @@ class InstanceGenerator:
                 )
                 # Sort to ensure unique combinations are stored consistently.
                 task_caps.sort()
+                # Add the combination to the set.
                 required_capability_combinations.add(tuple(task_caps))
+                # Update all required capabilities.
                 all_required_capabilities.update(task_caps)
-
-                task = Task(
-                    id=str(uuid.uuid4()),
-                    name=f"T_{i}_{j}",
-                    processing_time=processing_time,
-                    dependencies=dependencies,
-                    requires=task_caps,
-                    priority=random.randint(
-                        configuration.min_task_priority,
-                        configuration.max_task_priority,
-                    ),
+                # Add the task to the list.
+                tasks.append(
+                    Task(
+                        id=str(uuid.uuid4()),
+                        name=f"T_{i}_{j}",
+                        processing_time=processing_time,
+                        dependencies=dependencies,
+                        requires=task_caps,
+                        priority=random.randint(
+                            configuration.min_task_priority,
+                            configuration.max_task_priority,
+                        ),
+                    )
                 )
-
-                tasks.append(task)
-
+            # Perform topological sort.
+            tasks = _sort_tasks(tasks)
+            # Compute job processing time.
+            processing_time = sum(t.processing_time for t in tasks)
+            # Add the job to the list.
             jobs.append(
                 Job(
-                    job_id=str(uuid.uuid4()),
+                    id=str(uuid.uuid4()),
                     name=f"J_{i}",
                     tasks=tasks,
                     priority=random.randint(
                         configuration.min_job_priority,
                         configuration.max_job_priority,
+                    ),
+                    due_date=random.randint(
+                        processing_time + configuration.min_job_due_date_offset,
+                        processing_time + configuration.max_job_due_date_offset,
                     ),
                 )
             )
@@ -290,3 +311,104 @@ class InstanceGenerator:
                     configuration.max_travel_time,
                 )
         return travel_times
+
+
+def save_instance_to_json(instance: SchedulingInstance, file_path: str) -> None:
+    """
+    Save a SchedulingInstance to a JSON file.
+
+    Args:
+        instance (SchedulingInstance): The scheduling instance to save.
+        file_path (str): The path to the JSON file.
+    """
+    # Ensure the output directory exists.
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, "w") as f:
+        f.write(
+            instance.model_dump_json(
+                indent=4,
+                exclude_defaults=True,
+                exclude_none=True,
+            )
+        )
+
+
+def load_instance_from_json(file_path: str) -> SchedulingInstance:
+    """
+    Load a scheduling instance from a JSON file.
+
+    Args:
+        file_path (str): Path to the JSON file.
+
+    Returns:
+        SchedulingInstance: The loaded scheduling instance.
+
+    Raises:
+        FileNotFoundError:
+            If the file is not found.
+        IOError:
+            If there is an error reading the file.
+        json.JSONDecodeError:
+            If the file is not a valid JSON.
+    """
+    try:
+        with open(file_path, "r") as f:
+            return SchedulingInstance.model_validate_json(f.read())
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+    except (IOError, ValidationError) as e:
+        raise IOError(f"Error reading file {file_path}: {e}")
+
+
+def dump_configuration(config: InstanceConfiguration) -> None:
+    """
+    Dump the instance configuration to the console.
+
+    Args:
+        config (InstanceConfiguration): The configuration to dump.
+    """
+    crule("Instance Configuration", style="magenta")
+    cprint(
+        f"  Jobs: num_jobs={config.num_jobs}, "
+        f"priority=[{config.min_job_priority}-{config.max_job_priority}], "
+        f"due_date_offset=[{config.min_job_due_date_offset}-"
+        f"{config.max_job_due_date_offset}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Tasks per Job: [{config.min_tasks_per_job}-{config.max_tasks_per_job}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Machines: num_machines={config.num_machines}, "
+        f"num_capabilities={config.num_machine_capabilities}, "
+        f"machine_capabilities_per_machine=["
+        f"{config.min_machine_capabilities_per_machine}-"
+        f"{config.max_machine_capabilities_per_machine}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Processing Time: [{config.min_processing_time}-{config.max_processing_time}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Task Dependencies: without_dependencies=["
+        f"{config.min_task_without_dependencies}-"
+        f"{config.max_task_without_dependencies}], "
+        f"dependencies=[{config.min_task_dependencies}-"
+        f"{config.max_task_dependencies}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Task Capabilities: [{config.min_task_capabilities}-{config.max_task_capabilities}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Task Priority: [{config.min_task_priority}-{config.max_task_priority}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Travel Time: [{config.min_travel_time}-{config.max_travel_time}]",
+        style="magenta",
+    )
+    crule("", style="magenta")

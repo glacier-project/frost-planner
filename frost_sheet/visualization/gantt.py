@@ -4,6 +4,7 @@ from typing import Tuple
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from frost_sheet.core.schedule import Schedule
+from frost_sheet.utils import cprint
 
 Y_START = 1.25
 Y_DELTA = 1
@@ -14,6 +15,7 @@ C_PALETTE = "Pastel1"
 def plot_gantt_chart(
     solution: Schedule,
     figsize: Tuple[int, int] = (12, 8),
+    output_path: str | None = None,
 ) -> None:
     """
     Plot a Gantt chart from a Schedule object.
@@ -79,3 +81,10 @@ def plot_gantt_chart(
     ax.legend(handles=patches, fontsize=11, loc="upper right")
 
     plt.show()
+
+    if output_path:
+        cprint(
+            f"Gantt chart saved to [green]{output_path}[/green]",
+            style="yellow",
+        )
+        plt.savefig(output_path)

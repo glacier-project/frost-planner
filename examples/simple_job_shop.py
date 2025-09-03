@@ -7,6 +7,12 @@ from frost_sheet.solver.dummy_solver import DummySolver
 from frost_sheet.solver.stochastic_solver import StochasticSolver
 from frost_sheet.visualization.gantt import plot_gantt_chart
 from frost_sheet.utils import cprint, cerror
+from frost_sheet.core.metrics import (
+    calculate_makespan,
+    calculate_total_flow_time,
+    calculate_lateness,
+)
+from frost_sheet.generator.instance_generator import load_instance_from_json
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,20 +43,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_instance(file_path: str) -> SchedulingInstance:
-    """
-    Load a scheduling instance from a JSON file.
-
-    Args:
-        file_path (str): Path to the JSON file.
-
-    Returns:
-        SchedulingInstance: The loaded scheduling instance.
-    """
-    with open(file_path, "r") as f:
-        return SchedulingInstance.model_validate_json(f.read())
-
-
 def scheduled_task_to_str(st: ScheduledTask) -> str:
     """
     Convert a ScheduledTask to a string representation.
@@ -71,18 +63,39 @@ def dump_schedule(
     solution: Schedule,
     instance: SchedulingInstance,
 ) -> None:
+    """
+    Dumps the schedule information for the given solution and instance.
+
+    Args:
+        solution (Schedule):
+            The generated schedule.
+        instance (SchedulingInstance):
+            The original scheduling instance.
+    """
+
     jobs = instance.jobs
 
-    cprint("[bold green]Generated Schedule:[/bold green]")
+    cprint("[green]Generated Schedule:[/green]")
     for job in jobs:
-        cprint(f"  [bold blue]Job {job.name}:[/bold blue]")
+        job_start_time = solution.get_job_start_time(job)
+        job_end_time = solution.get_job_end_time(job)
+        cprint(
+            f"  [blue]Job {job.name} (Due Date: {job.due_date}, "
+            f"Start: {job_start_time}, End: {job_end_time}):[/blue]"
+        )
         prev_st: ScheduledTask | None = None
+        scheduled_tasks: list[ScheduledTask] = []
         for task in job.tasks:
-            # Get the scheduled task.
             st = solution.get_task_mapping(task)
-            if not st:
+            if st:
+                scheduled_tasks.append(st)
+            else:
                 cprint("  [red]Task not found in schedule.[/red]")
-                continue
+
+        # Sort scheduled tasks by start time
+        scheduled_tasks.sort(key=lambda x: x.start_time)
+
+        for st in scheduled_tasks:
             # Print the travel time.
             if prev_st:
                 travel_time = instance.get_travel_time(prev_st.machine, st.machine)
@@ -97,12 +110,42 @@ def dump_schedule(
             prev_st = st
 
 
+def dump_metrics(
+    solution: Schedule,
+    instance: SchedulingInstance,
+) -> None:
+    """
+    Dumps the scheduling metrics for the given solution and instance.
+
+    Args:
+        solution (Schedule):
+            The generated schedule.
+        instance (SchedulingInstance):
+            The original scheduling instance.
+    """
+    # Compute the schedule metrics.
+    makespan = calculate_makespan(solution)
+    total_flow_time = calculate_total_flow_time(solution)
+    lateness_by_job = calculate_lateness(solution, instance)
+    # Display the schedule metrics.
+    cprint("\n[blue]Schedule Metrics:[/blue]")
+    cprint(f"  [blue]Makespan:[/blue] {makespan}")
+    cprint(f"  [blue]Total Flow Time:[/blue] {total_flow_time}")
+    cprint("  [blue]Lateness by Job:[/blue]")
+    for job_name, lateness in lateness_by_job.items():
+        cprint(f"    [blue]{job_name}:[/blue]", end=" ")
+        if lateness > 0:
+            cprint(f"[red]{lateness} (Late)[/red]")
+        else:
+            cprint(f"[green]{lateness} (On Time)[/green]")
+
+
 def main() -> None:
     args = parse_args()
 
-    cprint("Loading instance...", style="bold cyan")
+    cprint(f"Loading instance [green]{args.instance}[/green]...", style="yellow")
 
-    instance = load_instance(args.instance)
+    instance = load_instance_from_json(args.instance)
 
     cprint("Loaded Scheduling Instance:")
     cprint(f"  Machines : {len(instance.machines)}")
@@ -115,21 +158,24 @@ def main() -> None:
     else:
         solver = StochasticSolver(instance=instance)
 
-    cprint("Solving...", style="bold cyan")
+    cprint("Solving...", style="yellow")
 
     solution = solver.schedule()
 
     dump_schedule(solution, instance)
 
-    cprint("Validating schedule...", style="bold cyan")
+    cprint("Validating schedule...", style="yellow")
 
     if not validate_schedule(solution, instance):
         cerror("  Generated schedule is invalid.")
     else:
-        cprint("  Generated schedule is valid.", style="bold green")
+        cprint("  Generated schedule is valid.", style="green")
+
+    dump_metrics(solution, instance)
 
     if args.gantt:
-        plot_gantt_chart(solution)
+        cprint("Plotting Gantt chart and saving to file...", style="yellow")
+        plot_gantt_chart(solution, output_path="data/gantt_chart.png")
 
 
 if __name__ == "__main__":

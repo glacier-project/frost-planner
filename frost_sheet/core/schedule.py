@@ -1,5 +1,5 @@
-from pydantic import BaseModel, ConfigDict, Field
-from frost_sheet.core.base import Task, Machine
+from pydantic import BaseModel, Field
+from frost_sheet.core.base import Task, Machine, Job
 
 
 class ScheduledTask(BaseModel):
@@ -7,7 +7,7 @@ class ScheduledTask(BaseModel):
     Represents a single task that has been assigned a start and end time on a
     specific machine.
 
-    This is an immutable data object representing a piece of the final schedule.
+    This is a mutable data object representing a piece of the final schedule.
     The `order=True` argument automatically makes instances sortable by their
     attributes, starting with `start_time`.
 
@@ -22,7 +22,6 @@ class ScheduledTask(BaseModel):
             The identifier of the machine this task is scheduled on.
     """
 
-    model_config = ConfigDict(frozen=True)
     start_time: int = Field(
         ge=0,
         description="The time at which the task begins processing.",
@@ -89,6 +88,95 @@ class Schedule(BaseModel):
                 if st.task == task:
                     return st
         return None
+
+    def get_job_start_time(self, job: Job) -> float:
+        """
+        Calculates the earliest start time of a job from the schedule.
+
+        Args:
+            job (Job): The job to find the start time for.
+
+        Returns:
+            float:
+                The earliest start time of the job, or 0.0 if no tasks are
+                scheduled.
+        """
+        earliest_start = float("inf")
+        found_task = False
+        for task_in_job in job.tasks:
+            scheduled_task = self.get_task_mapping(task_in_job)
+            if scheduled_task:
+                earliest_start = min(earliest_start, float(scheduled_task.start_time))
+                found_task = True
+        return earliest_start if found_task else 0.0
+
+    def get_job_end_time(self, job: Job) -> float:
+        """
+        Calculates the latest end time of a job from the schedule.
+
+        Args:
+            job (Job):
+                The job to find the end time for.
+
+        Returns:
+            float:
+                The latest end time of the job, or 0.0 if no tasks are
+                scheduled.
+        """
+        latest_end = 0.0
+        for task_in_job in job.tasks:
+            scheduled_task = self.get_task_mapping(task_in_job)
+            if scheduled_task:
+                latest_end = max(latest_end, float(scheduled_task.end_time))
+        return latest_end
+
+    def add_scheduled_task(self, scheduled_task: ScheduledTask) -> None:
+        """
+        Adds a ScheduledTask to the schedule.
+
+        Args:
+            scheduled_task (ScheduledTask):
+                The task to add.
+        """
+        machine_id = scheduled_task.machine.id
+        if machine_id not in self.mapping:
+            self.mapping[machine_id] = []
+        self.mapping[machine_id].append(scheduled_task)
+
+    def remove_scheduled_task(self, scheduled_task: ScheduledTask) -> None:
+        """
+        Removes a ScheduledTask from the schedule.
+
+        Args:
+            scheduled_task (ScheduledTask):
+                The task to remove.
+        """
+        machine_id = scheduled_task.machine.id
+        if machine_id in self.mapping and scheduled_task in self.mapping[machine_id]:
+            self.mapping[machine_id].remove(scheduled_task)
+            if not self.mapping[machine_id]:
+                del self.mapping[machine_id]
+
+    def update_scheduled_task_machine(
+        self,
+        scheduled_task: ScheduledTask,
+        new_machine: Machine,
+    ) -> None:
+        """
+        Updates the machine for a ScheduledTask in the schedule.
+
+        Args:
+            scheduled_task (ScheduledTask):
+                The task to update.
+            new_machine (Machine):
+                The new machine for the task.
+        """
+        # Remove from old machine's list
+        self.remove_scheduled_task(scheduled_task)
+        # Update the machine in the ScheduledTask object
+        scheduled_task.machine = new_machine
+        # Add to new machine's list
+        self.add_scheduled_task(scheduled_task)
 
     def __str__(self) -> str:
         return f"Schedule(machines={self.machines}, schedule={self.mapping})"

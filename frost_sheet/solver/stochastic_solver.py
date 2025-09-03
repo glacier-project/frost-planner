@@ -99,6 +99,7 @@ class StochasticSolver(BaseSolver):
         """
         machine_intervals = deepcopy(machine_intervals)
         scheduled_tasks = _schedule_by_order(
+            self.instance,
             jobs,
             self.instance.machines,
             machine_intervals,

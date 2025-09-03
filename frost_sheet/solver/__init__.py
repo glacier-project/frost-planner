@@ -1,5 +1,5 @@
 import sys
-from frost_sheet.core.base import Job, Machine, Task
+from frost_sheet.core.base import Job, Machine, SchedulingInstance, Task
 from frost_sheet.core.schedule import ScheduledTask, Schedule
 from typing import Dict
 
@@ -9,6 +9,7 @@ def _get_machine_intervals_for_task(
     machine_intervals: dict[str, list[tuple[int, int]]],
     earliest_start: int,
     horizon: int,
+    instance: SchedulingInstance,
 ) -> dict[str, list[tuple[int, int]]]:
     """
     Gets the time intervals for a task on a specific machine.
@@ -31,13 +32,19 @@ def _get_machine_intervals_for_task(
 
     s_intervals: dict[str, list[tuple[int, int]]] = {}
 
+    # Get suitable machines for the task.
+    suitable_machines = instance.get_suitable_machines(task)
+    # Convert to set for efficient lookup.
+    suitable_machine_ids = {m.id for m in suitable_machines}
+
     for machine_id, intervals in machine_intervals.items():
-        if machine_id not in task.machines:
+        if machine_id not in suitable_machine_ids:
             continue
 
-        task_start_time = task.start_time if task.start_time else 0
-        task_start_time = max(task_start_time, earliest_start)
-        task_end_time = task.end_time if task.end_time else horizon
+        # Task start_time and end_time are no longer attributes of Task
+        # definition. Use earliest_start and horizon for interval calculations.
+        task_start_time = earliest_start
+        task_end_time = horizon
         ms_intervals: list[tuple[int, int]] = []
 
         # adds all the intervals that can fit the task
@@ -142,17 +149,14 @@ def _create_schedule(
         Schedule:
             The schedule created from the scheduled tasks and machines.
     """
-    mapping = {
-        machine.id: [task for task in scheduled_tasks if task.machine.id == machine.id]
-        for machine in machines
-    }
-    return Schedule(
-        machines=machines,
-        mapping=mapping,
-    )
+    schedule = Schedule(machines=machines)
+    for st in scheduled_tasks:
+        schedule.add_scheduled_task(st)
+    return schedule
 
 
 def _schedule_by_order(
+    instance: SchedulingInstance,
     jobs: list[Job],
     machines: list[Machine],
     machine_intervals: dict[str, list[tuple[int, int]]],
@@ -164,6 +168,8 @@ def _schedule_by_order(
     This is a greedy, non-optimizing solver that processes tasks sequentially.
 
     Args:
+        instance (SchedulingInstance):
+            The scheduling instance containing jobs and machines.
         jobs (list[Job]):
             The list of jobs to schedule. Tasks within each job are assumed to
             be topologically sorted by their dependencies.
@@ -222,7 +228,7 @@ def _schedule_by_order(
         # considers the task's requirements and the machines' capabilities, as
         # well as the task's earliest possible start time (min_start_time).
         s_intervals = _get_machine_intervals_for_task(
-            task, machine_intervals, min_start_time, horizon
+            task, machine_intervals, min_start_time, horizon, instance
         )
 
         # Iterate through each suitable machine and its available intervals to

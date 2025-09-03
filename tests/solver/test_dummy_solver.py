@@ -4,8 +4,15 @@ from frost_sheet.core.base import SchedulingInstance
 from frost_sheet.solver.dummy_solver import DummySolver
 
 
+from frost_sheet.generator.instance_generator import InstanceConfiguration
+
+
 @pytest.mark.parametrize(
-    "instance", [InstanceGenerator().create_instance() for _ in range(3)]
+    "instance",
+    [
+        InstanceGenerator().create_instance(configuration=InstanceConfiguration())
+        for _ in range(3)
+    ],
 )
 class TestDummySolver:
     def test_schedule(self, instance: SchedulingInstance) -> None:
