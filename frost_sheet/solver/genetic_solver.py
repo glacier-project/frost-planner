@@ -58,13 +58,15 @@ class GeneticAlgorithmSolver(BaseSolver):
         """
         # Deepcopy machine_intervals to ensure each evaluation starts fresh
         temp_machine_intervals = deepcopy(machine_intervals)
-        scheduled_tasks = _schedule_by_order(
+        scheduled_tasks: list[ScheduledTask] = _schedule_by_order(
             self.instance,
             job_permutation,
             self.instance.machines,
             temp_machine_intervals,
             self.horizon,
             self.instance.travel_times,
+            self.machine_id_map,
+            self.suitable_machines_map,
         )
         makespan = (
             max(st.end_time for st in scheduled_tasks) if scheduled_tasks else 0.0

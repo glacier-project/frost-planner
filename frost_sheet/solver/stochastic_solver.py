@@ -149,6 +149,8 @@ class StochasticSolver(BaseSolver):
             machine_intervals,
             self.horizon,
             self.instance.travel_times,
+            self.machine_id_map,
+            self.suitable_machines_map,
         )
 
         return scheduled_tasks, (

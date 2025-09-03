@@ -23,6 +23,18 @@ class BaseSolver(ABC):
     ) -> None:
         self.instance: SchedulingInstance = instance
         self.horizon: int = horizon
+        # Add pre-computed maps.
+        self.machine_id_map: dict[str, Machine] = {
+            m.id: m for m in self.instance.machines
+        }
+        self.task_id_map: dict[str, Task] = {
+            t.id: t for job in self.instance.jobs for t in job.tasks
+        }
+        self.suitable_machines_map: dict[str, list[Machine]] = {
+            t.id: self.instance.get_suitable_machines(t)
+            for job in self.instance.jobs
+            for t in job.tasks
+        }
 
     def _create_machine_intervals(self) -> dict[str, list[tuple[int, int]]]:
         """

@@ -9,7 +9,7 @@ def _get_machine_intervals_for_task(
     machine_intervals: dict[str, list[tuple[int, int]]],
     earliest_start: int,
     horizon: int,
-    instance: SchedulingInstance,
+    suitable_machines_map: dict[str, list[Machine]],
 ) -> dict[str, list[tuple[int, int]]]:
     """
     Gets the time intervals for a task on a specific machine.
@@ -23,6 +23,8 @@ def _get_machine_intervals_for_task(
             The earliest start time for the task based on its dependencies.
         horizon (int):
             The time horizon for the scheduling.
+        suitable_machines_map (dict[str, list[Machine]]):
+            A mapping of task IDs to their suitable machines.
 
     Returns:
         dict[str, list[tuple[int, int]]]:
@@ -33,7 +35,7 @@ def _get_machine_intervals_for_task(
     s_intervals: dict[str, list[tuple[int, int]]] = {}
 
     # Get suitable machines for the task.
-    suitable_machines = instance.get_suitable_machines(task)
+    suitable_machines = suitable_machines_map[task.id]
     # Convert to set for efficient lookup.
     suitable_machine_ids = {m.id for m in suitable_machines}
 
@@ -173,6 +175,8 @@ def _schedule_by_order(
     machine_intervals: dict[str, list[tuple[int, int]]],
     horizon: int,
     travel_times: Dict[str, Dict[str, int]],
+    machine_id_map: dict[str, Machine],
+    suitable_machines_map: dict[str, list[Machine]],
 ) -> list[ScheduledTask]:
     """
     Schedules jobs based on their predefined order and machine availability.
@@ -194,15 +198,16 @@ def _schedule_by_order(
         travel_times (Dict[str, Dict[str, int]]):
             A dictionary representing the time taken to move a piece from a
             source machine to a destination machine.
+        machine_id_map (dict[str, Machine]):
+            A mapping of machine IDs to their corresponding Machine objects.
+        suitable_machines_map (dict[str, list[Machine]]):
+            A mapping of task IDs to their suitable machines.
 
     Returns:
         list[ScheduledTask]:
             A list of tasks that have been successfully scheduled, each with a
             determined start time, end time, and assigned machine.
     """
-
-    # Create a dictionary from machine id to machines.
-    machine_dict = {machine.id: machine for machine in machines}
 
     # Dictionary to store already scheduled tasks, keyed by their task_id. This
     # allows for quick lookup of dependency completion times.
@@ -239,7 +244,7 @@ def _schedule_by_order(
         # considers the task's requirements and the machines' capabilities, as
         # well as the task's earliest possible start time (min_start_time).
         s_intervals = _get_machine_intervals_for_task(
-            task, machine_intervals, min_start_time, horizon, instance
+            task, machine_intervals, min_start_time, horizon, suitable_machines_map
         )
 
         # Iterate through each suitable machine and its available intervals to
@@ -292,7 +297,7 @@ def _schedule_by_order(
                         or adjusted_start_time < selected_start_time
                     ):
                         selected_start_time = adjusted_start_time
-                        selected_machine = machine_dict[machine_id]
+                        selected_machine = machine_id_map[machine_id]
                     # We found a valid slot in this interval, no need to check
                     # further intervals for this machine.
                     break  # Move to the next machine
