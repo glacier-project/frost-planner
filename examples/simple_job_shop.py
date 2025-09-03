@@ -77,12 +77,18 @@ def dump_schedule(
     for job in jobs:
         cprint(f"  [bold blue]Job {job.name}:[/bold blue]")
         prev_st: ScheduledTask | None = None
+        scheduled_tasks: list[ScheduledTask] = []
         for task in job.tasks:
-            # Get the scheduled task.
             st = solution.get_task_mapping(task)
-            if not st:
+            if st:
+                scheduled_tasks.append(st)
+            else:
                 cprint("  [red]Task not found in schedule.[/red]")
-                continue
+
+        # Sort scheduled tasks by start time
+        scheduled_tasks.sort(key=lambda x: x.start_time)
+
+        for st in scheduled_tasks:
             # Print the travel time.
             if prev_st:
                 travel_time = instance.get_travel_time(prev_st.machine, st.machine)
