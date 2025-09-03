@@ -35,9 +35,10 @@ def _get_machine_intervals_for_task(
         if machine_id not in task.machines:
             continue
 
-        task_start_time = task.start_time if task.start_time else 0
-        task_start_time = max(task_start_time, earliest_start)
-        task_end_time = task.end_time if task.end_time else horizon
+        # Task start_time and end_time are no longer attributes of Task definition.
+        # Use earliest_start and horizon for interval calculations.
+        task_start_time = earliest_start
+        task_end_time = horizon
         ms_intervals: list[tuple[int, int]] = []
 
         # adds all the intervals that can fit the task
