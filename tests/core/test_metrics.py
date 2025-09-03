@@ -17,8 +17,8 @@ def test_calculate_makespan_empty_schedule():
 
 def test_calculate_makespan_single_task():
     """Test makespan calculation for a schedule with a single task."""
-    task = Task(id="T1", processing_time=10)
-    machine = Machine(id="M1")
+    task = Task(id="T1", name="T1", processing_time=10)
+    machine = Machine(id="M1", name="M1")
     scheduled_task = ScheduledTask(
         start_time=0, end_time=10, task=task, machine=machine
     )
@@ -31,9 +31,9 @@ def test_calculate_makespan_single_task():
 
 def test_calculate_makespan_multiple_tasks_same_machine():
     """Test makespan calculation for multiple tasks on the same machine."""
-    task1 = Task(id="T1", processing_time=5)
-    task2 = Task(id="T2", processing_time=7)
-    machine = Machine(id="M1")
+    task1 = Task(id="T1", name="T1", processing_time=5)
+    task2 = Task(id="T2", name="T2", processing_time=7)
+    machine = Machine(id="M1", name="M1")
 
     scheduled_task1 = ScheduledTask(
         start_time=0, end_time=5, task=task1, machine=machine
@@ -51,10 +51,10 @@ def test_calculate_makespan_multiple_tasks_same_machine():
 
 def test_calculate_makespan_multiple_tasks_different_machines():
     """Test makespan calculation for multiple tasks on different machines."""
-    task1 = Task(id="T1", processing_time=5)
-    task2 = Task(id="T2", processing_time=7)
-    machine1 = Machine(id="M1")
-    machine2 = Machine(id="M2")
+    task1 = Task(id="T1", name="T1", processing_time=5)
+    task2 = Task(id="T2", name="T2", processing_time=7)
+    machine1 = Machine(id="M1", name="M1")
+    machine2 = Machine(id="M2", name="M2")
 
     scheduled_task1 = ScheduledTask(
         start_time=0, end_time=5, task=task1, machine=machine1
@@ -72,14 +72,14 @@ def test_calculate_makespan_multiple_tasks_different_machines():
 
 def test_calculate_makespan_complex_scenario():
     """Test makespan calculation for a more complex scenario with multiple machines and tasks."""
-    task1 = Task(id="T1", processing_time=10)
-    task2 = Task(id="T2", processing_time=5)
-    task3 = Task(id="T3", processing_time=8)
-    task4 = Task(id="T4", processing_time=3)
+    task1 = Task(id="T1", name="T1", processing_time=10)
+    task2 = Task(id="T2", name="T2", processing_time=5)
+    task3 = Task(id="T3", name="T3", processing_time=8)
+    task4 = Task(id="T4", name="T4", processing_time=3)
 
-    machine1 = Machine(id="M1")
-    machine2 = Machine(id="M2")
-    machine3 = Machine(id="M3")
+    machine1 = Machine(id="M1", name="M1")
+    machine2 = Machine(id="M2", name="M2")
+    machine3 = Machine(id="M3", name="M3")
 
     scheduled_task1 = ScheduledTask(
         start_time=0, end_time=10, task=task1, machine=machine1
@@ -112,8 +112,8 @@ def test_calculate_total_flow_time_empty_schedule():
 
 def test_calculate_total_flow_time_single_task():
     """Test total flow time calculation for a schedule with a single task."""
-    task = Task(id="T1", processing_time=10)
-    machine = Machine(id="M1")
+    task = Task(id="T1", name="T1", processing_time=10)
+    machine = Machine(id="M1", name="M1")
     scheduled_task = ScheduledTask(
         start_time=0, end_time=10, task=task, machine=machine
     )
@@ -126,12 +126,12 @@ def test_calculate_total_flow_time_single_task():
 
 def test_calculate_total_flow_time_multiple_tasks():
     """Test total flow time calculation for multiple tasks on different machines."""
-    task1 = Task(id="T1", processing_time=5)
-    task2 = Task(id="T2", processing_time=7)
-    task3 = Task(id="T3", processing_time=3)
+    task1 = Task(id="T1", name="T1", processing_time=5)
+    task2 = Task(id="T2", name="T2", processing_time=7)
+    task3 = Task(id="T3", name="T3", processing_time=3)
 
-    machine1 = Machine(id="M1")
-    machine2 = Machine(id="M2")
+    machine1 = Machine(id="M1", name="M1")
+    machine2 = Machine(id="M2", name="M2")
 
     scheduled_task1 = ScheduledTask(
         start_time=0, end_time=5, task=task1, machine=machine1
@@ -154,8 +154,8 @@ def test_calculate_total_flow_time_multiple_tasks():
 
 def test_calculate_lateness_no_due_date():
     """Test lateness calculation when jobs have no due dates."""
-    task = Task(id="T1", processing_time=10)
-    machine = Machine(id="M1")
+    task = Task(id="T1", name="T1", processing_time=10)
+    machine = Machine(id="M1", name="M1")
     scheduled_task = ScheduledTask(
         start_time=0, end_time=10, task=task, machine=machine
     )
@@ -170,8 +170,8 @@ def test_calculate_lateness_no_due_date():
 
 def test_calculate_lateness_on_time_job():
     """Test lateness calculation for a job that finishes on time."""
-    task = Task(id="T1", processing_time=10)
-    machine = Machine(id="M1")
+    task = Task(id="T1", name="T1", processing_time=10)
+    machine = Machine(id="M1", name="M1")
     scheduled_task = ScheduledTask(
         start_time=0, end_time=10, task=task, machine=machine
     )
@@ -186,8 +186,8 @@ def test_calculate_lateness_on_time_job():
 
 def test_calculate_lateness_late_job():
     """Test lateness calculation for a job that finishes late."""
-    task = Task(id="T1", processing_time=10)
-    machine = Machine(id="M1")
+    task = Task(id="T1", name="T1", processing_time=10)
+    machine = Machine(id="M1", name="M1")
     scheduled_task = ScheduledTask(
         start_time=0, end_time=10, task=task, machine=machine
     )
@@ -202,8 +202,8 @@ def test_calculate_lateness_late_job():
 
 def test_calculate_tardiness_on_time_job():
     """Test tardiness calculation for a job that finishes on time."""
-    task = Task(id="T1", processing_time=10)
-    machine = Machine(id="M1")
+    task = Task(id="T1", name="T1", processing_time=10)
+    machine = Machine(id="M1", name="M1")
     scheduled_task = ScheduledTask(
         start_time=0, end_time=10, task=task, machine=machine
     )
@@ -218,8 +218,8 @@ def test_calculate_tardiness_on_time_job():
 
 def test_calculate_tardiness_late_job():
     """Test tardiness calculation for a job that finishes late."""
-    task = Task(id="T1", processing_time=10)
-    machine = Machine(id="M1")
+    task = Task(id="T1", name="T1", processing_time=10)
+    machine = Machine(id="M1", name="M1")
     scheduled_task = ScheduledTask(
         start_time=0, end_time=10, task=task, machine=machine
     )
@@ -234,9 +234,9 @@ def test_calculate_tardiness_late_job():
 
 def test_calculate_num_tardy_jobs_no_tardy():
     """Test number of tardy jobs when all jobs are on time."""
-    task1 = Task(id="T1", processing_time=10)
-    task2 = Task(id="T2", processing_time=5)
-    machine = Machine(id="M1")
+    task1 = Task(id="T1", name="T1", processing_time=10)
+    task2 = Task(id="T2", name="T2", processing_time=5)
+    machine = Machine(id="M1", name="M1")
 
     scheduled_task1 = ScheduledTask(
         start_time=0, end_time=10, task=task1, machine=machine
@@ -245,8 +245,8 @@ def test_calculate_num_tardy_jobs_no_tardy():
         start_time=10, end_time=15, task=task2, machine=machine
     )
 
-    job1 = Job(id="J1", tasks=[task1], due_date=10)
-    job2 = Job(id="J2", tasks=[task2], due_date=15)
+    job1 = Job(id="J1", name="J1", tasks=[task1], due_date=10)
+    job2 = Job(id="J2", name="J2", tasks=[task2], due_date=15)
 
     schedule = Schedule()
     schedule.add_scheduled_task(scheduled_task1)
@@ -258,9 +258,9 @@ def test_calculate_num_tardy_jobs_no_tardy():
 
 def test_calculate_num_tardy_jobs_some_tardy():
     """Test number of tardy jobs when some jobs are late."""
-    task1 = Task(id="T1", processing_time=10)
-    task2 = Task(id="T2", processing_time=5)
-    machine = Machine(id="M1")
+    task1 = Task(id="T1", name="T1", processing_time=10)
+    task2 = Task(id="T2", name="T2", processing_time=5)
+    machine = Machine(id="M1", name="M1")
 
     scheduled_task1 = ScheduledTask(
         start_time=0, end_time=10, task=task1, machine=machine
@@ -269,8 +269,8 @@ def test_calculate_num_tardy_jobs_some_tardy():
         start_time=10, end_time=15, task=task2, machine=machine
     )
 
-    job1 = Job(id="J1", tasks=[task1], due_date=8)  # Late
-    job2 = Job(id="J2", tasks=[task2], due_date=15)  # On time
+    job1 = Job(id="J1", name="J1", tasks=[task1], due_date=8)  # Late
+    job2 = Job(id="J2", name="J2", tasks=[task2], due_date=15)  # On time
 
     schedule = Schedule()
     schedule.add_scheduled_task(scheduled_task1)
@@ -282,9 +282,9 @@ def test_calculate_num_tardy_jobs_some_tardy():
 
 def test_calculate_num_tardy_jobs_all_tardy():
     """Test number of tardy jobs when all jobs are late."""
-    task1 = Task(id="T1", processing_time=10)
-    task2 = Task(id="T2", processing_time=5)
-    machine = Machine(id="M1")
+    task1 = Task(id="T1", name="T1", processing_time=10)
+    task2 = Task(id="T2", name="T2", processing_time=5)
+    machine = Machine(id="M1", name="M1")
 
     scheduled_task1 = ScheduledTask(
         start_time=0, end_time=10, task=task1, machine=machine
@@ -293,8 +293,8 @@ def test_calculate_num_tardy_jobs_all_tardy():
         start_time=10, end_time=15, task=task2, machine=machine
     )
 
-    job1 = Job(id="J1", tasks=[task1], due_date=8)  # Late
-    job2 = Job(id="J2", tasks=[task2], due_date=12)  # Late
+    job1 = Job(id="J1", name="J1", tasks=[task1], due_date=8)  # Late
+    job2 = Job(id="J2", name="J2", tasks=[task2], due_date=12)  # Late
 
     schedule = Schedule()
     schedule.add_scheduled_task(scheduled_task1)

@@ -1,7 +1,6 @@
 from pydantic import BaseModel, Field, model_validator
 
 
-
 class Task(BaseModel):
     """
     Represents a single, indivisible unit of work.
@@ -37,7 +36,6 @@ class Task(BaseModel):
         description="A global unique identifier for the task.",
     )
     name: str = Field(
-        "Unnamed Task",
         description="The name of the task.",
     )
     processing_time: int = Field(
@@ -95,7 +93,6 @@ class Job(BaseModel):
         description="A global unique identifier for the job.",
     )
     name: str = Field(
-        "Unnamed Job",
         description="The name of the job.",
     )
     tasks: list[Task] = Field(
@@ -169,7 +166,6 @@ class Machine(BaseModel):
         description="A global unique identifier for the machine.",
     )
     name: str = Field(
-        default="Unnamed Machine",
         description="The name of the machine.",
     )
     capabilities: list[str] = Field(
@@ -254,7 +250,9 @@ class SchedulingInstance(BaseModel):
             raise ValueError(f"No travel times defined for machine {m0.id}.")
         travel_time = self.travel_times[m0.id].get(m1.id, None)
         if travel_time is None:
-            raise ValueError(f"No travel times defined from machine {m0.id} to machine {m1.id}.")
+            raise ValueError(
+                f"No travel times defined from machine {m0.id} to machine {m1.id}."
+            )
         return travel_time
 
     def get_suitable_machines(self, task: Task) -> list[Machine]:
