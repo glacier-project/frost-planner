@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.1 - 2025-09-03
+
+- [8af6469] refactor(solver): centralize pre-computation in BaseSolver
+- [5d1a667] refactor(examples): rename example scripts for clarity
+- [8a74b6e] feat(examples): add runtime measurement to simple_job_shop.py
+- [cd9fd51] feat(solver): implement genetic algorithm solver and optimize performance
+- [b43275e] fix(solver): handle immutable job/task objects in stochastic solver
+- [f284106] refactor(core): improve schedule validation and task retrieval
+- [d21fae9] test(schedule): add comprehensive tests for schedule module
+- [f3e8823] feat(core): make Task and Job models hashable and test _sort_tasks
+- [3ac3e9e] refactor(core): make name attribute mandatory for Task, Job, and Machine
+- [390bf14] test(metrics): add comprehensive tests for metrics module
+- [6b6ba81] refactor(solver): improve code reusability and error handling
+
 ## 0.2.0 - 2025-09-03
 
 - [477ac0c] refactor(generator): Explicitly initialize all InstanceConfiguration parameters
