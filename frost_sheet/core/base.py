@@ -62,16 +62,6 @@ class Task(BaseModel):
         gt=0,
         description="The priority of the task. Lower values indicate higher priority.",
     )
-    start_time: int | None = Field(
-        default=None,
-        ge=0,
-        description="The start time of the task.",
-    )
-    end_time: int | None = Field(
-        default=None,
-        ge=0,
-        description="The end time of the task.",
-    )
 
     def __str__(self) -> str:
         return (
@@ -124,41 +114,7 @@ class Job(BaseModel):
         description="The due date for the job. If the job finishes after this date, it is considered tardy.",
     )
 
-    @property
-    def start_time(self) -> int:
-        """
-        Returns the earliest start time of all tasks in the job. If no tasks are
-        present or all tasks have no start time, returns 0.
 
-        Returns:
-            int:
-                The earliest start time of all tasks in the job.
-        """
-        start_time = None
-        for t in self.tasks:
-            if not t.start_time:
-                continue
-            if start_time is None or t.start_time < start_time:
-                start_time = t.start_time
-        return start_time if start_time is not None else 0
-
-    @property
-    def end_time(self) -> int:
-        """
-        Returns the latest end time of all tasks in the job. If no tasks are
-        present or all tasks have no end time, returns 0.
-
-        Returns:
-            int:
-                The latest end time of all tasks in the job.
-        """
-        end_time = 0
-        for t in self.tasks:
-            if not t.end_time:
-                continue
-            if t.end_time > end_time:
-                end_time = t.end_time
-        return end_time
 
     @model_validator(mode="after")
     def _validate_tasks(self) -> "Job":
