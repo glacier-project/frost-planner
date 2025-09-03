@@ -12,6 +12,7 @@ from frost_sheet.core.metrics import (
     calculate_total_flow_time,
     calculate_lateness,
 )
+from frost_sheet.generator.instance_generator import load_instance_from_json
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,20 +41,6 @@ def parse_args() -> argparse.Namespace:
         help="Solver to use for scheduling",
     )
     return parser.parse_args()
-
-
-def load_instance(file_path: str) -> SchedulingInstance:
-    """
-    Load a scheduling instance from a JSON file.
-
-    Args:
-        file_path (str): Path to the JSON file.
-
-    Returns:
-        SchedulingInstance: The loaded scheduling instance.
-    """
-    with open(file_path, "r") as f:
-        return SchedulingInstance.model_validate_json(f.read())
 
 
 def scheduled_task_to_str(st: ScheduledTask) -> str:
@@ -88,13 +75,13 @@ def dump_schedule(
 
     jobs = instance.jobs
 
-    cprint("[bold green]Generated Schedule:[/bold green]")
+    cprint("[green]Generated Schedule:[/green]")
     for job in jobs:
         job_start_time = solution.get_job_start_time(job)
         job_end_time = solution.get_job_end_time(job)
         cprint(
-            f"  [bold blue]Job {job.name} (Due Date: {job.due_date}, "
-            f"Start: {job_start_time}, End: {job_end_time}):[/bold blue]"
+            f"  [blue]Job {job.name} (Due Date: {job.due_date}, "
+            f"Start: {job_start_time}, End: {job_end_time}):[/blue]"
         )
         prev_st: ScheduledTask | None = None
         scheduled_tasks: list[ScheduledTask] = []
@@ -141,12 +128,12 @@ def dump_metrics(
     total_flow_time = calculate_total_flow_time(solution)
     lateness_by_job = calculate_lateness(solution, instance)
     # Display the schedule metrics.
-    cprint("\n[bold blue]Schedule Metrics:[/bold blue]")
-    cprint(f"  [bold blue]Makespan:[/bold blue] {makespan}")
-    cprint(f"  [bold blue]Total Flow Time:[/bold blue] {total_flow_time}")
-    cprint("  [bold blue]Lateness by Job:[/bold blue]")
+    cprint("\n[blue]Schedule Metrics:[/blue]")
+    cprint(f"  [blue]Makespan:[/blue] {makespan}")
+    cprint(f"  [blue]Total Flow Time:[/blue] {total_flow_time}")
+    cprint("  [blue]Lateness by Job:[/blue]")
     for job_name, lateness in lateness_by_job.items():
-        cprint(f"    [bold blue]{job_name}:[/bold blue]", end=" ")
+        cprint(f"    [blue]{job_name}:[/blue]", end=" ")
         if lateness > 0:
             cprint(f"[red]{lateness} (Late)[/red]")
         else:
@@ -156,9 +143,9 @@ def dump_metrics(
 def main() -> None:
     args = parse_args()
 
-    cprint("Loading instance...", style="yellow")
+    cprint(f"Loading instance [green]{args.instance}[/green]...", style="yellow")
 
-    instance = load_instance(args.instance)
+    instance = load_instance_from_json(args.instance)
 
     cprint("Loaded Scheduling Instance:")
     cprint(f"  Machines : {len(instance.machines)}")
@@ -182,7 +169,7 @@ def main() -> None:
     if not validate_schedule(solution, instance):
         cerror("  Generated schedule is invalid.")
     else:
-        cprint("  Generated schedule is valid.", style="bold green")
+        cprint("  Generated schedule is valid.", style="green")
 
     dump_metrics(solution, instance)
 

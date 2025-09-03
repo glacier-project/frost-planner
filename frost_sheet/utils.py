@@ -25,7 +25,7 @@ def cerror(*args: Any, **kwargs: Any) -> None:
         None:
             This function does not return any value.
     """
-    _console.print(*args, style="bold red", **kwargs)
+    _console.print(*args, style="red", **kwargs)
 
 
 def cwarning(*args: Any, **kwargs: Any) -> None:
@@ -36,7 +36,7 @@ def cwarning(*args: Any, **kwargs: Any) -> None:
         None:
             This function does not return any value.
     """
-    _console.print(*args, style="bold yellow", **kwargs)
+    _console.print(*args, style="yellow", **kwargs)
 
 
 def crule(*args: Any, **kwargs: Any) -> None:

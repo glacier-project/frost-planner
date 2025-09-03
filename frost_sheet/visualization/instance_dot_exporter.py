@@ -61,10 +61,8 @@ def render_dot_to_file(
             The output image format (e.g., "png", "svg", "pdf").
     """
     try:
-        # Ensure the output directory exists
-        output_dir = os.path.dirname(output_path)
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        # Ensure the output directory exists.
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         command = ["dot", f"-T{format}", "-o", output_path]
         subprocess.run(
@@ -73,7 +71,10 @@ def render_dot_to_file(
             capture_output=True,
             check=True,
         )
-        cprint(f"Successfully rendered graph to {output_path}", style="yellow")
+        cprint(
+            f"Successfully rendered graph to [green]{output_path}[/green]",
+            style="yellow",
+        )
     except FileNotFoundError:
         cerror(
             "Error: 'dot' command not found. Please install Graphviz.",

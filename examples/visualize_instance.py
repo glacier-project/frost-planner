@@ -47,7 +47,7 @@ def main() -> None:
     args = parse_args()
 
     if args.instance:
-        cprint(f"Loading instance {args.instance}...", style="yellow")
+        cprint(f"Loading instance [green]{args.instance}[/green]...", style="yellow")
         instance = load_instance(args.instance)
     else:
         cprint("No instance specified.", style="red")
@@ -62,9 +62,9 @@ def main() -> None:
         if output_extension == "dot":
             with open(args.output, "w") as f:
                 f.write(dot_string)
-            cprint(f"DOT string saved to {args.output}", style="yellow")
+            cprint(f"DOT string saved to [green]{args.output}[/green]", style="yellow")
         else:
-            cprint(f"Rendering DOT to {args.output}...", style="yellow")
+            cprint(f"Rendering DOT to [green]{args.output}[/green]...", style="yellow")
             render_dot_to_file(dot_string, args.output, output_extension)
     else:
         print(dot_string)

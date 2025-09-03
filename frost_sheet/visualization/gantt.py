@@ -84,7 +84,7 @@ def plot_gantt_chart(
 
     if output_path:
         cprint(
-            f"Gantt chart saved to [bold green]{output_path}[/bold green]",
+            f"Gantt chart saved to [green]{output_path}[/green]",
             style="yellow",
         )
         plt.savefig(output_path)

@@ -2,11 +2,11 @@ from frost_sheet.generator.instance_generator import (
     InstanceGenerator,
     InstanceConfiguration,
     dump_configuration,
+    save_instance_to_json,
 )
+from frost_sheet.utils import cprint
 import argparse
 import os
-
-from frost_sheet.utils import cprint
 
 EASY_CONFIG = InstanceConfiguration(
     num_jobs=3,
@@ -72,7 +72,10 @@ def main() -> None:
     if os.path.exists(args.output_dir) and not os.path.isdir(args.output_dir):
         raise ValueError(f"Output path {args.output_dir} exists and is not a directory")
 
-    cprint(f"Creating output directory {args.output_dir}...", style="yellow")
+    cprint(
+        f"Creating output directory [green]{args.output_dir}[/green]...",
+        style="yellow",
+    )
 
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -81,17 +84,13 @@ def main() -> None:
     cprint(f"Generating {args.num_instances} instances...", style="yellow")
 
     for i in range(args.num_instances):
+        # Create the scheduling instance.
         instance = generator.create_instance(config)
+        # Build the final path.
         instance_path = os.path.join(args.output_dir, f"instance_{i}.json")
-
-        with open(instance_path, "w") as f:
-            f.write(
-                instance.model_dump_json(
-                    indent=4,
-                    exclude_defaults=True,
-                    exclude_none=True,
-                )
-            )
+        # Save the instance to a JSON file.
+        save_instance_to_json(instance, instance_path)
+        cprint(f"  Saved instance to [green]{instance_path}[/green]", style="yellow")
 
     cprint("Finished generating instances.", style="yellow")
 

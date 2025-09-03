@@ -1,6 +1,9 @@
+import os
 import random
 import uuid
 from dataclasses import dataclass
+
+from pydantic import ValidationError
 from frost_sheet.core.base import Job, Task, Machine, SchedulingInstance, _sort_tasks
 from frost_sheet.utils import cprint, crule
 
@@ -308,6 +311,53 @@ class InstanceGenerator:
                     configuration.max_travel_time,
                 )
         return travel_times
+
+
+def save_instance_to_json(instance: SchedulingInstance, file_path: str) -> None:
+    """
+    Save a SchedulingInstance to a JSON file.
+
+    Args:
+        instance (SchedulingInstance): The scheduling instance to save.
+        file_path (str): The path to the JSON file.
+    """
+    # Ensure the output directory exists.
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, "w") as f:
+        f.write(
+            instance.model_dump_json(
+                indent=4,
+                exclude_defaults=True,
+                exclude_none=True,
+            )
+        )
+
+
+def load_instance_from_json(file_path: str) -> SchedulingInstance:
+    """
+    Load a scheduling instance from a JSON file.
+
+    Args:
+        file_path (str): Path to the JSON file.
+
+    Returns:
+        SchedulingInstance: The loaded scheduling instance.
+
+    Raises:
+        FileNotFoundError:
+            If the file is not found.
+        IOError:
+            If there is an error reading the file.
+        json.JSONDecodeError:
+            If the file is not a valid JSON.
+    """
+    try:
+        with open(file_path, "r") as f:
+            return SchedulingInstance.model_validate_json(f.read())
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+    except (IOError, ValidationError) as e:
+        raise IOError(f"Error reading file {file_path}: {e}")
 
 
 def dump_configuration(config: InstanceConfiguration) -> None:
