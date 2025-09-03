@@ -118,6 +118,11 @@ class Job(BaseModel):
         gt=0,
         description="The priority of the job. Lower values indicate higher priority.",
     )
+    due_date: int | None = Field(
+        default=None,
+        ge=0,
+        description="The due date for the job. If the job finishes after this date, it is considered tardy.",
+    )
 
     @property
     def start_time(self) -> int:

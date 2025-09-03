@@ -11,6 +11,8 @@ class InstanceConfiguration:
     num_jobs: int = 10
     min_job_priority: int = 1
     max_job_priority: int = 5
+    min_job_due_date_offset: int = 100
+    max_job_due_date_offset: int = 1000
     min_tasks_per_job: int = 2
     max_tasks_per_job: int = 5
 
@@ -170,6 +172,7 @@ class InstanceGenerator:
 
                 tasks.append(task)
 
+            job_processing_time_sum = sum(t.processing_time for t in tasks)
             jobs.append(
                 Job(
                     job_id=str(uuid.uuid4()),
@@ -178,6 +181,10 @@ class InstanceGenerator:
                     priority=random.randint(
                         configuration.min_job_priority,
                         configuration.max_job_priority,
+                    ),
+                    due_date=random.randint(
+                        job_processing_time_sum + configuration.min_job_due_date_offset,
+                        job_processing_time_sum + configuration.max_job_due_date_offset,
                     ),
                 )
             )
