@@ -1,7 +1,7 @@
 import random
 import uuid
 from dataclasses import dataclass
-from frost_sheet.core.base import Job, Task, Machine, SchedulingInstance
+from frost_sheet.core.base import Job, Task, Machine, SchedulingInstance, _sort_tasks
 
 
 @dataclass
@@ -112,16 +112,22 @@ class InstanceGenerator:
         all_capabilities = [
             f"capability_{k}" for k in range(configuration.num_machine_capabilities)
         ]
-
+        # Build jobs and tasks.
         for i in range(configuration.num_jobs):
+            # Generate the number of tasks for the job.
             num_tasks = random.randint(
-                configuration.min_tasks_per_job, configuration.max_tasks_per_job
+                configuration.min_tasks_per_job,
+                configuration.max_tasks_per_job,
             )
+            # Build the task list.
             tasks: list[Task] = []
             for j in range(num_tasks):
+                # Generate task processing time.
                 processing_time = random.randint(
-                    configuration.min_processing_time, configuration.max_processing_time
+                    configuration.min_processing_time,
+                    configuration.max_processing_time,
                 )
+                # Generate task dependencies.
                 dependencies: list[str] = [
                     t.id
                     # Use tasks for dependencies within the same job.
@@ -142,8 +148,7 @@ class InstanceGenerator:
                         else []
                     )
                 ]
-
-                # Generate task requirements
+                # Generate task requirements.
                 num_task_caps = random.randint(
                     configuration.min_task_capabilities,
                     configuration.max_task_capabilities,
@@ -155,27 +160,32 @@ class InstanceGenerator:
                 )
                 # Sort to ensure unique combinations are stored consistently.
                 task_caps.sort()
+                # Add the combination to the set.
                 required_capability_combinations.add(tuple(task_caps))
+                # Update all required capabilities.
                 all_required_capabilities.update(task_caps)
-
-                task = Task(
-                    id=str(uuid.uuid4()),
-                    name=f"T_{i}_{j}",
-                    processing_time=processing_time,
-                    dependencies=dependencies,
-                    requires=task_caps,
-                    priority=random.randint(
-                        configuration.min_task_priority,
-                        configuration.max_task_priority,
-                    ),
+                # Add the task to the list.
+                tasks.append(
+                    Task(
+                        id=str(uuid.uuid4()),
+                        name=f"T_{i}_{j}",
+                        processing_time=processing_time,
+                        dependencies=dependencies,
+                        requires=task_caps,
+                        priority=random.randint(
+                            configuration.min_task_priority,
+                            configuration.max_task_priority,
+                        ),
+                    )
                 )
-
-                tasks.append(task)
-
-            job_processing_time_sum = sum(t.processing_time for t in tasks)
+            # Perform topological sort.
+            tasks = _sort_tasks(tasks)
+            # Compute job processing time.
+            processing_time = sum(t.processing_time for t in tasks)
+            # Add the job to the list.
             jobs.append(
                 Job(
-                    job_id=str(uuid.uuid4()),
+                    id=str(uuid.uuid4()),
                     name=f"J_{i}",
                     tasks=tasks,
                     priority=random.randint(
@@ -183,8 +193,8 @@ class InstanceGenerator:
                         configuration.max_job_priority,
                     ),
                     due_date=random.randint(
-                        job_processing_time_sum + configuration.min_job_due_date_offset,
-                        job_processing_time_sum + configuration.max_job_due_date_offset,
+                        processing_time + configuration.min_job_due_date_offset,
+                        processing_time + configuration.max_job_due_date_offset,
                     ),
                 )
             )

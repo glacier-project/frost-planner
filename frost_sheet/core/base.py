@@ -1,11 +1,9 @@
 from pydantic import BaseModel, Field, model_validator
-from pydantic.dataclasses import dataclass
 
 from frost_sheet.utils import cwarning
 
 
-@dataclass(frozen=True)
-class Task:
+class Task(BaseModel):
     """
     Represents a single, indivisible unit of work.
 
@@ -33,6 +31,8 @@ class Task:
         end_time (int):
             The end time of the task.
     """
+
+    model_config = {"frozen": True}
 
     id: str = Field(
         description="A global unique identifier for the task.",
@@ -80,7 +80,7 @@ class Job(BaseModel):
     Represents a job consisting of multiple tasks.
 
     Attributes:
-        job_id (str):
+        id (str):
             A global unique identifier for the job.
         name (str):
             The name of the job.
@@ -90,7 +90,9 @@ class Job(BaseModel):
             The priority of the job. Lower values indicate higher priority.
     """
 
-    job_id: str = Field(
+    model_config = {"frozen": True}
+
+    id: str = Field(
         description="A global unique identifier for the job.",
     )
     name: str = Field(
@@ -134,14 +136,12 @@ class Job(BaseModel):
                     f"Task ID {t.id} is duplicated."
                 )
             task_ids.add(t.id)
-        # Perform topological sort.
-        self.tasks = _sort_tasks(self.tasks)
         return self
 
     def __str__(self) -> str:
         return (
             f"Job("
-            f"job_id={self.job_id}, "
+            f"id={self.id}, "
             f"name={self.name}, "
             f"tasks={self.tasks}, "
             f"priority={self.priority})"
@@ -163,6 +163,8 @@ class Machine(BaseModel):
         capabilities (list[str]):
             The capabilities of the machine (e.g., "cutting", "welding").
     """
+
+    model_config = {"frozen": True}
 
     id: str = Field(
         description="A global unique identifier for the machine.",
@@ -199,6 +201,8 @@ class SchedulingInstance(BaseModel):
             The travel times between machines (source_machine_id ->
             {destination_machine_id -> time}).
     """
+
+    model_config = {"frozen": True}
 
     jobs: list[Job] = Field(
         default_factory=list,
