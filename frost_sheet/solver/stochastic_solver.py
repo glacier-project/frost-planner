@@ -9,16 +9,27 @@ from copy import deepcopy
 
 
 class StochasticSolver(BaseSolver):
-    """Stochastic solver that uses randomization to find better schedules.
+    """
+    Stochastic solver that uses randomization to find better schedules.
 
-    This solver explores the solution space by exploring random and local neighbor solutions.
+    This solver explores the solution space by exploring random and local
+    neighbor solutions.
 
     Attributes:
-        T (int): Maximum number of iterations.
-        B (int): Budget for exploration, in terms of number of iterations.
-        R (int): Number of random neighbors to explore per iteration.
-        alpha (float): Exploration rate.
-        t_idle (int): Maximum number of consecutive idle iterations.
+        instance (SchedulingInstance):
+            The scheduling instance to solve.
+        horizon (int):
+            The time horizon for scheduling.
+        T (int):
+            Maximum number of iterations.
+        B (int):
+            Budget for exploration, in terms of number of iterations.
+        R (int):
+            Number of random neighbors to explore per iteration.
+        alpha (float):
+            Exploration rate.
+        t_idle (int):
+            Maximum number of consecutive idle iterations.
     """
 
     def __init__(
@@ -39,12 +50,16 @@ class StochasticSolver(BaseSolver):
         self.t_idle = t_idle
 
     def _get_random_neighbor(self, jobs: list[Job]) -> list[Job]:
-        """Generate a random neighbor solution by swapping two jobs.
+        """
+        Generate a random neighbor solution by swapping two jobs.
 
         Args:
-            jobs (list[Job]): List of jobs to generate a neighbor for.
+            jobs (list[Job]):
+                List of jobs to generate a neighbor for.
+
         Returns:
-            list[Job]: A list of jobs with two jobs swapped.
+            list[Job]:
+                A list of jobs with two jobs swapped.
         """
         if len(jobs) < 2:
             return jobs
@@ -54,35 +69,61 @@ class StochasticSolver(BaseSolver):
         return jobs
 
     def _get_local_neighbor(self, jobs: list[Job]) -> list[Job]:
-        """Generate a local neighbor solution by swapping two tasks within the same job.
+        """
+        Generate a local neighbor solution by swapping two tasks within the same
+        job.
 
         Args:
-            jobs (list[Job]): List of jobs to generate a neighbor for.
+            jobs (list[Job]):
+                List of jobs to generate a neighbor for.
+
         Returns:
-            list[Job]: A list of jobs with two tasks swapped.
+            list[Job]:
+                A list of jobs with two tasks swapped.
         """
         if not jobs:
             return jobs
 
-        job = random.choice(jobs)
-        if len(job.tasks) < 2:
+        # Select a job to modify
+        job_to_modify = random.choice(jobs)
+        job_index = jobs.index(job_to_modify)
+
+        if len(job_to_modify.tasks) < 2:
             return jobs
 
-        idx1, idx2 = random.sample(range(len(job.tasks)), 2)
-        job.tasks[idx1], job.tasks[idx2] = job.tasks[idx2], job.tasks[idx1]
+        # Create a mutable copy of the tasks list
+        tasks_copy = list(job_to_modify.tasks)
 
-        # sort tasks
-        job.tasks = _sort_tasks(job.tasks)
+        # Swap two tasks in the copy
+        idx1, idx2 = random.sample(range(len(tasks_copy)), 2)
+        tasks_copy[idx1], tasks_copy[idx2] = tasks_copy[idx2], tasks_copy[idx1]
+
+        # Sort tasks and create a new Job instance
+        new_tasks = _sort_tasks(tasks_copy)
+        new_job = Job(
+            id=job_to_modify.id,
+            name=job_to_modify.name,
+            tasks=new_tasks,
+            priority=job_to_modify.priority,
+            due_date=job_to_modify.due_date,
+        )
+
+        # Replace the old job with the new job in the jobs list
+        jobs[job_index] = new_job
 
         return jobs
 
     def _sort_jobs_random(self, jobs: list[Job]) -> list[Job]:
-        """Sort jobs randomly.
+        """
+        Sort jobs randomly.
 
         Args:
-            jobs (list[Job]): List of jobs to sort.
+            jobs (list[Job]):
+                List of jobs to sort.
+
         Returns:
-            list[Job]: Randomly sorted list of jobs.
+            list[Job]:
+                Randomly sorted list of jobs.
         """
         random.shuffle(jobs)
         return jobs
@@ -90,12 +131,15 @@ class StochasticSolver(BaseSolver):
     def _evaluate_solution(
         self, jobs: list[Job], machine_intervals: dict[str, list[tuple[int, int]]]
     ) -> tuple[list[ScheduledTask], int]:
-        """Evaluate the quality of a solution based on the makespan.
+        """
+        Evaluate the quality of a solution based on the makespan.
 
         Args:
-            jobs (list[Job]): List of jobs to evaluate.
+            jobs (list[Job]):
+                List of jobs to evaluate.
         Returns:
-            tuple[list[ScheduledTask], int]: A tuple containing the scheduled tasks and the makespan.
+            tuple[list[ScheduledTask], int]:
+                A tuple containing the scheduled tasks and the makespan.
         """
         machine_intervals = deepcopy(machine_intervals)
         scheduled_tasks = _schedule_by_order(
