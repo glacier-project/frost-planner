@@ -4,6 +4,7 @@ from frost_sheet.visualization.instance_dot_exporter import (
     export_instance_to_dot,
     render_dot_to_file,
 )
+from frost_sheet.utils import cprint
 
 
 def parse_args() -> argparse.Namespace:
@@ -14,7 +15,7 @@ def parse_args() -> argparse.Namespace:
         "-i",
         "--instance",
         type=str,
-        default="resources/instances/easy/instance_0.json",
+        default=None,
         help="Instance configuration to use",
     )
     parser.add_argument(
@@ -44,7 +45,16 @@ def load_instance(file_path: str) -> SchedulingInstance:
 
 def main() -> None:
     args = parse_args()
-    instance = load_instance(args.instance)
+
+    if args.instance:
+        cprint(f"Loading instance {args.instance}...", style="yellow")
+        instance = load_instance(args.instance)
+    else:
+        cprint("No instance specified.", style="red")
+        return
+
+    cprint("Exporting instance to DOT format...", style="yellow")
+
     dot_string = export_instance_to_dot(instance)
 
     if args.output:
@@ -52,11 +62,14 @@ def main() -> None:
         if output_extension == "dot":
             with open(args.output, "w") as f:
                 f.write(dot_string)
-            print(f"DOT string saved to {args.output}")
+            cprint(f"DOT string saved to {args.output}", style="yellow")
         else:
+            cprint(f"Rendering DOT to {args.output}...", style="yellow")
             render_dot_to_file(dot_string, args.output, output_extension)
     else:
         print(dot_string)
+
+    cprint("Visualization complete.", style="yellow")
 
 
 if __name__ == "__main__":

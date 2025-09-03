@@ -1,9 +1,12 @@
 from frost_sheet.generator.instance_generator import (
     InstanceGenerator,
     InstanceConfiguration,
+    dump_configuration,
 )
 import argparse
 import os
+
+from frost_sheet.utils import cprint
 
 EASY_CONFIG = InstanceConfiguration(
     num_jobs=3,
@@ -44,7 +47,7 @@ def parse_args() -> argparse.Namespace:
         "-o",
         "--output-dir",
         type=str,
-        default=".",
+        default="data",
         help="Output directory for the generated instances",
     )
     parser.add_argument(
@@ -64,12 +67,18 @@ def main() -> None:
     else:
         config = MEDIUM_CONFIG
 
+    dump_configuration(config)
+
     if os.path.exists(args.output_dir) and not os.path.isdir(args.output_dir):
         raise ValueError(f"Output path {args.output_dir} exists and is not a directory")
+
+    cprint(f"Creating output directory {args.output_dir}...", style="yellow")
 
     os.makedirs(args.output_dir, exist_ok=True)
 
     generator = InstanceGenerator(args.seed)
+
+    cprint(f"Generating {args.num_instances} instances...", style="yellow")
 
     for i in range(args.num_instances):
         instance = generator.create_instance(config)
@@ -83,6 +92,8 @@ def main() -> None:
                     exclude_none=True,
                 )
             )
+
+    cprint("Finished generating instances.", style="yellow")
 
 
 if __name__ == "__main__":

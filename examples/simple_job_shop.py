@@ -156,7 +156,7 @@ def dump_metrics(
 def main() -> None:
     args = parse_args()
 
-    cprint("Loading instance...", style="bold cyan")
+    cprint("Loading instance...", style="yellow")
 
     instance = load_instance(args.instance)
 
@@ -171,13 +171,13 @@ def main() -> None:
     else:
         solver = StochasticSolver(instance=instance)
 
-    cprint("Solving...", style="bold cyan")
+    cprint("Solving...", style="yellow")
 
     solution = solver.schedule()
 
     dump_schedule(solution, instance)
 
-    cprint("Validating schedule...", style="bold cyan")
+    cprint("Validating schedule...", style="yellow")
 
     if not validate_schedule(solution, instance):
         cerror("  Generated schedule is invalid.")
