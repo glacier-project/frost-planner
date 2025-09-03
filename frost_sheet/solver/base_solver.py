@@ -21,8 +21,8 @@ class BaseSolver(ABC):
         instance: SchedulingInstance,
         horizon: int = sys.maxsize,
     ) -> None:
-        self.instance = instance
-        self.horizon = horizon
+        self.instance: SchedulingInstance = instance
+        self.horizon: int = horizon
 
     def _create_machine_intervals(self) -> dict[str, list[tuple[int, int]]]:
         """

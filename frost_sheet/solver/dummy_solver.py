@@ -22,6 +22,7 @@ class DummySolver(BaseSolver):
         self, machine_intervals: dict[str, list[tuple[int, int]]]
     ) -> list[ScheduledTask]:
         return _schedule_by_order(
+            self.instance,
             self.instance.jobs,
             self.instance.machines,
             machine_intervals,
