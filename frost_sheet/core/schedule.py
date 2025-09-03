@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from frost_sheet.core.base import Task, Machine, Job
 
 
@@ -27,7 +27,7 @@ class ScheduledTask(BaseModel):
         description="The time at which the task begins processing.",
     )
     end_time: int = Field(
-        ge=0,
+        ge=1,
         description="The time at which the task finishes processing.",
     )
     task: Task = Field(
@@ -36,6 +36,31 @@ class ScheduledTask(BaseModel):
     machine: Machine = Field(
         description="The machine this task is scheduled on.",
     )
+
+    @model_validator(mode="after")
+    def validate_scheduled_task(self) -> "ScheduledTask":
+        """
+        Validate the scheduled task's attributes.
+
+        Raises:
+            ValueError:
+                - If end_time is less than start_time.
+                - If the scheduled duration does not match the task's
+                  processing_time.
+
+        Returns:
+            ScheduledTask:
+                The validated scheduled task.
+        """
+        if self.end_time < self.start_time:
+            raise ValueError("end_time must be greater than or equal to start_time")
+        duration = self.end_time - self.start_time
+        if duration != self.task.processing_time:
+            raise ValueError(
+                f"Task processing_time is {self.task.processing_time}, "
+                f"but scheduled duration is {duration}"
+            )
+        return self
 
     def __str__(self) -> str:
         return (
@@ -70,6 +95,33 @@ class Schedule(BaseModel):
         default_factory=dict,
         description="A mapping of machine IDs to the tasks scheduled on them.",
     )
+
+    def get_tasks(self) -> list[ScheduledTask]:
+        """
+        Get all ScheduledTasks in the schedule.
+
+        Returns:
+            list[ScheduledTask]:
+                A list of all scheduled tasks in the schedule.
+        """
+        all_tasks: list[ScheduledTask] = []
+        for tasks in self.mapping.values():
+            all_tasks.extend(tasks)
+        return all_tasks
+
+    def get_machine_tasks(self, machine: Machine) -> list[ScheduledTask]:
+        """
+        Get all ScheduledTasks for a specific Machine.
+
+        Args:
+            machine (Machine):
+                The machine to get tasks for.
+
+        Returns:
+            list[ScheduledTask]:
+                A list of scheduled tasks for the machine.
+        """
+        return self.mapping.get(machine.id, [])
 
     def get_task_mapping(self, task: Task) -> ScheduledTask | None:
         """

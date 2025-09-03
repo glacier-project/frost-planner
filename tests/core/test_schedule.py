@@ -35,7 +35,7 @@ def test_add_scheduled_task():
     schedule.add_scheduled_task(scheduled_task)
 
     assert machine.id in schedule.mapping
-    assert scheduled_task in schedule.mapping[machine.id]
+    assert scheduled_task in schedule.get_machine_tasks(machine)
 
 
 def test_get_task_mapping():
@@ -175,4 +175,4 @@ def test_update_scheduled_task_machine():
     assert machine1.id not in schedule.mapping
     assert machine2.id in schedule.mapping
     assert scheduled_task.machine == machine2
-    assert scheduled_task in schedule.mapping[machine2.id]
+    assert scheduled_task in schedule.get_machine_tasks(machine2)
