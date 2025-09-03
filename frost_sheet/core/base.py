@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field, model_validator
 
-from frost_sheet.utils import cwarning
 
 
 class Task(BaseModel):
@@ -252,12 +251,10 @@ class SchedulingInstance(BaseModel):
         if m0.id == m1.id:
             return 0
         if m0.id not in self.travel_times:
-            cwarning(f"No travel times defined for machine {m0}.")
-            return -1
+            raise ValueError(f"No travel times defined for machine {m0.id}.")
         travel_time = self.travel_times[m0.id].get(m1.id, None)
         if travel_time is None:
-            cwarning(f"No travel times defined from machine {m0} to machine {m1}.")
-            return -1
+            raise ValueError(f"No travel times defined from machine {m0.id} to machine {m1.id}.")
         return travel_time
 
     def get_suitable_machines(self, task: Task) -> list[Machine]:

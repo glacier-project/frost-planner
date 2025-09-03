@@ -72,6 +72,45 @@ def _get_machine_intervals_for_task(
     return s_intervals
 
 
+def _perform_task_interval_allocation(
+    start_time: int,
+    task: Task,
+    machine: Machine,
+    machine_intervals: dict[str, list[tuple[int, int]]],
+) -> None:
+    """
+    Performs the actual modification of machine intervals based on task allocation.
+
+    Args:
+        start_time (int):
+            The start time for the task allocation.
+        task (Task):
+            The task to allocate.
+        machine (Machine):
+            The machine to allocate the task to.
+        machine_intervals (dict[str, list[tuple[int, int]]]):
+            The machine intervals to allocate the task within.
+    """
+    interval_idx: int = -1
+    start: int = 0
+    end: int = 0
+    for start, end in machine_intervals[machine.id]:
+        if start <= start_time and end >= start_time + task.processing_time:
+            interval_idx = machine_intervals[machine.id].index((start, end))
+            break
+
+    end_time = start_time + task.processing_time
+    if start == start_time and end == end_time:
+        machine_intervals[machine.id].pop(interval_idx)
+    elif start == start_time:
+        machine_intervals[machine.id][interval_idx] = (end_time, end)
+    elif end == end_time:
+        machine_intervals[machine.id][interval_idx] = (start, start_time)
+    else:
+        machine_intervals[machine.id][interval_idx] = (start, start_time)
+        machine_intervals[machine.id].insert(interval_idx + 1, (end_time, end))
+
+
 def _allocate_task(
     start_time: int,
     task: Task,
@@ -95,35 +134,7 @@ def _allocate_task(
         ScheduledTask:
             The scheduled task allocation.
     """
-    # find the selected interval
-    interval_idx: int = -1
-    start: int = 0
-    end: int = 0
-    for start, end in machine_intervals[machine.id]:
-        if start <= start_time and end >= start_time + task.processing_time:
-            interval_idx = machine_intervals[machine.id].index((start, end))
-            break
-
-    # if the interval is exactly the same as the task's time, remove it
-    end_time = start_time + task.processing_time
-    if start == start_time and end == end_time:
-        machine_intervals[machine.id].pop(interval_idx)
-
-    # if the start of the interval is equal to the task's start time, reduce its
-    # length.
-    elif start == start_time:
-        machine_intervals[machine.id][interval_idx] = (end_time, end)
-
-    # if the end of the interval is equal to the task's end time, reduce its
-    # length.
-    elif end == end_time:
-        machine_intervals[machine.id][interval_idx] = (start, start_time)
-
-    # if the task is contained within the interval, split the interval
-    else:
-        machine_intervals[machine.id][interval_idx] = (start, start_time)
-        machine_intervals[machine.id].insert(interval_idx + 1, (end_time, end))
-
+    _perform_task_interval_allocation(start_time, task, machine, machine_intervals)
     return ScheduledTask(
         start_time=start_time,
         end_time=start_time + task.processing_time,
@@ -289,7 +300,8 @@ def _schedule_by_order(
         # After checking all suitable machines, ensure a machine was found. If
         # not, it means the task cannot be scheduled within the given horizon or
         # constraints.
-        assert selected_machine, f"No suitable machine found for task: {task.id}"
+        if not selected_machine:
+            raise ValueError(f"No suitable machine found for task: {task.id}")
 
         # Allocate the task to the selected machine with its determined start
         # time. This also updates the machine's availability intervals.
