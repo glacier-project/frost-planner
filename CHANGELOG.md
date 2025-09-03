@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.0 - 2025-09-03
+
+- [477ac0c] refactor(generator): Explicitly initialize all InstanceConfiguration parameters
+- [043c9ea] refactor(instance-handling): Standardize JSON loading/saving and refine CLI output
+- [5b3ddee] documentation: Update README.md with installation, example, and documentation details
+- [ef79d8f] chore: Relocate generated instances to data directory and cleanup resources
+- [2f989a4] style(generator): Ensure dump_configuration lines are below 80 chars
+- [6e5229d] style(visualization): Use custom print functions from utils
+- [0fc9ab8] feature(utils): Add crule function for printing rules
+- [f98f4f4] refactor(core): Rename job_id to id and freeze base models
+- [4a828a3] refactor(solver): Adapt solver to use SchedulingInstance.get_suitable_machines and other fixes
+- [22dc094] refactor(base, solver): Remove machines from Task and move get_suitable_machines to SchedulingInstance
+- [69756e6] refactor(schedule): Add Schedule modification methods
+- [3825a33] style(base): Remove extra newlines in frost_sheet/core/base.py
+- [6518c63] fix(tests): Provide configuration to InstanceGenerator in test_dummy_solver
+- [cadb4e6] fix(solver): Remove Task.start_time/end_time usage in _get_machine_intervals_for_task
+- [54f1691] refactor(examples, metrics): Use Schedule job time queries
+- [cbb293a] feat(schedule): Add job time query methods to Schedule
+- [f60937e] refactor(base): Remove scheduled time attributes from Task and Job definitions
+- [49b95cf] feat(metrics): Implement job-level metrics and display in simple_job_shop.py
+- [746eb83] feature(job): Add due_date to Job and instance generation
+- [43656b2] feature(visualization): Add instance visualization with DOT export
+- [7d51136] refactor(examples): Sort tasks by start time in simple_job_shop.py output
+
 ## 0.1.0 - 2025-09-02
 
 - [f6b9cc3] chore(resources): update generated instances
