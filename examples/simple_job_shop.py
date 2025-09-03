@@ -5,6 +5,7 @@ from frost_sheet.core.base import SchedulingInstance
 from frost_sheet.solver.base_solver import BaseSolver
 from frost_sheet.solver.dummy_solver import DummySolver
 from frost_sheet.solver.stochastic_solver import StochasticSolver
+from frost_sheet.solver.genetic_solver import GeneticAlgorithmSolver
 from frost_sheet.visualization.gantt import plot_gantt_chart
 from frost_sheet.utils import cprint, cerror
 from frost_sheet.core.metrics import (
@@ -37,7 +38,7 @@ def parse_args() -> argparse.Namespace:
         "--solver",
         type=str,
         default="dummy",
-        choices=["dummy", "stochastic"],
+        choices=["dummy", "stochastic", "genetic"],
         help="Solver to use for scheduling",
     )
     return parser.parse_args()
@@ -155,6 +156,8 @@ def main() -> None:
     solver: BaseSolver
     if args.solver == "dummy":
         solver = DummySolver(instance=instance)
+    elif args.solver == "genetic":
+        solver = GeneticAlgorithmSolver(instance=instance)
     else:
         solver = StochasticSolver(instance=instance)
 
