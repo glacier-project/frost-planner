@@ -1,7 +1,9 @@
 import subprocess
 import os
-import sys  # Needed for sys.stderr
+import sys
+
 from frost_sheet.core.base import SchedulingInstance
+from frost_sheet.utils import cerror, cprint
 
 
 def export_instance_to_dot(instance: SchedulingInstance) -> str:
@@ -71,19 +73,19 @@ def render_dot_to_file(
             capture_output=True,
             check=True,
         )
-        print(f"Successfully rendered graph to {output_path}")
+        cprint(f"Successfully rendered graph to {output_path}", style="yellow")
     except FileNotFoundError:
-        print(
+        cerror(
             "Error: 'dot' command not found. Please install Graphviz.",
             file=sys.stderr,
         )
-        print(
+        cerror(
             "You can download it from: https://graphviz.org/download/",
             file=sys.stderr,
         )
     except subprocess.CalledProcessError as e:
-        print(f"Error rendering graph: {e}", file=sys.stderr)
-        print(f"Stdout: {e.stdout.decode('utf-8')}", file=sys.stderr)
-        print(f"Stderr: {e.stderr.decode('utf-8')}", file=sys.stderr)
+        cerror(f"Error rendering graph: {e}", file=sys.stderr)
+        cerror(f"Stdout: {e.stdout.decode('utf-8')}", file=sys.stderr)
+        cerror(f"Stderr: {e.stderr.decode('utf-8')}", file=sys.stderr)
     except Exception as e:
-        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        cerror(f"An unexpected error occurred: {e}", file=sys.stderr)
