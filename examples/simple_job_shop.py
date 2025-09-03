@@ -187,7 +187,8 @@ def main() -> None:
     dump_metrics(solution, instance)
 
     if args.gantt:
-        plot_gantt_chart(solution)
+        cprint("Plotting Gantt chart and saving to file...", style="yellow")
+        plot_gantt_chart(solution, output_path="data/gantt_chart.png")
 
 
 if __name__ == "__main__":
