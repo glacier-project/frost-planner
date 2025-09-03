@@ -7,6 +7,11 @@ from frost_sheet.solver.dummy_solver import DummySolver
 from frost_sheet.solver.stochastic_solver import StochasticSolver
 from frost_sheet.visualization.gantt import plot_gantt_chart
 from frost_sheet.utils import cprint, cerror
+from frost_sheet.core.metrics import (
+    calculate_makespan,
+    calculate_total_flow_time,
+    calculate_lateness,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -71,11 +76,21 @@ def dump_schedule(
     solution: Schedule,
     instance: SchedulingInstance,
 ) -> None:
+    """
+    Dumps the schedule information for the given solution and instance.
+
+    Args:
+        solution (Schedule):
+            The generated schedule.
+        instance (SchedulingInstance):
+            The original scheduling instance.
+    """
+
     jobs = instance.jobs
 
     cprint("[bold green]Generated Schedule:[/bold green]")
     for job in jobs:
-        cprint(f"  [bold blue]Job {job.name}:[/bold blue]")
+        cprint(f"  [bold blue]Job {job.name} (Due Date: {job.due_date}):[/bold blue]")
         prev_st: ScheduledTask | None = None
         scheduled_tasks: list[ScheduledTask] = []
         for task in job.tasks:
@@ -101,6 +116,36 @@ def dump_schedule(
                     )
             cprint(f"    [cyan]{scheduled_task_to_str(st)}[/cyan]")
             prev_st = st
+
+
+def dump_metrics(
+    solution: Schedule,
+    instance: SchedulingInstance,
+) -> None:
+    """
+    Dumps the scheduling metrics for the given solution and instance.
+
+    Args:
+        solution (Schedule):
+            The generated schedule.
+        instance (SchedulingInstance):
+            The original scheduling instance.
+    """
+    # Compute the schedule metrics.
+    makespan = calculate_makespan(solution)
+    total_flow_time = calculate_total_flow_time(solution)
+    lateness_by_job = calculate_lateness(solution, instance)
+    # Display the schedule metrics.
+    cprint("\n[bold blue]Schedule Metrics:[/bold blue]")
+    cprint(f"  [bold blue]Makespan:[/bold blue] {makespan}")
+    cprint(f"  [bold blue]Total Flow Time:[/bold blue] {total_flow_time}")
+    cprint("  [bold blue]Lateness by Job:[/bold blue]")
+    for job_name, lateness in lateness_by_job.items():
+        cprint(f"    [bold blue]{job_name}:[/bold blue]", end=" ")
+        if lateness > 0:
+            cprint(f"[red]{lateness} (Late)[/red]")
+        else:
+            cprint(f"[green]{lateness} (On Time)[/green]")
 
 
 def main() -> None:
@@ -133,6 +178,8 @@ def main() -> None:
         cerror("  Generated schedule is invalid.")
     else:
         cprint("  Generated schedule is valid.", style="bold green")
+
+    dump_metrics(solution, instance)
 
     if args.gantt:
         plot_gantt_chart(solution)
