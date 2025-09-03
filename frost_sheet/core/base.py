@@ -1,3 +1,4 @@
+from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -70,6 +71,30 @@ class Task(BaseModel):
 
     def __repr__(self) -> str:
         return self.__str__()
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.id,
+                self.name,
+                self.processing_time,
+                tuple(self.dependencies),
+                tuple(self.requires),
+                self.priority,
+            )
+        )
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Task):
+            raise TypeError("Comparisons must be between Task instances.")
+        return (
+            self.id == other.id
+            and self.name == other.name
+            and self.processing_time == other.processing_time
+            and self.dependencies == other.dependencies
+            and self.requires == other.requires
+            and self.priority == other.priority
+        )
 
 
 class Job(BaseModel):
@@ -146,6 +171,28 @@ class Job(BaseModel):
     def __repr__(self) -> str:
         return self.__str__()
 
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.id,
+                self.name,
+                tuple(t.id for t in self.tasks),
+                self.priority,
+                self.due_date,
+            )
+        )
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Job):
+            raise TypeError("Comparisons must be between Job instances.")
+        return (
+            self.id == other.id
+            and self.name == other.name
+            and self.tasks == other.tasks
+            and self.priority == other.priority
+            and self.due_date == other.due_date
+        )
+
 
 class Machine(BaseModel):
     """
@@ -180,6 +227,24 @@ class Machine(BaseModel):
 
     def __repr__(self) -> str:
         return self.__str__()
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.id,
+                self.name,
+                tuple(self.capabilities),
+            )
+        )
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Machine):
+            raise TypeError("Comparisons must be between Machine instances.")
+        return (
+            self.id == other.id
+            and self.name == other.name
+            and self.capabilities == other.capabilities
+        )
 
 
 class SchedulingInstance(BaseModel):
@@ -307,7 +372,9 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
         list[Task]:
             The sorted list of tasks.
     """
-    # nodes = {n.id: n for n in tasks}
+    if not tasks:
+        return []
+
     incoming_edges = {m.id: [dep for dep in m.dependencies] for m in tasks}
     neighbors = {n.id: [m for m in tasks if n.id in m.dependencies] for n in tasks}
 
@@ -315,24 +382,21 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
     stack = [task for task in tasks if not task.dependencies]
 
     if not stack:
-        # If there are no tasks without dependencies, the graph is not a DAG
-        raise ValueError("At least one task must have no dependencies")
+        raise ValueError(
+            "Graph has no tasks without dependencies, indicating a cycle or an invalid DAG."
+        )
 
     while stack:
         task = stack.pop()
         sorted_tasks.append(task)
 
-        # iterate over all outgoing edges
         for neighbor in neighbors[task.id]:
-            # remove the edge from the graph
             incoming_edges[neighbor.id].remove(task.id)
 
-            # add neighbor to the stack if it has no other incoming edges
             if not incoming_edges[neighbor.id]:
                 stack.append(neighbor)
 
-    # if there are edges left, then we have a cycle
-    if len(sorted_tasks) != len(tasks):  # any(neighbors.values())
+    if len(sorted_tasks) != len(tasks):
         raise ValueError("Graph is not a DAG, it contains at least one cycle")
 
     return sorted_tasks
