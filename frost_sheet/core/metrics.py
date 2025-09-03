@@ -1,5 +1,5 @@
 from frost_sheet.core.schedule import Schedule
-from frost_sheet.core.base import SchedulingInstance, Job
+from frost_sheet.core.base import SchedulingInstance
 
 
 def calculate_makespan(schedule: Schedule) -> float:
@@ -42,28 +42,6 @@ def calculate_total_flow_time(schedule: Schedule) -> float:
     return total_flow_time
 
 
-def _get_job_completion_time(job: Job, schedule: Schedule) -> float:
-    """
-    Determines the actual completion time of a job from the schedule.
-
-    Args:
-        job (Job):
-            The job to find the completion time for.
-        schedule (Schedule):
-            The schedule containing the scheduled tasks.
-
-    Returns:
-        float:
-            The completion time of the job, or 0.0 if no tasks are scheduled.
-    """
-    max_end_time = 0.0
-    for task_in_job in job.tasks:
-        scheduled_task = schedule.get_task_mapping(task_in_job)
-        if scheduled_task:
-            max_end_time = max(max_end_time, float(scheduled_task.end_time))
-    return max_end_time
-
-
 def calculate_lateness(
     schedule: Schedule,
     instance: SchedulingInstance,
@@ -84,7 +62,7 @@ def calculate_lateness(
     lateness_by_job = {}
     for job in instance.jobs:
         if job.due_date is not None:
-            job_completion_time = _get_job_completion_time(job, schedule)
+            job_completion_time = schedule.get_job_end_time(job)
             lateness = float(job_completion_time - job.due_date)
             lateness_by_job[job.name] = lateness
     return lateness_by_job
@@ -135,7 +113,7 @@ def calculate_num_tardy_jobs(
     tardy_jobs_count = 0
     for job in instance.jobs:
         if job.due_date is not None:
-            job_completion_time = _get_job_completion_time(job, schedule)
+            job_completion_time = schedule.get_job_end_time(job)
             if job_completion_time > job.due_date:
                 tardy_jobs_count += 1
     return tardy_jobs_count

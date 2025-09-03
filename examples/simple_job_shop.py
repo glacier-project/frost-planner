@@ -90,7 +90,12 @@ def dump_schedule(
 
     cprint("[bold green]Generated Schedule:[/bold green]")
     for job in jobs:
-        cprint(f"  [bold blue]Job {job.name} (Due Date: {job.due_date}):[/bold blue]")
+        job_start_time = solution.get_job_start_time(job)
+        job_end_time = solution.get_job_end_time(job)
+        cprint(
+            f"  [bold blue]Job {job.name} (Due Date: {job.due_date}, "
+            f"Start: {job_start_time}, End: {job_end_time}):[/bold blue]"
+        )
         prev_st: ScheduledTask | None = None
         scheduled_tasks: list[ScheduledTask] = []
         for task in job.tasks:
