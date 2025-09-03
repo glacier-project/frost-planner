@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
-from frost_sheet.core.base import Task, Machine
+from frost_sheet.core.base import Task, Machine, Job
 
 
 class ScheduledTask(BaseModel):
@@ -89,6 +89,42 @@ class Schedule(BaseModel):
                 if st.task == task:
                     return st
         return None
+
+    def get_job_start_time(self, job: Job) -> float:
+        """
+        Calculates the earliest start time of a job from the schedule.
+
+        Args:
+            job (Job): The job to find the start time for.
+
+        Returns:
+            float: The earliest start time of the job, or 0.0 if no tasks are scheduled.
+        """
+        earliest_start = float("inf")
+        found_task = False
+        for task_in_job in job.tasks:
+            scheduled_task = self.get_task_mapping(task_in_job)
+            if scheduled_task:
+                earliest_start = min(earliest_start, float(scheduled_task.start_time))
+                found_task = True
+        return earliest_start if found_task else 0.0
+
+    def get_job_end_time(self, job: Job) -> float:
+        """
+        Calculates the latest end time of a job from the schedule.
+
+        Args:
+            job (Job): The job to find the end time for.
+
+        Returns:
+            float: The latest end time of the job, or 0.0 if no tasks are scheduled.
+        """
+        latest_end = 0.0
+        for task_in_job in job.tasks:
+            scheduled_task = self.get_task_mapping(task_in_job)
+            if scheduled_task:
+                latest_end = max(latest_end, float(scheduled_task.end_time))
+        return latest_end
 
     def __str__(self) -> str:
         return f"Schedule(machines={self.machines}, schedule={self.mapping})"
