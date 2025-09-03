@@ -114,8 +114,6 @@ class Job(BaseModel):
         description="The due date for the job. If the job finishes after this date, it is considered tardy.",
     )
 
-
-
     @model_validator(mode="after")
     def _validate_tasks(self) -> "Job":
         """
