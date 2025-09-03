@@ -35,46 +35,6 @@ class BaseSolver(ABC):
         """
         return {machine.id: [(0, self.horizon)] for machine in self.instance.machines}
 
-    def _get_suitable_machines(self, task: Task) -> list[Machine]:
-        """
-        Finds all suitable machines for the given task based on its
-        requirements.
-
-        Args:
-            task (Task):
-                The task to find suitable machines for.
-
-        Returns:
-            list[Machine]:
-                A list of machines that can execute the task.
-        """
-        suitable_machines: list[Machine] = []
-        machines = self.instance.machines
-        for m in machines:
-            # A machine is suitable if it has ALL required capabilities
-            if all(req in m.capabilities for req in task.requires):
-                suitable_machines.append(m)
-        return suitable_machines
-
-    def _set_machines_for_task(
-        self, task: Task, machines: list[Machine] | None = None
-    ) -> None:
-        """
-        Sets the machines for a given task.
-
-        Args:
-            task (Task):
-                The task to set machines for.
-            machines (list[Machine] | None):
-                The list of machines to assign to the task.
-        """
-        if machines is None:
-            machines = self._get_suitable_machines(task)
-
-        assert all([machine in machines for machine in machines])
-
-        task.machines = [m.id for m in machines]
-
     def _allocate_task(
         self,
         start_time: int,
@@ -160,10 +120,6 @@ class BaseSolver(ABC):
             Schedule:
                 The schedule created by the scheduling algorithm.
         """
-        tasks = [task for job in self.instance.jobs for task in job.tasks]
-        for task in tasks:
-            if not task.machines:
-                self._set_machines_for_task(task)
         machine_intervals = self._create_machine_intervals()
         scheduled_tasks = self._allocate_tasks(machine_intervals)
 
