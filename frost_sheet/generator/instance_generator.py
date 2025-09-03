@@ -2,6 +2,7 @@ import random
 import uuid
 from dataclasses import dataclass
 from frost_sheet.core.base import Job, Task, Machine, SchedulingInstance, _sort_tasks
+from frost_sheet.utils import cprint, crule
 
 
 @dataclass
@@ -307,3 +308,57 @@ class InstanceGenerator:
                     configuration.max_travel_time,
                 )
         return travel_times
+
+
+def dump_configuration(config: InstanceConfiguration) -> None:
+    """
+    Dump the instance configuration to the console.
+
+    Args:
+        config (InstanceConfiguration): The configuration to dump.
+    """
+    crule("Instance Configuration", style="magenta")
+    cprint(
+        f"  Jobs: num_jobs={config.num_jobs}, "
+        f"priority=[{config.min_job_priority}-{config.max_job_priority}], "
+        f"due_date_offset=[{config.min_job_due_date_offset}-"
+        f"{config.max_job_due_date_offset}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Tasks per Job: [{config.min_tasks_per_job}-{config.max_tasks_per_job}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Machines: num_machines={config.num_machines}, "
+        f"num_capabilities={config.num_machine_capabilities}, "
+        f"machine_capabilities_per_machine=["
+        f"{config.min_machine_capabilities_per_machine}-"
+        f"{config.max_machine_capabilities_per_machine}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Processing Time: [{config.min_processing_time}-{config.max_processing_time}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Task Dependencies: without_dependencies=["
+        f"{config.min_task_without_dependencies}-"
+        f"{config.max_task_without_dependencies}], "
+        f"dependencies=[{config.min_task_dependencies}-"
+        f"{config.max_task_dependencies}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Task Capabilities: [{config.min_task_capabilities}-{config.max_task_capabilities}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Task Priority: [{config.min_task_priority}-{config.max_task_priority}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Travel Time: [{config.min_travel_time}-{config.max_travel_time}]",
+        style="magenta",
+    )
+    crule("", style="magenta")
