@@ -1,5 +1,5 @@
 from typing import Any
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 
 
 class Task(BaseModel):
@@ -135,29 +135,36 @@ class Job(BaseModel):
         description="The due date for the job. If the job finishes after this date, it is considered tardy.",
     )
 
-    @model_validator(mode="after")
-    def _validate_tasks(self) -> "Job":
+    @field_validator("tasks", mode="after")
+    def _validate_tasks(cls, tasks: list[Task]) -> list[Task]:
         """
         Validates the tasks in the job.
 
+        Args:
+            tasks (list[Task]):
+                The list of tasks to validate.
+
         Returns:
-            Job:
-                The validated job instance.
+            list[Task]:
+                The validated list of tasks.
 
         Raises:
             ValueError:
                 If any task IDs are duplicated.
         """
+        # Sort and verify that tasks form a DAG
+        tasks = _sort_tasks(tasks)
+
         # Make sure all task IDs are unique.
         task_ids = set()
-        for t in self.tasks:
+        for t in tasks:
             if t.id in task_ids:
                 raise ValueError(
                     f"Task IDs must be unique inside a job. "
                     f"Task ID {t.id} is duplicated."
                 )
             task_ids.add(t.id)
-        return self
+        return tasks
 
     def __str__(self) -> str:
         return (
