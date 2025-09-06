@@ -1,66 +1,83 @@
+from typing import Any
+from unittest.mock import patch
+
 import pytest
 from pydantic import ValidationError
+
+from frost_sheet.core.base import Job, Machine, SchedulingInstance, Task
+from frost_sheet.core.schedule import Schedule, ScheduledTask
 from frost_sheet.core.validate import (
-    _validate_scheduled_task_times,
-    _validate_machine_assignments,
-    _validate_machine_task_overlaps,
     _validate_all_instance_tasks_scheduled,
+    _validate_machine_assignments,
     _validate_machine_capabilities,
+    _validate_machine_task_overlaps,
+    _validate_scheduled_task_times,
     _validate_task_dependencies,
     validate_schedule,
 )
-from frost_sheet.core.schedule import Schedule, ScheduledTask
-from frost_sheet.core.base import Task, Machine, Job, SchedulingInstance
-from unittest.mock import patch
 
 
 # Fixtures for common objects
 @pytest.fixture
-def sample_task():
+def sample_task() -> Task:
     return Task(id="T1", name="Task 1", processing_time=10)
 
 
 @pytest.fixture
-def sample_machine():
+def sample_machine() -> Machine:
     return Machine(id="M1", name="Machine 1", capabilities=["cutting"])
 
 
 @pytest.fixture
-def mock_cerror():
+def mock_cerror() -> Any:
     with patch("frost_sheet.core.validate.cerror") as mock:
         yield mock
 
 
 @pytest.fixture
-def sample_scheduled_task(sample_task, sample_machine):
+def sample_scheduled_task(
+    sample_task: Task,
+    sample_machine: Machine,
+) -> ScheduledTask:
     return ScheduledTask(
         start_time=0, end_time=10, task=sample_task, machine=sample_machine
     )
 
 
 @pytest.fixture
-def sample_schedule(sample_scheduled_task, sample_machine):
+def sample_schedule(
+    sample_scheduled_task: ScheduledTask,
+    sample_machine: Machine,
+) -> Schedule:
     schedule = Schedule(machines=[sample_machine])
     schedule.add_scheduled_task(sample_scheduled_task)
     return schedule
 
 
 @pytest.fixture
-def sample_job(sample_task):
+def sample_job(sample_task: Task) -> Job:
     return Job(id="J1", name="Job 1", tasks=[sample_task])
 
 
 @pytest.fixture
-def sample_instance(sample_job, sample_machine):
+def sample_instance(
+    sample_job: Job,
+    sample_machine: Machine,
+) -> SchedulingInstance:
     return SchedulingInstance(jobs=[sample_job], machines=[sample_machine])
 
 
 # Tests for _validate_scheduled_task_times
-def test_validate_scheduled_task_times_valid(sample_scheduled_task):
+def test_validate_scheduled_task_times_valid(
+    sample_scheduled_task: ScheduledTask,
+) -> None:
     assert _validate_scheduled_task_times(sample_scheduled_task) is True
 
 
-def test_scheduled_task_constructor_negative_start_time(sample_task, sample_machine):
+def test_scheduled_task_constructor_negative_start_time(
+    sample_task: Task,
+    sample_machine: Machine,
+) -> None:
     with pytest.raises(ValidationError):
         ScheduledTask(
             start_time=-1,
@@ -70,7 +87,10 @@ def test_scheduled_task_constructor_negative_start_time(sample_task, sample_mach
         )
 
 
-def test_scheduled_task_constructor_negative_end_time(sample_task, sample_machine):
+def test_scheduled_task_constructor_negative_end_time(
+    sample_task: Task,
+    sample_machine: Machine,
+) -> None:
     with pytest.raises(ValidationError):
         ScheduledTask(
             start_time=0,
@@ -80,7 +100,10 @@ def test_scheduled_task_constructor_negative_end_time(sample_task, sample_machin
         )
 
 
-def test_scheduled_task_constructor_start_end_mismatch(sample_task, sample_machine):
+def test_scheduled_task_constructor_start_end_mismatch(
+    sample_task: Task,
+    sample_machine: Machine,
+) -> None:
     with pytest.raises(ValueError):
         ScheduledTask(
             start_time=10,
@@ -90,7 +113,10 @@ def test_scheduled_task_constructor_start_end_mismatch(sample_task, sample_machi
         )
 
 
-def test_validate_scheduled_task_times_duration_mismatch(sample_task, sample_machine):
+def test_validate_scheduled_task_times_duration_mismatch(
+    sample_task: Task,
+    sample_machine: Machine,
+) -> None:
     with pytest.raises(ValidationError):
         ScheduledTask(
             start_time=0,
@@ -101,12 +127,17 @@ def test_validate_scheduled_task_times_duration_mismatch(sample_task, sample_mac
 
 
 # Tests for _validate_machine_assignments
-def test_validate_machine_assignments_valid(sample_schedule):
+def test_validate_machine_assignments_valid(
+    sample_schedule: Schedule,
+) -> None:
     assert _validate_machine_assignments(sample_schedule) is True
 
 
 # Tests for _validate_machine_task_overlaps
-def test_validate_machine_task_overlaps_valid(sample_task, sample_machine):
+def test_validate_machine_task_overlaps_valid(
+    sample_task: Task,
+    sample_machine: Machine,
+) -> None:
     scheduled_task1 = ScheduledTask(
         start_time=0,
         end_time=10,
@@ -126,10 +157,10 @@ def test_validate_machine_task_overlaps_valid(sample_task, sample_machine):
 
 
 def test_validate_machine_task_overlaps_invalid(
-    sample_task,
-    sample_machine,
-    mock_cerror,
-):
+    sample_task: Task,
+    sample_machine: Machine,
+    mock_cerror: Any,
+) -> None:
     scheduled_task1 = ScheduledTask(
         start_time=0,
         end_time=10,
@@ -151,15 +182,21 @@ def test_validate_machine_task_overlaps_invalid(
 
 
 # Tests for _validate_all_instance_tasks_scheduled
-def test_validate_all_instance_tasks_scheduled_valid(sample_schedule, sample_instance):
+def test_validate_all_instance_tasks_scheduled_valid(
+    sample_schedule: Schedule,
+    sample_instance: SchedulingInstance,
+) -> None:
     assert (
         _validate_all_instance_tasks_scheduled(sample_schedule, sample_instance) is True
     )
 
 
 def test_validate_all_instance_tasks_scheduled_missing_task(
-    sample_schedule, sample_job, sample_machine, mock_cerror
-):
+    sample_schedule: Schedule,
+    sample_job: Job,
+    sample_machine: Machine,
+    mock_cerror: Any,
+) -> None:
     task_missing = Task(id="T_missing", name="Missing Task", processing_time=5)
     instance = SchedulingInstance(
         jobs=[sample_job, Job(id="J_new", name="Job New", tasks=[task_missing])],
@@ -170,8 +207,11 @@ def test_validate_all_instance_tasks_scheduled_missing_task(
 
 
 def test_validate_all_instance_tasks_scheduled_extra_task(
-    sample_scheduled_task, sample_machine, sample_job, mock_cerror
-):
+    sample_scheduled_task: ScheduledTask,
+    sample_machine: Machine,
+    sample_job: Job,
+    mock_cerror: Any,
+) -> None:
     schedule = Schedule(machines=[sample_machine])
     schedule.add_scheduled_task(sample_scheduled_task)
 
@@ -188,14 +228,19 @@ def test_validate_all_instance_tasks_scheduled_extra_task(
 
 
 # Tests for _validate_machine_capabilities
-def test_validate_machine_capabilities_valid(sample_scheduled_task, sample_machine):
+def test_validate_machine_capabilities_valid(
+    sample_scheduled_task: ScheduledTask,
+    sample_machine: Machine,
+) -> None:
     schedule = Schedule(machines=[sample_machine])
     schedule.add_scheduled_task(sample_scheduled_task)
 
     assert _validate_machine_capabilities(schedule) is True
 
 
-def test_validate_machine_capabilities_valid_with_requirements(sample_machine):
+def test_validate_machine_capabilities_valid_with_requirements(
+    sample_machine: Machine,
+) -> None:
     task_req = Task(
         id="T_req", name="Task Req", processing_time=10, requires=["cutting"]
     )
@@ -207,7 +252,10 @@ def test_validate_machine_capabilities_valid_with_requirements(sample_machine):
     assert _validate_machine_capabilities(schedule) is True
 
 
-def test_validate_machine_capabilities_invalid(sample_machine, mock_cerror):
+def test_validate_machine_capabilities_invalid(
+    sample_machine: Machine,
+    mock_cerror: Any,
+) -> None:
     task_req = Task(
         id="T_req", name="Task Req", processing_time=10, requires=["welding"]
     )
@@ -221,7 +269,7 @@ def test_validate_machine_capabilities_invalid(sample_machine, mock_cerror):
 
 
 # Tests for _validate_task_dependencies
-def test_validate_task_dependencies_valid(sample_machine):
+def test_validate_task_dependencies_valid(sample_machine: Machine) -> None:
     task_a = Task(id="T_A", name="Task A", processing_time=5)
     task_b = Task(id="T_B", name="Task B", processing_time=5, dependencies=["T_A"])
 
@@ -243,7 +291,10 @@ def test_validate_task_dependencies_valid(sample_machine):
     assert _validate_task_dependencies(schedule, instance) is True
 
 
-def test_validate_task_dependencies_invalid_order(sample_machine, mock_cerror):
+def test_validate_task_dependencies_invalid_order(
+    sample_machine: Machine,
+    mock_cerror: Any,
+) -> None:
     task_a = Task(id="T_A", name="Task A", processing_time=5)
     task_b = Task(id="T_B", name="Task B", processing_time=5, dependencies=["T_A"])
 
@@ -266,7 +317,10 @@ def test_validate_task_dependencies_invalid_order(sample_machine, mock_cerror):
     mock_cerror.assert_called()
 
 
-def test_validate_task_dependencies_missing_dependent_task(sample_machine, mock_cerror):
+def test_validate_task_dependencies_missing_dependent_task(
+    sample_machine: Machine,
+    mock_cerror: Any,
+) -> None:
     task_a = Task(id="T_A", name="Task A", processing_time=5)
     task_b = Task(id="T_B", name="Task B", processing_time=5, dependencies=["T_A"])
 
@@ -286,8 +340,10 @@ def test_validate_task_dependencies_missing_dependent_task(sample_machine, mock_
 
 
 def test_validate_task_dependencies_travel_time_violation(
-    sample_task, sample_machine, mock_cerror
-):
+    sample_task: Task,
+    sample_machine: Machine,
+    mock_cerror: Any,
+) -> None:
     machine2 = Machine(id="M2", name="Machine 2")
     instance = SchedulingInstance(
         jobs=[Job(id="J1", name="J1", tasks=[sample_task])],
@@ -313,5 +369,8 @@ def test_validate_task_dependencies_travel_time_violation(
 
 
 # Tests for validate_schedule (integration)
-def test_validate_schedule_valid(sample_schedule, sample_instance):
+def test_validate_schedule_valid(
+    sample_schedule: Schedule,
+    sample_instance: SchedulingInstance,
+) -> None:
     assert validate_schedule(sample_schedule, sample_instance) is True

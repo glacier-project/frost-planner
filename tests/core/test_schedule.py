@@ -1,8 +1,8 @@
+from frost_sheet.core.base import Job, Machine, Task
 from frost_sheet.core.schedule import Schedule, ScheduledTask
-from frost_sheet.core.base import Task, Machine, Job
 
 
-def test_scheduled_task_instantiation():
+def test_scheduled_task_instantiation() -> None:
     """Test ScheduledTask instantiation."""
     task = Task(id="T1", name="Task 1", processing_time=10)
     machine = Machine(id="M1", name="Machine 1")
@@ -16,14 +16,14 @@ def test_scheduled_task_instantiation():
     assert scheduled_task.machine == machine
 
 
-def test_schedule_instantiation():
+def test_schedule_instantiation() -> None:
     """Test Schedule instantiation."""
     schedule = Schedule()
     assert schedule.machines == []
     assert schedule.mapping == {}
 
 
-def test_add_scheduled_task():
+def test_add_scheduled_task() -> None:
     """Test adding a scheduled task to the schedule."""
     task = Task(id="T1", name="Task 1", processing_time=10)
     machine = Machine(id="M1", name="Machine 1")
@@ -38,7 +38,7 @@ def test_add_scheduled_task():
     assert scheduled_task in schedule.get_machine_tasks(machine)
 
 
-def test_get_task_mapping():
+def test_get_task_mapping() -> None:
     """Test getting a scheduled task mapping."""
     task = Task(id="T1", name="Task 1", processing_time=10)
     machine = Machine(id="M1", name="Machine 1")
@@ -53,7 +53,7 @@ def test_get_task_mapping():
     assert retrieved_task == scheduled_task
 
 
-def test_get_task_mapping_not_found():
+def test_get_task_mapping_not_found() -> None:
     """Test getting a scheduled task mapping that does not exist."""
     task = Task(id="T1", name="Task 1", processing_time=10)
     schedule = Schedule()
@@ -62,7 +62,7 @@ def test_get_task_mapping_not_found():
     assert retrieved_task is None
 
 
-def test_get_job_start_time():
+def test_get_job_start_time() -> None:
     """Test getting the start time of a job."""
     task1 = Task(id="T1", name="Task 1", processing_time=5)
     task2 = Task(id="T2", name="Task 2", processing_time=7)
@@ -83,7 +83,7 @@ def test_get_job_start_time():
     assert schedule.get_job_start_time(job) == 0.0
 
 
-def test_get_job_start_time_no_tasks_scheduled():
+def test_get_job_start_time_no_tasks_scheduled() -> None:
     """Test getting the start time of a job with no scheduled tasks."""
     task1 = Task(id="T1", name="Task 1", processing_time=5)
     job = Job(id="J1", name="Job 1", tasks=[task1])
@@ -92,7 +92,7 @@ def test_get_job_start_time_no_tasks_scheduled():
     assert schedule.get_job_start_time(job) == 0.0
 
 
-def test_get_job_end_time():
+def test_get_job_end_time() -> None:
     """Test getting the end time of a job."""
     task1 = Task(id="T1", name="Task 1", processing_time=5)
     task2 = Task(id="T2", name="Task 2", processing_time=7)
@@ -113,7 +113,7 @@ def test_get_job_end_time():
     assert schedule.get_job_end_time(job) == 9.0
 
 
-def test_get_job_end_time_no_tasks_scheduled():
+def test_get_job_end_time_no_tasks_scheduled() -> None:
     """Test getting the end time of a job with no scheduled tasks."""
     task1 = Task(id="T1", name="Task 1", processing_time=5)
     job = Job(id="J1", name="Job 1", tasks=[task1])
@@ -122,7 +122,7 @@ def test_get_job_end_time_no_tasks_scheduled():
     assert schedule.get_job_end_time(job) == 0.0
 
 
-def test_remove_scheduled_task():
+def test_remove_scheduled_task() -> None:
     """Test removing a scheduled task from the schedule."""
     task = Task(id="T1", name="Task 1", processing_time=10)
     machine = Machine(id="M1", name="Machine 1")
@@ -138,7 +138,7 @@ def test_remove_scheduled_task():
     assert machine.id not in schedule.mapping
 
 
-def test_remove_scheduled_task_not_found():
+def test_remove_scheduled_task_not_found() -> None:
     """Test removing a scheduled task that is not in the schedule."""
     task = Task(id="T1", name="Task 1", processing_time=10)
     machine = Machine(id="M1", name="Machine 1")
@@ -154,7 +154,7 @@ def test_remove_scheduled_task_not_found():
     assert schedule.mapping == {}
 
 
-def test_update_scheduled_task_machine():
+def test_update_scheduled_task_machine() -> None:
     """Test updating the machine for a scheduled task."""
     task = Task(id="T1", name="Task 1", processing_time=10)
     machine1 = Machine(id="M1", name="Machine 1")

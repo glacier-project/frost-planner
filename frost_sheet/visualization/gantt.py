@@ -1,8 +1,8 @@
-import matplotlib
-from typing import Tuple
 
-import matplotlib.pyplot as plt
+import matplotlib
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+
 from frost_sheet.core.schedule import Schedule
 from frost_sheet.utils import cprint
 
@@ -14,7 +14,7 @@ C_PALETTE = "Pastel1"
 
 def plot_gantt_chart(
     solution: Schedule,
-    figsize: Tuple[int, int] = (12, 8),
+    figsize: tuple[int, int] = (12, 8),
     output_path: str | None = None,
 ) -> None:
     """
@@ -26,6 +26,7 @@ def plot_gantt_chart(
             resources.
         figsize (Tuple[int, int], optional):
             Figure size as (width, height). Defaults to (12, 8).
+
     """
     _, ax = plt.subplots(figsize=figsize)
 

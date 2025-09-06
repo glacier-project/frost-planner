@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, model_validator
-from frost_sheet.core.base import Task, Machine, Job
+
+from frost_sheet.core.base import Job, Machine, Task
 
 
 class ScheduledTask(BaseModel):
@@ -20,6 +21,7 @@ class ScheduledTask(BaseModel):
             The task being scheduled.
         machine_id (int):
             The identifier of the machine this task is scheduled on.
+
     """
 
     start_time: int = Field(
@@ -51,6 +53,7 @@ class ScheduledTask(BaseModel):
         Returns:
             ScheduledTask:
                 The validated scheduled task.
+
         """
         if self.end_time < self.start_time:
             raise ValueError("end_time must be greater than or equal to start_time")
@@ -85,6 +88,7 @@ class Schedule(BaseModel):
             The machines available for scheduling tasks.
         schedule (dict[int, list[ScheduledTask]]):
             A mapping of machine IDs to the tasks scheduled on them.
+
     """
 
     machines: list[Machine] = Field(
@@ -103,6 +107,7 @@ class Schedule(BaseModel):
         Returns:
             list[ScheduledTask]:
                 A list of all scheduled tasks in the schedule.
+
         """
         all_tasks: list[ScheduledTask] = []
         for tasks in self.mapping.values():
@@ -120,6 +125,7 @@ class Schedule(BaseModel):
         Returns:
             list[ScheduledTask]:
                 A list of scheduled tasks for the machine.
+
         """
         return self.mapping.get(machine.id, [])
 
@@ -134,6 +140,7 @@ class Schedule(BaseModel):
         Returns:
             ScheduledTask | None:
                 The scheduled task mapping or None if not found.
+
         """
         for scheduled_tasks in self.mapping.values():
             for st in scheduled_tasks:
@@ -152,6 +159,7 @@ class Schedule(BaseModel):
             float:
                 The earliest start time of the job, or 0.0 if no tasks are
                 scheduled.
+
         """
         earliest_start = float("inf")
         found_task = False
@@ -174,6 +182,7 @@ class Schedule(BaseModel):
             float:
                 The latest end time of the job, or 0.0 if no tasks are
                 scheduled.
+
         """
         latest_end = 0.0
         for task_in_job in job.tasks:
@@ -189,6 +198,7 @@ class Schedule(BaseModel):
         Args:
             scheduled_task (ScheduledTask):
                 The task to add.
+
         """
         machine_id = scheduled_task.machine.id
         if machine_id not in self.mapping:
@@ -202,6 +212,7 @@ class Schedule(BaseModel):
         Args:
             scheduled_task (ScheduledTask):
                 The task to remove.
+
         """
         machine_id = scheduled_task.machine.id
         if machine_id in self.mapping and scheduled_task in self.mapping[machine_id]:
@@ -222,6 +233,7 @@ class Schedule(BaseModel):
                 The task to update.
             new_machine (Machine):
                 The new machine for the task.
+
         """
         # Remove from old machine's list
         self.remove_scheduled_task(scheduled_task)

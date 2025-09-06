@@ -1,6 +1,7 @@
 import sys
 from abc import ABC, abstractmethod
-from frost_sheet.core.base import Task, Machine, SchedulingInstance
+
+from frost_sheet.core.base import Machine, SchedulingInstance, Task
 from frost_sheet.core.schedule import Schedule, ScheduledTask
 from frost_sheet.solver import _create_schedule, _perform_task_interval_allocation
 
@@ -14,6 +15,7 @@ class BaseSolver(ABC):
             The scheduling instance containing jobs and machines.
         horizon (int):
             The time horizon for the scheduling.
+
     """
 
     def __init__(
@@ -44,6 +46,7 @@ class BaseSolver(ABC):
             dict[str, list[tuple[int, int]]]:
                 A dictionary mapping machine IDs to their availability
                 intervals.
+
         """
         return {machine.id: [(0, self.horizon)] for machine in self.instance.machines}
 
@@ -70,6 +73,7 @@ class BaseSolver(ABC):
         Returns:
             ScheduledTask:
                 The scheduled task after allocation.
+
         """
         _perform_task_interval_allocation(start_time, task, machine, machine_intervals)
         return ScheduledTask(
@@ -90,11 +94,12 @@ class BaseSolver(ABC):
         Args:
             machine_intervals (dict[int, list[tuple[int, int]]]):
                 The availability intervals for each machine.
+
         Returns:
             list[ScheduledTask]:
                 The scheduled tasks after allocation.
+
         """
-        pass
 
     def schedule(self) -> Schedule:
         """
@@ -106,6 +111,7 @@ class BaseSolver(ABC):
         Returns:
             Schedule:
                 The schedule created by the scheduling algorithm.
+
         """
         machine_intervals = self._create_machine_intervals()
         scheduled_tasks = self._allocate_tasks(machine_intervals)

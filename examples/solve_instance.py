@@ -1,20 +1,21 @@
-import time
 import argparse
-from frost_sheet.core.schedule import Schedule, ScheduledTask
-from frost_sheet.core.validate import validate_schedule
+import time
+
 from frost_sheet.core.base import SchedulingInstance
-from frost_sheet.solver.base_solver import BaseSolver
-from frost_sheet.solver.dummy_solver import DummySolver
-from frost_sheet.solver.stochastic_solver import StochasticSolver
-from frost_sheet.solver.genetic_solver import GeneticAlgorithmSolver
-from frost_sheet.visualization.gantt import plot_gantt_chart
-from frost_sheet.utils import cprint, cerror, crule
 from frost_sheet.core.metrics import (
+    calculate_lateness,
     calculate_makespan,
     calculate_total_flow_time,
-    calculate_lateness,
 )
+from frost_sheet.core.schedule import Schedule, ScheduledTask
+from frost_sheet.core.validate import validate_schedule
 from frost_sheet.generator.instance_generator import load_instance_from_json
+from frost_sheet.solver.base_solver import BaseSolver
+from frost_sheet.solver.dummy_solver import DummySolver
+from frost_sheet.solver.genetic_solver import GeneticAlgorithmSolver
+from frost_sheet.solver.stochastic_solver import StochasticSolver
+from frost_sheet.utils import cerror, cprint, crule
+from frost_sheet.visualization.gantt import plot_gantt_chart
 
 
 def parse_args() -> argparse.Namespace:
@@ -54,6 +55,7 @@ def scheduled_task_to_str(st: ScheduledTask) -> str:
 
     Returns:
         str: The string representation of the scheduled task.
+
     """
     return (
         f"{st.task.name} scheduled on {st.machine.name}"
@@ -73,8 +75,8 @@ def dump_schedule(
             The generated schedule.
         instance (SchedulingInstance):
             The original scheduling instance.
-    """
 
+    """
     jobs = instance.jobs
 
     crule("Generated Schedule", style="blue")
@@ -125,6 +127,7 @@ def dump_metrics(
             The generated schedule.
         instance (SchedulingInstance):
             The original scheduling instance.
+
     """
     # Compute the schedule metrics.
     makespan = calculate_makespan(solution)
@@ -171,7 +174,9 @@ def main() -> None:
 
     dump_schedule(solution, instance)
 
-    cprint(f"Scheduling completed in {end_time - start_time:.4f} seconds.", style="green")
+    cprint(
+        f"Scheduling completed in {end_time - start_time:.4f} seconds.", style="green"
+    )
 
     cprint("Validating schedule...", style="yellow")
 

@@ -4,7 +4,8 @@ import uuid
 from dataclasses import dataclass
 
 from pydantic import ValidationError
-from frost_sheet.core.base import Job, Task, Machine, SchedulingInstance, _sort_tasks
+
+from frost_sheet.core.base import Job, Machine, SchedulingInstance, Task, _sort_tasks
 from frost_sheet.utils import cprint, crule
 
 
@@ -55,6 +56,7 @@ class InstanceGenerator:
             The specification for the instance to generate.
         seed (int):
             Random seed for reproducibility.
+
     """
 
     def __init__(self, seed: int | None = None):
@@ -76,6 +78,7 @@ class InstanceGenerator:
         Returns:
             SchedulingInstance:
                 The generated scheduling instance.
+
         """
         jobs, required_capability_combinations, all_capabilities = (
             self._generate_jobs_and_tasks(configuration)
@@ -106,6 +109,7 @@ class InstanceGenerator:
             tuple[list[Job], set[tuple[str, ...]], list[str]]:
                 A tuple containing the generated jobs, required capability
                 combinations, and all capabilities.
+
         """
         # Store all required capabilities.
         all_required_capabilities: set[str] = set()
@@ -226,6 +230,7 @@ class InstanceGenerator:
         Returns:
             list[Machine]:
                 A list of generated machines.
+
         """
         machines: list[Machine] = []
         generated_machine_capabilities: set[tuple[str, ...]] = set()
@@ -299,6 +304,7 @@ class InstanceGenerator:
             dict[str, dict[str, int]]:
                 A dictionary mapping each machine ID to another dictionary
                 mapping the IDs of other machines to their travel times.
+
         """
         travel_times: dict[str, dict[str, int]] = {}
         for m1 in machines:
@@ -320,6 +326,7 @@ def save_instance_to_json(instance: SchedulingInstance, file_path: str) -> None:
     Args:
         instance (SchedulingInstance): The scheduling instance to save.
         file_path (str): The path to the JSON file.
+
     """
     # Ensure the output directory exists.
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -350,14 +357,15 @@ def load_instance_from_json(file_path: str) -> SchedulingInstance:
             If there is an error reading the file.
         json.JSONDecodeError:
             If the file is not a valid JSON.
+
     """
     try:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             return SchedulingInstance.model_validate_json(f.read())
     except FileNotFoundError:
         raise FileNotFoundError(f"File not found: {file_path}")
-    except (IOError, ValidationError) as e:
-        raise IOError(f"Error reading file {file_path}: {e}")
+    except (OSError, ValidationError) as e:
+        raise OSError(f"Error reading file {file_path}: {e}")
 
 
 def dump_configuration(config: InstanceConfiguration) -> None:
@@ -366,6 +374,7 @@ def dump_configuration(config: InstanceConfiguration) -> None:
 
     Args:
         config (InstanceConfiguration): The configuration to dump.
+
     """
     crule("Instance Configuration", style="magenta")
     cprint(
@@ -388,7 +397,8 @@ def dump_configuration(config: InstanceConfiguration) -> None:
         style="magenta",
     )
     cprint(
-        f"  Processing Time: [{config.min_processing_time}-{config.max_processing_time}]",
+        f"  Processing Time: "
+        f"[{config.min_processing_time}-{config.max_processing_time}]",
         style="magenta",
     )
     cprint(
@@ -400,7 +410,8 @@ def dump_configuration(config: InstanceConfiguration) -> None:
         style="magenta",
     )
     cprint(
-        f"  Task Capabilities: [{config.min_task_capabilities}-{config.max_task_capabilities}]",
+        f"  Task Capabilities: "
+        f"[{config.min_task_capabilities}-{config.max_task_capabilities}]",
         style="magenta",
     )
     cprint(

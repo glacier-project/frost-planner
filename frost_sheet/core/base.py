@@ -1,4 +1,3 @@
-from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -29,6 +28,7 @@ class Task(BaseModel):
             The start time of the task.
         end_time (int):
             The end time of the task.
+
     """
 
     model_config = {"frozen": True}
@@ -84,7 +84,7 @@ class Task(BaseModel):
             )
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Task):
             raise TypeError("Comparisons must be between Task instances.")
         return (
@@ -110,6 +110,7 @@ class Job(BaseModel):
             The tasks associated with the job.
         priority (int):
             The priority of the job. Lower values indicate higher priority.
+
     """
 
     model_config = {"frozen": True}
@@ -127,12 +128,14 @@ class Job(BaseModel):
     priority: int = Field(
         default=1,
         gt=0,
-        description="The priority of the job. Lower values indicate higher priority.",
+        description="The priority of the job. Lower values indicate "
+        "higher priority.",
     )
     due_date: int | None = Field(
         default=None,
         ge=0,
-        description="The due date for the job. If the job finishes after this date, it is considered tardy.",
+        description="The due date for the job. If the job finishes after "
+        "this date, it is considered tardy.",
     )
 
     @model_validator(mode="after")
@@ -147,6 +150,7 @@ class Job(BaseModel):
         Raises:
             ValueError:
                 If any task IDs are duplicated.
+
         """
         # Make sure all task IDs are unique.
         task_ids = set()
@@ -182,7 +186,7 @@ class Job(BaseModel):
             )
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Job):
             raise TypeError("Comparisons must be between Job instances.")
         return (
@@ -205,6 +209,7 @@ class Machine(BaseModel):
             The name of the machine.
         capabilities (list[str]):
             The capabilities of the machine (e.g., "cutting", "welding").
+
     """
 
     model_config = {"frozen": True}
@@ -237,7 +242,7 @@ class Machine(BaseModel):
             )
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Machine):
             raise TypeError("Comparisons must be between Machine instances.")
         return (
@@ -260,6 +265,7 @@ class SchedulingInstance(BaseModel):
         travel_times (dict[str, dict[str, int]]):
             The travel times between machines (source_machine_id ->
             {destination_machine_id -> time}).
+
     """
 
     model_config = {"frozen": True}
@@ -289,6 +295,7 @@ class SchedulingInstance(BaseModel):
         Returns:
             Machine | None:
                 The machine with the specified ID, or None if not found.
+
         """
         for machine in self.machines:
             if machine.id == id:
@@ -308,6 +315,7 @@ class SchedulingInstance(BaseModel):
         Returns:
             int:
                 The travel time between the two machines, or -1 if not found.
+
         """
         if m0.id == m1.id:
             return 0
@@ -332,6 +340,7 @@ class SchedulingInstance(BaseModel):
         Returns:
             list[Machine]:
                 A list of machines that can execute the task.
+
         """
         suitable_machines: list[Machine] = []
         for m in self.machines:
@@ -371,6 +380,7 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
     Returns:
         list[Task]:
             The sorted list of tasks.
+
     """
     if not tasks:
         return []
@@ -383,7 +393,8 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
 
     if not stack:
         raise ValueError(
-            "Graph has no tasks without dependencies, indicating a cycle or an invalid DAG."
+            "Graph has no tasks without dependencies, indicating a cycle "
+            "or an invalid DAG."
         )
 
     while stack:

@@ -1,12 +1,13 @@
+import argparse
+import os
+
 from frost_sheet.generator.instance_generator import (
-    InstanceGenerator,
     InstanceConfiguration,
+    InstanceGenerator,
     dump_configuration,
     save_instance_to_json,
 )
 from frost_sheet.utils import cprint
-import argparse
-import os
 
 EASY_CONFIG = InstanceConfiguration(
     num_jobs=3,

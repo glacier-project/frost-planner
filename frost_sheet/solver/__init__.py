@@ -1,7 +1,7 @@
 import sys
+
 from frost_sheet.core.base import Job, Machine, SchedulingInstance, Task
-from frost_sheet.core.schedule import ScheduledTask, Schedule
-from typing import Dict
+from frost_sheet.core.schedule import Schedule, ScheduledTask
 
 
 def _get_machine_intervals_for_task(
@@ -30,8 +30,8 @@ def _get_machine_intervals_for_task(
         dict[str, list[tuple[int, int]]]:
             A dictionary mapping machine IDs to their available time intervals
             for the task.
-    """
 
+    """
     s_intervals: dict[str, list[tuple[int, int]]] = {}
 
     # Get suitable machines for the task.
@@ -92,6 +92,7 @@ def _perform_task_interval_allocation(
             The machine to allocate the task to.
         machine_intervals (dict[str, list[tuple[int, int]]]):
             The machine intervals to allocate the task within.
+
     """
     interval_idx: int = -1
     start: int = 0
@@ -135,6 +136,7 @@ def _allocate_task(
     Returns:
         ScheduledTask:
             The scheduled task allocation.
+
     """
     _perform_task_interval_allocation(start_time, task, machine, machine_intervals)
     return ScheduledTask(
@@ -161,6 +163,7 @@ def _create_schedule(
     Returns:
         Schedule:
             The schedule created from the scheduled tasks and machines.
+
     """
     schedule = Schedule(machines=machines)
     for st in scheduled_tasks:
@@ -174,7 +177,7 @@ def _schedule_by_order(
     machines: list[Machine],
     machine_intervals: dict[str, list[tuple[int, int]]],
     horizon: int,
-    travel_times: Dict[str, Dict[str, int]],
+    travel_times: dict[str, dict[str, int]],
     machine_id_map: dict[str, Machine],
     suitable_machines_map: dict[str, list[Machine]],
 ) -> list[ScheduledTask]:
@@ -207,8 +210,8 @@ def _schedule_by_order(
         list[ScheduledTask]:
             A list of tasks that have been successfully scheduled, each with a
             determined start time, end time, and assigned machine.
-    """
 
+    """
     # Dictionary to store already scheduled tasks, keyed by their task_id. This
     # allows for quick lookup of dependency completion times.
     scheduled_tasks: dict[str, ScheduledTask] = {}
@@ -228,8 +231,7 @@ def _schedule_by_order(
             # The task can only start after its dependency has finished. We take
             # the maximum end time among all dependencies.
             start_time = scheduled_tasks[dep].end_time
-            if start_time > min_start_time:
-                min_start_time = start_time
+            min_start_time = max(min_start_time, start_time)
 
         # Initialize variables to track the best machine and its corresponding
         # start time for the current task.

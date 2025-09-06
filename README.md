@@ -68,6 +68,44 @@ For full API references, tutorials, and advanced usage guides, you can build the
 make html
 ```
 
+### Code formating using Black
+
+This project uses [Black](https://black.readthedocs.io/en/stable/) for code formatting.
+
+To format the code, run the following command from the project root:
+
+```bash
+black frost_sheet examples tests
+```
+
+### Linting with Ruff
+
+This project uses [Ruff](https://beta.ruff.rs/docs/) for linting and code formatting. Ruff is configured via the `pyproject.toml` file in the project root.
+
+To run the linter, execute the following command from the project root:
+
+```bash
+ruff check --fix frost_sheet examples tests
+```
+
+### Type Checking with MyPy
+
+This project uses [MyPy](https://mypy.readthedocs.io/en/stable/) for static type checking. MyPy is configured via the `pyproject.toml` file.
+
+To run type checks, execute the following command from the project root:
+
+```bash
+mypy frost_sheet examples tests
+```
+
+### Code Style Checking with Flake8
+
+This project uses [Flake8](https://flake8.pycqa.org/en/latest/) for code style checking.
+
+```bash
+flake8p frost_sheet examples tests
+```
+
 Then, open `docs/_build/html/index.html` in your web browser.
 
 ## 📜 License

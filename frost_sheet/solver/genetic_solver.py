@@ -1,11 +1,13 @@
-import sys
 import random
-from typing_extensions import override
-from frost_sheet.solver.base_solver import BaseSolver
-from frost_sheet.core.schedule import ScheduledTask
-from frost_sheet.core.base import Job, SchedulingInstance
-from frost_sheet.solver import _schedule_by_order
+import sys
 from copy import deepcopy
+
+from typing_extensions import override
+
+from frost_sheet.core.base import Job, SchedulingInstance
+from frost_sheet.core.schedule import ScheduledTask
+from frost_sheet.solver import _schedule_by_order
+from frost_sheet.solver.base_solver import BaseSolver
 
 
 class GeneticAlgorithmSolver(BaseSolver):
@@ -87,7 +89,7 @@ class GeneticAlgorithmSolver(BaseSolver):
         tournament_size = 5  # Example tournament size
         for _ in range(self.population_size):
             tournament_contenders = random.sample(
-                list(zip(population, fitnesses)), tournament_size
+                list(zip(population, fitnesses, strict=False)), tournament_size
             )
             # Select the individual with the minimum makespan (best fitness)
             winner = min(tournament_contenders, key=lambda x: x[1])[0]
@@ -143,11 +145,7 @@ class GeneticAlgorithmSolver(BaseSolver):
                 offspring2_segment_jobs.add(parent1[p1_idx])
                 p1_idx = (p1_idx + 1) % size
 
-        # Make sure offspring are valid permutations
-        assert all(job is not None for job in offspring1)
-        assert all(job is not None for job in offspring2)
-
-        return offspring1, offspring2
+        return offspring1, offspring2  # type: ignore[return-value]
 
     def _mutate(self, job_permutation: list[Job]) -> list[Job]:
         """
