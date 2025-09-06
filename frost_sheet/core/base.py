@@ -59,6 +59,9 @@ class Task(BaseModel):
     )
 
     def __str__(self) -> str:
+        """
+        Return string representation of the object.
+        """
         return (
             f"Task("
             f"id={self.id}, "
@@ -70,9 +73,15 @@ class Task(BaseModel):
         )
 
     def __repr__(self) -> str:
+        """
+        Return repr string for the object.
+        """
         return self.__str__()
 
     def __hash__(self) -> int:
+        """
+        Return hash value for the object.
+        """
         return hash(
             (
                 self.id,
@@ -85,6 +94,9 @@ class Task(BaseModel):
         )
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check equality with another object.
+        """
         if not isinstance(other, Task):
             msg = "Comparisons must be between Task instances."
             raise TypeError(msg)
@@ -145,12 +157,12 @@ class Job(BaseModel):
         Validates the tasks in the job.
 
         Returns:
-            Job:
-                The validated job instance.
+             Job:
+                 The validated job instance.
 
         Raises:
-            ValueError:
-                If any task IDs are duplicated.
+             ValueError:
+                 If any task IDs are duplicated.
 
         """
         # Make sure all task IDs are unique.
@@ -164,6 +176,9 @@ class Job(BaseModel):
         return self
 
     def __str__(self) -> str:
+        """
+        Return string representation of the object.
+        """
         return (
             f"Job("
             f"id={self.id}, "
@@ -173,9 +188,15 @@ class Job(BaseModel):
         )
 
     def __repr__(self) -> str:
+        """
+        Return repr string for the object.
+        """
         return self.__str__()
 
     def __hash__(self) -> int:
+        """
+        Return hash value for the object.
+        """
         return hash(
             (
                 self.id,
@@ -187,8 +208,12 @@ class Job(BaseModel):
         )
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check equality with another object.
+        """
         if not isinstance(other, Job):
-            raise TypeError("Comparisons must be between Job instances.")
+            msg = "Comparisons must be between Job instances."
+            raise TypeError(msg)
         return (
             self.id == other.id
             and self.name == other.name
@@ -226,14 +251,23 @@ class Machine(BaseModel):
     )
 
     def __str__(self) -> str:
+        """
+        Return string representation of the object.
+        """
         return (
             f"Machine(id={self.id}, name={self.name}, capabilities={self.capabilities})"
         )
 
     def __repr__(self) -> str:
+        """
+        Return repr string for the object.
+        """
         return self.__str__()
 
     def __hash__(self) -> int:
+        """
+        Return hash value for the object.
+        """
         return hash(
             (
                 self.id,
@@ -243,6 +277,9 @@ class Machine(BaseModel):
         )
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check equality with another object.
+        """
         if not isinstance(other, Machine):
             msg = "Comparisons must be between Machine instances."
             raise TypeError(msg)
@@ -285,12 +322,12 @@ class SchedulingInstance(BaseModel):
         "-> {destination_machine_id -> time}).",
     )
 
-    def get_machine(self, id: str) -> Machine | None:
+    def get_machine(self, machine_id: str) -> Machine | None:
         """
         Retrieves a machine by its ID.
 
         Args:
-            id (str):
+            machine_id (str):
                 The ID of the machine to retrieve.
 
         Returns:
@@ -299,7 +336,7 @@ class SchedulingInstance(BaseModel):
 
         """
         for machine in self.machines:
-            if machine.id == id:
+            if machine.id == machine_id:
                 return machine
         return None
 
@@ -332,15 +369,15 @@ class SchedulingInstance(BaseModel):
     def get_suitable_machines(self, task: Task) -> list[Machine]:
         """
         Finds all suitable machines for the given task based on its
-        requirements.
+         requirements.
 
         Args:
-            task (Task):
-                The task to find suitable machines for.
+             task (Task):
+                 The task to find suitable machines for.
 
         Returns:
-            list[Machine]:
-                A list of machines that can execute the task.
+             list[Machine]:
+                 A list of machines that can execute the task.
 
         """
         suitable_machines: list[Machine] = []
@@ -351,6 +388,9 @@ class SchedulingInstance(BaseModel):
         return suitable_machines
 
     def __str__(self) -> str:
+        """
+        Return string representation of the object.
+        """
         return (
             f"SchedulingInstance("
             f"jobs={self.jobs}, "
@@ -359,6 +399,9 @@ class SchedulingInstance(BaseModel):
         )
 
     def __repr__(self) -> str:
+        """
+        Return repr string for the object.
+        """
         return self.__str__()
 
 
