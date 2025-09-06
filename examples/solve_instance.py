@@ -32,7 +32,7 @@ def parse_args() -> argparse.Namespace:
         "-i",
         "--instance",
         type=str,
-        default="resources/instances/easy/instance_0.json",
+        default="data/instance_0.json",
         help="Instance configuration to use",
     )
     parser.add_argument(
