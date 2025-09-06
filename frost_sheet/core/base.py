@@ -380,12 +380,11 @@ class SchedulingInstance(BaseModel):
                  A list of machines that can execute the task.
 
         """
-        suitable_machines: list[Machine] = []
-        for m in self.machines:
-            # A machine is suitable if it has ALL required capabilities
-            if all(req in m.capabilities for req in task.requires):
-                suitable_machines.append(m)
-        return suitable_machines
+        return [
+            m
+            for m in self.machines
+            if all(req in m.capabilities for req in task.requires)
+        ]
 
     def __str__(self) -> str:
         """
@@ -428,7 +427,7 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
     if not tasks:
         return []
 
-    incoming_edges = {m.id: [dep for dep in m.dependencies] for m in tasks}
+    incoming_edges = {m.id: list(m.dependencies) for m in tasks}
     neighbors = {n.id: [m for m in tasks if n.id in m.dependencies] for n in tasks}
 
     sorted_tasks: list[Task] = []
