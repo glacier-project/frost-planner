@@ -86,7 +86,8 @@ class Task(BaseModel):
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Task):
-            raise TypeError("Comparisons must be between Task instances.")
+            msg = "Comparisons must be between Task instances."
+            raise TypeError(msg)
         return (
             self.id == other.id
             and self.name == other.name
@@ -156,10 +157,9 @@ class Job(BaseModel):
         task_ids = set()
         for t in self.tasks:
             if t.id in task_ids:
-                raise ValueError(
-                    f"Task IDs must be unique inside a job. "
-                    f"Task ID {t.id} is duplicated."
-                )
+                msg = "Task IDs must be unique inside a job. "
+                msg += f"Task ID {t.id} is duplicated."
+                raise ValueError(msg)
             task_ids.add(t.id)
         return self
 
@@ -244,7 +244,8 @@ class Machine(BaseModel):
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Machine):
-            raise TypeError("Comparisons must be between Machine instances.")
+            msg = "Comparisons must be between Machine instances."
+            raise TypeError(msg)
         return (
             self.id == other.id
             and self.name == other.name
@@ -320,12 +321,12 @@ class SchedulingInstance(BaseModel):
         if m0.id == m1.id:
             return 0
         if m0.id not in self.travel_times:
-            raise ValueError(f"No travel times defined for machine {m0.id}.")
+            msg = f"No travel times defined for machine {m0.id}."
+            raise ValueError(msg)
         travel_time = self.travel_times[m0.id].get(m1.id, None)
         if travel_time is None:
-            raise ValueError(
-                f"No travel times defined from machine {m0.id} to machine {m1.id}."
-            )
+            msg = f"No travel times defined from machine {m0.id} to machine {m1.id}."
+            raise ValueError(msg)
         return travel_time
 
     def get_suitable_machines(self, task: Task) -> list[Machine]:
@@ -370,8 +371,7 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
     graph (DAG).
 
     Args:
-        tasks (list[Task]):
-        The list of tasks to sort.
+        tasks (list[Task]): The list of tasks to sort.
 
     Raises:
         ValueError:
@@ -392,10 +392,11 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
     stack = [task for task in tasks if not task.dependencies]
 
     if not stack:
-        raise ValueError(
+        msg = (
             "Graph has no tasks without dependencies, indicating a cycle "
             "or an invalid DAG."
         )
+        raise ValueError(msg)
 
     while stack:
         task = stack.pop()
@@ -408,6 +409,7 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
                 stack.append(neighbor)
 
     if len(sorted_tasks) != len(tasks):
-        raise ValueError("Graph is not a DAG, it contains at least one cycle")
+        msg = "Graph is not a DAG, it contains at least one cycle"
+        raise ValueError(msg)
 
     return sorted_tasks
