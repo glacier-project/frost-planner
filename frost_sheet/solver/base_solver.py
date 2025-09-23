@@ -1,5 +1,6 @@
 import sys
 from abc import ABC, abstractmethod
+from copy import deepcopy
 
 from frost_sheet.core.base import Machine, SchedulingInstance, Task
 from frost_sheet.core.schedule import Schedule, ScheduledTask
@@ -22,6 +23,7 @@ class BaseSolver(ABC):
         self,
         instance: SchedulingInstance,
         horizon: int = sys.maxsize,
+        machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
     ) -> None:
         self.instance: SchedulingInstance = instance
         self.horizon: int = horizon
@@ -37,6 +39,8 @@ class BaseSolver(ABC):
             for job in self.instance.jobs
             for t in job.tasks
         }
+        self.machine_intervals = machine_intervals or self._create_machine_intervals()
+        self.locked_tasks: list[ScheduledTask] = []
 
     def _create_machine_intervals(self) -> dict[str, list[tuple[int, int]]]:
         """
@@ -101,6 +105,36 @@ class BaseSolver(ABC):
 
         """
 
+    def lock_tasks(self, tasks: list[ScheduledTask] | ScheduledTask) -> None:
+        """
+        Locks the specified tasks in the schedule, preventing them from being
+        rescheduled.
+
+        Args:
+            tasks (list[ScheduledTask] | ScheduledTask):
+                The list of tasks to lock.
+
+        """
+        if isinstance(tasks, ScheduledTask):
+           tasks = [tasks]
+
+        for task in tasks:
+            if task.machine.id not in self.machine_id_map:
+                raise ValueError(f"Machine {task.machine.id} not found in instance.")
+            if task.task.id not in self.task_id_map:
+                raise ValueError(f"Task {task.task.id} not found in instance.")
+            
+            machine = self.machine_id_map[task.machine.id]
+            original_task = self.task_id_map[task.task.id]
+
+            _perform_task_interval_allocation(
+                task.start_time,
+                original_task,
+                machine,
+                self.machine_intervals,
+            )
+        self.locked_tasks += tasks
+
     def schedule(self) -> Schedule:
         """
         Schedules the tasks on the machines.
@@ -113,8 +147,9 @@ class BaseSolver(ABC):
                 The schedule created by the scheduling algorithm.
 
         """
-        machine_intervals = self._create_machine_intervals()
+        machine_intervals = deepcopy(self.machine_intervals)
         scheduled_tasks = self._allocate_tasks(machine_intervals)
+        scheduled_tasks = self.locked_tasks + scheduled_tasks
 
         # create schedule from scheduled_tasks.
         return _create_schedule(

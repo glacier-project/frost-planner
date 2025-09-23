@@ -102,6 +102,16 @@ def _perform_task_interval_allocation(
             interval_idx = machine_intervals[machine.id].index((start, end))
             break
 
+        # Intervals are sorted, so we can break early
+        if start > start_time:
+            break
+
+    if interval_idx == -1:
+        raise ValueError(
+            f"Cannot place task {task.id} on machine {machine.id} at {start_time} "
+            f"for duration {task.processing_time}. No suitable interval found.",
+        )
+
     end_time = start_time + task.processing_time
     if start == start_time and end == end_time:
         machine_intervals[machine.id].pop(interval_idx)
