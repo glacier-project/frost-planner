@@ -32,11 +32,8 @@ class Task(BaseModel):
             The identifiers of the machines that can process this task.
         priority (int):
             The priority of the task. Lower values indicate higher priority.
-        start_time (int
-            The start time of the task.
-        end_time (int):
-            The end time of the task.
-
+        status (TaskStatus):
+            The current status of the task.
     """
 
     model_config = {"frozen": True}
