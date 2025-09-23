@@ -1,8 +1,8 @@
-from enum import StrEnum
+from enum import Enum
 from typing import Any
 from pydantic import BaseModel, Field, model_validator, field_validator
 
-class TaskStatus(StrEnum):
+class TaskStatus(str, Enum):
     WAITING = "WAITING"
     READY = "READY"
     IN_PROGRESS = "IN_PROGRESS"

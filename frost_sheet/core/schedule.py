@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, model_validator
 
-from frost_sheet.core.base import Job, Machine, Task
+from frost_sheet.core.base import Job, Machine, Task, TaskStatus
 
 
 class ScheduledTask(BaseModel):
@@ -129,13 +129,13 @@ class Schedule(BaseModel):
         """
         return self.mapping.get(machine.id, [])
 
-    def get_task_mapping(self, task: Task) -> ScheduledTask | None:
+    def get_task_mapping(self, task_or_id: Task | str) -> ScheduledTask | None:
         """
         Get the ScheduledTask mapping for a specific Task.
 
         Args:
-            task (Task):
-                The task to get the mapping for.
+            task_or_id (Task | str):
+                The task or its ID to get the mapping for.
 
         Returns:
             ScheduledTask | None:
@@ -144,7 +144,7 @@ class Schedule(BaseModel):
         """
         for scheduled_tasks in self.mapping.values():
             for st in scheduled_tasks:
-                if st.task == task:
+                if task_or_id in (st.task, st.task.id):
                     return st
         return None
 
@@ -241,6 +241,24 @@ class Schedule(BaseModel):
         scheduled_task.machine = new_machine
         # Add to new machine's list
         self.add_scheduled_task(scheduled_task)
+
+    def can_start(self, task: ScheduledTask) -> bool:
+        """
+        Checks if a ScheduledTask can start based on its dependencies.
+
+        Args:
+            task (ScheduledTask):
+                The task to check.
+        Returns:
+            bool:
+                True if the task can start, False otherwise.
+        """
+        for dependency in task.task.dependencies:
+            dependency_scheduled = self.get_task_mapping(dependency)
+
+            if dependency_scheduled is None or dependency_scheduled.task.status != TaskStatus.COMPLETED:
+                return False
+        return True
 
     def __str__(self) -> str:
         return f"Schedule(machines={self.machines}, schedule={self.mapping})"
