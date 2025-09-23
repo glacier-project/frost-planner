@@ -9,20 +9,18 @@ class BaseExecutor(ABC):
     
     Attributes:
         solver (BaseSolver): The solver used to generate the schedule.
-        instance (SchedulingInstance): The scheduling instance containing jobs and machines.
     """
     
-    def __init__(self, solver: BaseSolver, instance: SchedulingInstance):
+    def __init__(self, solver: BaseSolver):
         self.solver = solver
-        self.instance = instance
         self.schedule: Schedule | None = None
+        self.update_task_status()
 
     @abstractmethod
     def update_schedule(self) -> Schedule:
         """Update and return the current schedule."""
         pass
 
-    @abstractmethod
     def get_current_schedule(self) -> Schedule:
         """Get the current schedule."""
         if self.schedule is None:
@@ -37,7 +35,6 @@ class BaseExecutor(ABC):
             scheduled_task (ScheduledTask): The task that has been completed.
         """
         scheduled_task.task.status = TaskStatus.COMPLETED
-        self._update_task_status()
 
     def task_failed(self, scheduled_task: ScheduledTask) -> None:
         """Mark a task as failed and update the schedule accordingly.
@@ -55,24 +52,35 @@ class BaseExecutor(ABC):
         """
         scheduled_task.task.status = TaskStatus.IN_PROGRESS
 
-    def _update_task_status(self) -> None:
+    def update_task_status(self) -> None:
         """Update the status of all tasks in the schedule."""
-        schedule = self.get_current_schedule()
-        
-        for machine_tasks in schedule.mapping.values():
-            for scheduled_task in machine_tasks:
-                if scheduled_task.task.status != TaskStatus.WAITING:
+
+        instance = self.solver.instance
+        for job in instance.jobs:
+            for task in job.tasks:
+                if task.status != TaskStatus.WAITING:
                     continue
 
-                if schedule.can_start(scheduled_task):
-                    scheduled_task.task.status = TaskStatus.READY
+                if len(task.dependencies) == 0:
+                    task.status = TaskStatus.READY
+                    continue
+                
+                for dependency in task.dependencies:
+                    predecessor_task = job.find_task(dependency)
+                    assert predecessor_task is not None, f"Dependency task with ID {dependency} not found in job {job.id}."
+
+                    if predecessor_task.status != TaskStatus.COMPLETED:
+                        break
+                    task.status = TaskStatus.READY
+
 
     def next_ready_tasks(self) -> list[tuple[ScheduledTask, Machine]]:
         """Return the next tasks that are ready to be executed on each machine."""
-        schedule = self.update_schedule()
+        schedule = self.get_current_schedule()
+        instance = self.solver.instance
 
         ready_tasks: list[tuple[ScheduledTask, Machine]] = []
-        for machine in self.instance.machines:
+        for machine in instance.machines:
             scheduled_tasks = schedule.get_machine_tasks(machine)
 
             # Find the next task that is ready to be executed

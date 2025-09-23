@@ -167,3 +167,4 @@ bin/
 
 # Ignore generated data directory.
 data/
+.vscode

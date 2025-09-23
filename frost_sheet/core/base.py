@@ -36,7 +36,7 @@ class Task(BaseModel):
             The current status of the task.
     """
 
-    model_config = {"frozen": True}
+    # model_config = {"frozen": True}
 
     id: str = Field(
         description="A global unique identifier for the task.",
@@ -109,8 +109,7 @@ class Task(BaseModel):
         Check equality with another object.
         """
         if not isinstance(other, Task):
-            msg = "Comparisons must be between Task instances."
-            raise TypeError(msg)
+            return False
         return (
             self.id == other.id
             and self.name == other.name
@@ -193,6 +192,23 @@ class Job(BaseModel):
                 raise ValueError(msg)
             task_ids.add(t.id)
         return tasks
+    
+    def find_task(self, task_id: str) -> Task | None:
+        """
+        Finds a task in the job by its ID.
+
+        Args:
+            task_id (str):
+                The ID of the task to find.
+
+        Returns:
+            Task | None:
+                The found task or None if not found.
+        """
+        for task in self.tasks:
+            if task.id == task_id:
+                return task
+        return None
 
     def __str__(self) -> str:
         """

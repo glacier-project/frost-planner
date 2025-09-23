@@ -144,7 +144,7 @@ class Schedule(BaseModel):
         """
         for scheduled_tasks in self.mapping.values():
             for st in scheduled_tasks:
-                if task_or_id in (st.task, st.task.id):
+                if task_or_id in (st.task.id, st.task):
                     return st
         return None
 
