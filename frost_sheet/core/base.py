@@ -1,6 +1,13 @@
+from enum import StrEnum
 from typing import Any
 from pydantic import BaseModel, Field, model_validator, field_validator
 
+class TaskStatus(StrEnum):
+    WAITING = "WAITING"
+    READY = "READY"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 class Task(BaseModel):
     """
@@ -58,6 +65,10 @@ class Task(BaseModel):
         gt=0,
         description="The priority of the task. Lower values indicate higher priority.",
     )
+    status: TaskStatus = Field(
+        default=TaskStatus.WAITING,
+        description="The current status of the task.",
+    )
 
     def __str__(self) -> str:
         """
@@ -70,7 +81,8 @@ class Task(BaseModel):
             f"processing_time={self.processing_time}, "
             f"dependencies={self.dependencies}, "
             f"requires={self.requires}, "
-            f"priority={self.priority})"
+            f"priority={self.priority}, "
+            f"status={self.status})"
         )
 
     def __repr__(self) -> str:
@@ -91,6 +103,7 @@ class Task(BaseModel):
                 tuple(self.dependencies),
                 tuple(self.requires),
                 self.priority,
+                self.status,
             )
         )
 
@@ -108,6 +121,7 @@ class Task(BaseModel):
             and self.dependencies == other.dependencies
             and self.requires == other.requires
             and self.priority == other.priority
+            and self.status == other.status
         )
 
 
