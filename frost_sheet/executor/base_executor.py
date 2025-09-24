@@ -55,6 +55,7 @@ class BaseExecutor(ABC):
 
         """
         scheduled_task.task.status = TaskStatus.IN_PROGRESS
+        self.solver.lock_tasks([scheduled_task])
 
     def update_task_status(self) -> None:
         """Update the status of all tasks in the schedule."""
@@ -89,6 +90,12 @@ class BaseExecutor(ABC):
 
             # Find the next task that is ready to be executed
             for task in scheduled_tasks:
+                if task.task.status in (TaskStatus.COMPLETED):
+                    continue
+                # task is already in progress
+                if task.task.status == TaskStatus.IN_PROGRESS:
+                    break
+
                 if task.task.status == TaskStatus.READY:
                     ready_tasks.append((task, machine))
                     break
