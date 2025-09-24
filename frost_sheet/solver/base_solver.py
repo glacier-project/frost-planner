@@ -53,6 +53,19 @@ class BaseSolver(ABC):
 
         """
         return {machine.id: [(0, self.horizon)] for machine in self.instance.machines}
+    
+
+    def _set_machine_intervals_start_time(self, start_time: int) -> None:
+        """Set the start time for all machine intervals.
+        Args:
+            start_time (int): The new start time for the machine intervals.
+        """
+        machine_intervals = self.machine_intervals
+        for machine in self.machine_intervals:
+            first_interval = machine_intervals[machine][0]
+            if first_interval[0] < start_time:
+                machine_intervals[machine][0] = (start_time, first_interval[1])
+
 
     def _allocate_task(
         self,
@@ -135,7 +148,7 @@ class BaseSolver(ABC):
             )
         self.locked_tasks += tasks
 
-    def schedule(self) -> Schedule:
+    def schedule(self, start_time: int = 0) -> Schedule:
         """
         Schedules the tasks on the machines.
 
@@ -147,7 +160,11 @@ class BaseSolver(ABC):
                 The schedule created by the scheduling algorithm.
 
         """
+        if start_time > 0:
+            self._set_machine_intervals_start_time(start_time)
         machine_intervals = deepcopy(self.machine_intervals)
+
+
         scheduled_tasks = self._allocate_tasks(machine_intervals)
         scheduled_tasks = self.locked_tasks + scheduled_tasks
 

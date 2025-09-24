@@ -26,7 +26,7 @@ from frost_sheet.solver.base_solver import BaseSolver
 )
 class TestStaticExecutor:
 
-    def test_executor_ctor(self, instance: SchedulingInstance, solver: BaseSolver):
+    def test_executor_ctor(self, instance: SchedulingInstance, solver: type[BaseSolver]):
         executor = StaticExecutor(solver=solver(instance=instance))
         all_tasks = [t for job in instance.jobs for t in job.tasks]
 
@@ -36,7 +36,7 @@ class TestStaticExecutor:
         assert len(next_tasks) > 0 
         assert len(next_tasks) <= len(all_tasks)
 
-    def test_run_all_tasks(self, instance: SchedulingInstance, solver: BaseSolver):
+    def test_run_all_tasks(self, instance: SchedulingInstance, solver: type[BaseSolver]):
         
         executor = StaticExecutor(solver=solver(instance=instance))
         all_tasks = [t for job in instance.jobs for t in job.tasks]
