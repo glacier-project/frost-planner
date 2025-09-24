@@ -127,22 +127,7 @@ class BaseSolver(ABC):
         """
         if isinstance(tasks, ScheduledTask):
             tasks = [tasks]
-
-        for task in tasks:
-            if task.machine.id not in self.machine_id_map:
-                raise ValueError(f"Machine {task.machine.id} not found in instance.")
-            if task.task.id not in self.task_id_map:
-                raise ValueError(f"Task {task.task.id} not found in instance.")
-
-            machine = self.machine_id_map[task.machine.id]
-            original_task = self.task_id_map[task.task.id]
-
-            _perform_task_interval_allocation(
-                task.start_time,
-                original_task,
-                machine,
-                self.machine_intervals,
-            )
+            
         self.locked_tasks += tasks
 
     def schedule(self, start_time: int = 0) -> Schedule:
