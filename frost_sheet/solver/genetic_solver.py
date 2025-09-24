@@ -171,9 +171,9 @@ class GeneticAlgorithmSolver(BaseSolver):
 
         for generation in range(self.generations):
             # Evaluate fitness for the current population
-            evaluated_population: list[tuple[list[Job], list[ScheduledTask], float]] = (
-                []
-            )
+            evaluated_population: list[
+                tuple[list[Job], list[ScheduledTask], float]
+            ] = []
             for individual in population:
                 scheduled_tasks: list[ScheduledTask]
                 makespan: float

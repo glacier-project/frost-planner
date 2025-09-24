@@ -56,7 +56,9 @@ class ScheduledTask(BaseModel):
 
         """
         if self.end_time < self.start_time:
-            raise ValueError("end_time must be greater than or equal to start_time")
+            raise ValueError(
+                f"Invalid time range: end_time ({self.end_time}) must be greater than or equal to start_time ({self.start_time})"
+            )
         duration = self.end_time - self.start_time
         if duration != self.task.processing_time:
             raise ValueError(
@@ -249,14 +251,19 @@ class Schedule(BaseModel):
         Args:
             task (ScheduledTask):
                 The task to check.
+
         Returns:
             bool:
                 True if the task can start, False otherwise.
+
         """
         for dependency in task.task.dependencies:
             dependency_scheduled = self.get_task_mapping(dependency)
 
-            if dependency_scheduled is None or dependency_scheduled.task.status != TaskStatus.COMPLETED:
+            if (
+                dependency_scheduled is None
+                or dependency_scheduled.task.status != TaskStatus.COMPLETED
+            ):
                 return False
         return True
 

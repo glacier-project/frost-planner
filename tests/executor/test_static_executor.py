@@ -1,12 +1,14 @@
 import pytest
 
 from frost_sheet.core.base import SchedulingInstance, TaskStatus
-from frost_sheet.generator.instance_generator import InstanceConfiguration, InstanceGenerator
-from frost_sheet.solver.dummy_solver import DummySolver
-from frost_sheet.solver.genetic_solver import GeneticAlgorithmSolver
-from frost_sheet.solver.stochastic_solver import StochasticSolver
 from frost_sheet.executor.static_executor import StaticExecutor
+from frost_sheet.generator.instance_generator import (
+    InstanceConfiguration,
+    InstanceGenerator,
+)
 from frost_sheet.solver.base_solver import BaseSolver
+from frost_sheet.solver.dummy_solver import DummySolver
+
 
 @pytest.mark.parametrize(
     "instance",
@@ -14,7 +16,6 @@ from frost_sheet.solver.base_solver import BaseSolver
         InstanceGenerator().create_instance(configuration=InstanceConfiguration())
         for _ in range(3)
     ],
-
 )
 @pytest.mark.parametrize(
     "solver",
@@ -25,19 +26,21 @@ from frost_sheet.solver.base_solver import BaseSolver
     ],
 )
 class TestStaticExecutor:
-
-    def test_executor_ctor(self, instance: SchedulingInstance, solver: type[BaseSolver]):
+    def test_executor_ctor(
+        self, instance: SchedulingInstance, solver: type[BaseSolver]
+    ) -> None:
         executor = StaticExecutor(solver=solver(instance=instance))
         all_tasks = [t for job in instance.jobs for t in job.tasks]
 
         executor = StaticExecutor(solver=solver(instance=instance))
         next_tasks = executor.next_ready_tasks()
 
-        assert len(next_tasks) > 0 
+        assert len(next_tasks) > 0
         assert len(next_tasks) <= len(all_tasks)
 
-    def test_run_all_tasks(self, instance: SchedulingInstance, solver: type[BaseSolver]):
-        
+    def test_run_all_tasks(
+        self, instance: SchedulingInstance, solver: type[BaseSolver]
+    ) -> None:
         executor = StaticExecutor(solver=solver(instance=instance))
         all_tasks = [t for job in instance.jobs for t in job.tasks]
 
@@ -46,7 +49,7 @@ class TestStaticExecutor:
             next_tasks = executor.next_ready_tasks()
             if not next_tasks:
                 break
-            for scheduled_task, machine in next_tasks:
+            for scheduled_task, _ in next_tasks:
                 all_scheduled_tasks.append(scheduled_task)
                 executor.task_completed(scheduled_task)
             executor.update_task_status()

@@ -38,44 +38,44 @@ furo = "^2024.8.6"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.black]
-line-length = 88
-target-version = ['py39', 'py310', 'py311']
-skip-string-normalization = false
+# [tool.black]
+# line-length = 88
+# target-version = ['py39', 'py310', 'py311']
+# skip-string-normalization = false
 
-[tool.flake8]
-max-line-length = 88
+# [tool.flake8]
+# max-line-length = 88
 
-[tool.ruff]
-line-length = 88
-target-version = "py311"
+# [tool.ruff]
+# line-length = 88
+# target-version = "py311"
 
-[tool.ruff.lint]
-select = ["ALL"]
-ignore = [
-    "ANN", # flake8-annotations
-    "COM", # flake8-commas
-    "C90", # mccabe complexity
-    "DJ",  # django
-    "EXE", # flake8-executable
-    "T10", # debugger
-    "TID", # flake8-tidy-imports
-
-    "D212", # multi-line-summary-first-line
-    "D213", # multi-line-summary-second-line
-    "D401", # First line of docstring should be in imperative mood
-    "D205", # 1 blank line required between summary line and description
-    "D200", # One-line docstring should fit on one line with quotes
-
-    # Ignore not useful for tests
-    "S101", # Use of assert detected (fine in tests)
-    "D100", # Missing docstring in public module
-    "D101", # Missing docstring in public class
-    "D102", # Missing docstring in public method
-    "D103", # Missing docstring in public function
-    "D104", # Missing docstring in public package
-    "PLR2004", # Magic value used in comparison
-]
+# [tool.ruff.lint]
+# select = ["ALL"]
+# ignore = [
+#     "ANN", # flake8-annotations
+#     "COM", # flake8-commas
+#     "C90", # mccabe complexity
+#     "DJ",  # django
+#     "EXE", # flake8-executable
+#     "T10", # debugger
+#     "TID", # flake8-tidy-imports
+# 
+#     "D212", # multi-line-summary-first-line
+#     "D213", # multi-line-summary-second-line
+#     "D401", # First line of docstring should be in imperative mood
+#     "D205", # 1 blank line required between summary line and description
+#     "D200", # One-line docstring should fit on one line with quotes
+# 
+#     # Ignore not useful for tests
+#     "S101", # Use of assert detected (fine in tests)
+#     "D100", # Missing docstring in public module
+#     "D101", # Missing docstring in public class
+#     "D102", # Missing docstring in public method
+#     "D103", # Missing docstring in public function
+#     "D104", # Missing docstring in public package
+#     "PLR2004", # Magic value used in comparison
+# ]
 
 [tool.mypy]
 enable_error_code = ["ignore-without-code", "redundant-self", "truthy-iterable"]

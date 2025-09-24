@@ -22,6 +22,7 @@ def calculate_start_time(schedule: Schedule) -> float:
         return 0.0
     return min(all_start_times)
 
+
 def calculate_makespan(schedule: Schedule) -> float:
     """
     Calculates the makespan of a given schedule.

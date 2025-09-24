@@ -1,6 +1,7 @@
 from enum import Enum
-from typing import Any
-from pydantic import BaseModel, Field, model_validator, field_validator
+
+from pydantic import BaseModel, Field, field_validator
+
 
 class TaskStatus(str, Enum):
     WAITING = "WAITING"
@@ -8,6 +9,7 @@ class TaskStatus(str, Enum):
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+
 
 class Task(BaseModel):
     """
@@ -34,6 +36,7 @@ class Task(BaseModel):
             The priority of the task. Lower values indicate higher priority.
         status (TaskStatus):
             The current status of the task.
+
     """
 
     # model_config = {"frozen": True}
@@ -192,7 +195,7 @@ class Job(BaseModel):
                 raise ValueError(msg)
             task_ids.add(t.id)
         return tasks
-    
+
     def find_task(self, task_id: str) -> Task | None:
         """
         Finds a task in the job by its ID.
@@ -204,6 +207,7 @@ class Job(BaseModel):
         Returns:
             Task | None:
                 The found task or None if not found.
+
         """
         for task in self.tasks:
             if task.id == task_id:
