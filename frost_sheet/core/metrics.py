@@ -2,6 +2,26 @@ from frost_sheet.core.base import SchedulingInstance
 from frost_sheet.core.schedule import Schedule
 
 
+def calculate_start_time(schedule: Schedule) -> float:
+    """
+    Calculates the start time of a given schedule.
+
+    Args:
+        schedule (Schedule):
+            The schedule to evaluate.
+
+    Returns:
+        float:
+            The start time (earliest start time of all tasks).
+
+    """
+    all_start_times = []
+    for st in schedule.get_tasks():
+        all_start_times.append(st.start_time)
+    if not all_start_times:
+        return 0.0
+    return min(all_start_times)
+
 def calculate_makespan(schedule: Schedule) -> float:
     """
     Calculates the makespan of a given schedule.
