@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "frost_sheet"
+name = "frost_planner"
 version = "0.2.1"
 description = "A Python library for solving Flexible Job-Shop (FJS) scheduling problems."
 authors = ["Sebastiano Gaiardelli <sebastiano.gaiardelli@univr.it>"]

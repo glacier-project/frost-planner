@@ -1,6 +1,6 @@
-from frost_sheet.core.base import SchedulingInstance
-from frost_sheet.core.schedule import Schedule, ScheduledTask
-from frost_sheet.utils import cerror
+from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.schedule import Schedule, ScheduledTask
+from frost_planner.utils import cerror
 
 
 class ScheduleValidationError(Exception):

@@ -1,10 +1,9 @@
 import sys
 from abc import ABC, abstractmethod
-from copy import deepcopy
 
-from frost_sheet.core.base import Machine, SchedulingInstance, Task
-from frost_sheet.core.schedule import Schedule, ScheduledTask
-from frost_sheet.solver import _create_schedule, _perform_task_interval_allocation
+from frost_planner.core.base import Machine, SchedulingInstance, Task
+from frost_planner.core.schedule import Schedule, ScheduledTask
+from frost_planner.solver import _create_schedule, _perform_task_interval_allocation
 
 
 class BaseSolver(ABC):
@@ -41,7 +40,9 @@ class BaseSolver(ABC):
         }
         self.locked_tasks: list[ScheduledTask] = []
 
-    def _create_machine_intervals(self, start_time: int = 0) -> dict[str, list[tuple[int, int]]]:
+    def _create_machine_intervals(
+        self, start_time: int = 0
+    ) -> dict[str, list[tuple[int, int]]]:
         """
         Creates the initial availability intervals for each machine.
 
@@ -54,7 +55,10 @@ class BaseSolver(ABC):
                 intervals.
 
         """
-        machine_intervals = {machine.id: [(start_time, self.horizon)] for machine in self.instance.machines}
+        machine_intervals = {
+            machine.id: [(start_time, self.horizon)]
+            for machine in self.instance.machines
+        }
         for task in self.locked_tasks:
             _perform_task_interval_allocation(
                 task.start_time,
@@ -127,7 +131,7 @@ class BaseSolver(ABC):
         """
         if isinstance(tasks, ScheduledTask):
             tasks = [tasks]
-            
+
         self.locked_tasks += tasks
 
     def schedule(self, start_time: int = 0) -> Schedule:

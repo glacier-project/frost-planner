@@ -1,8 +1,8 @@
 from typing_extensions import override
 
-from frost_sheet.core.schedule import Schedule
-from frost_sheet.executor.base_executor import BaseExecutor
-from frost_sheet.solver.base_solver import BaseSolver
+from frost_planner.core.schedule import Schedule
+from frost_planner.executor.base_executor import BaseExecutor
+from frost_planner.solver.base_solver import BaseSolver
 
 
 class DynamicExecutor(BaseExecutor):

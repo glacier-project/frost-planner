@@ -27,7 +27,7 @@
 - [4a828a3] refactor(solver): Adapt solver to use SchedulingInstance.get_suitable_machines and other fixes
 - [22dc094] refactor(base, solver): Remove machines from Task and move get_suitable_machines to SchedulingInstance
 - [69756e6] refactor(schedule): Add Schedule modification methods
-- [3825a33] style(base): Remove extra newlines in frost_sheet/core/base.py
+- [3825a33] style(base): Remove extra newlines in frost_planner/core/base.py
 - [6518c63] fix(tests): Provide configuration to InstanceGenerator in test_dummy_solver
 - [cadb4e6] fix(solver): Remove Task.start_time/end_time usage in _get_machine_intervals_for_task
 - [54f1691] refactor(examples, metrics): Use Schedule job time queries

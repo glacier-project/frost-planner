@@ -2,8 +2,8 @@ import os
 import subprocess
 import sys
 
-from frost_sheet.core.base import SchedulingInstance
-from frost_sheet.utils import cerror, cprint
+from frost_planner.core.base import SchedulingInstance
+from frost_planner.utils import cerror, cprint
 
 
 def export_instance_to_dot(instance: SchedulingInstance) -> str:

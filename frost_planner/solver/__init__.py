@@ -1,7 +1,7 @@
 import sys
 
-from frost_sheet.core.base import Job, Machine, SchedulingInstance, Task
-from frost_sheet.core.schedule import Schedule, ScheduledTask
+from frost_planner.core.base import Job, Machine, SchedulingInstance, Task
+from frost_planner.core.schedule import Schedule, ScheduledTask
 
 
 def _get_machine_intervals_for_task(

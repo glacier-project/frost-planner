@@ -1,12 +1,12 @@
 import pytest
 
-from frost_sheet.core.base import SchedulingInstance
-from frost_sheet.core.metrics import calculate_start_time
-from frost_sheet.generator.instance_generator import (
+from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.metrics import calculate_start_time
+from frost_planner.generator.instance_generator import (
     InstanceConfiguration,
     InstanceGenerator,
 )
-from frost_sheet.solver.dummy_solver import DummySolver
+from frost_planner.solver.dummy_solver import DummySolver
 
 
 @pytest.mark.parametrize(

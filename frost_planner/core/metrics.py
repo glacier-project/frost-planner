@@ -1,5 +1,5 @@
-from frost_sheet.core.base import SchedulingInstance
-from frost_sheet.core.schedule import Schedule
+from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.schedule import Schedule
 
 
 def calculate_start_time(schedule: Schedule) -> float:

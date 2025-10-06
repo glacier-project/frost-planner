@@ -4,9 +4,9 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-from frost_sheet.core.base import Job, Machine, SchedulingInstance, Task
-from frost_sheet.core.schedule import Schedule, ScheduledTask
-from frost_sheet.core.validate import (
+from frost_planner.core.base import Job, Machine, SchedulingInstance, Task
+from frost_planner.core.schedule import Schedule, ScheduledTask
+from frost_planner.core.validate import (
     _validate_all_instance_tasks_scheduled,
     _validate_machine_assignments,
     _validate_machine_capabilities,
@@ -30,7 +30,7 @@ def sample_machine() -> Machine:
 
 @pytest.fixture
 def mock_cerror() -> Any:
-    with patch("frost_sheet.core.validate.cerror") as mock:
+    with patch("frost_planner.core.validate.cerror") as mock:
         yield mock
 
 

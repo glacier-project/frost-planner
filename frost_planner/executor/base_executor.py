@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 
-from frost_sheet.core.base import Machine, TaskStatus
-from frost_sheet.core.schedule import Schedule, ScheduledTask
-from frost_sheet.solver.base_solver import BaseSolver
+from frost_planner.core.base import Machine, TaskStatus
+from frost_planner.core.schedule import Schedule, ScheduledTask
+from frost_planner.solver.base_solver import BaseSolver
 
 
 class BaseExecutor(ABC):
@@ -30,7 +30,7 @@ class BaseExecutor(ABC):
 
     def get_current_schedule(self) -> Schedule:
         """Get the current schedule. This method will call `update_schedule`
-        if the schedule is not already set. 
+        if the schedule is not already set.
 
         Returns:
             Schedule: The current schedule.
@@ -89,7 +89,7 @@ class BaseExecutor(ABC):
 
     def next_ready_tasks(self) -> list[tuple[ScheduledTask, Machine]]:
         """Return the next tasks that are ready to be executed on each machine.
-        
+
         Returns:
             list[tuple[ScheduledTask, Machine]]:
                 A list of tuples containing the next ready ScheduledTask and its corresponding Machine.

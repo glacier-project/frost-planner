@@ -1,13 +1,13 @@
 import pytest
 
-from frost_sheet.core.base import SchedulingInstance, TaskStatus
-from frost_sheet.executor.static_executor import StaticExecutor
-from frost_sheet.generator.instance_generator import (
+from frost_planner.core.base import SchedulingInstance, TaskStatus
+from frost_planner.executor.static_executor import StaticExecutor
+from frost_planner.generator.instance_generator import (
     InstanceConfiguration,
     InstanceGenerator,
 )
-from frost_sheet.solver.base_solver import BaseSolver
-from frost_sheet.solver.dummy_solver import DummySolver
+from frost_planner.solver.base_solver import BaseSolver
+from frost_planner.solver.dummy_solver import DummySolver
 
 
 @pytest.mark.parametrize(

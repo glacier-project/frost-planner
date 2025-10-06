@@ -1,12 +1,12 @@
-from frost_sheet.core.base import Job, Machine, SchedulingInstance, Task
-from frost_sheet.core.metrics import (
+from frost_planner.core.base import Job, Machine, SchedulingInstance, Task
+from frost_planner.core.metrics import (
     calculate_lateness,
     calculate_makespan,
     calculate_num_tardy_jobs,
     calculate_tardiness,
     calculate_total_flow_time,
 )
-from frost_sheet.core.schedule import Schedule, ScheduledTask
+from frost_planner.core.schedule import Schedule, ScheduledTask
 
 
 def test_calculate_makespan_empty_schedule() -> None:

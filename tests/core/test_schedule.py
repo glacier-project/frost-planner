@@ -1,5 +1,5 @@
-from frost_sheet.core.base import Job, Machine, Task
-from frost_sheet.core.schedule import Schedule, ScheduledTask
+from frost_planner.core.base import Job, Machine, Task
+from frost_planner.core.schedule import Schedule, ScheduledTask
 
 
 def test_scheduled_task_instantiation() -> None:

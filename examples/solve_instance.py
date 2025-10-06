@@ -1,21 +1,21 @@
 import argparse
 import time
 
-from frost_sheet.core.base import SchedulingInstance
-from frost_sheet.core.metrics import (
+from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.metrics import (
     calculate_lateness,
     calculate_makespan,
     calculate_total_flow_time,
 )
-from frost_sheet.core.schedule import Schedule, ScheduledTask
-from frost_sheet.core.validate import validate_schedule
-from frost_sheet.generator.instance_generator import load_instance_from_json
-from frost_sheet.solver.base_solver import BaseSolver
-from frost_sheet.solver.dummy_solver import DummySolver
-from frost_sheet.solver.genetic_solver import GeneticAlgorithmSolver
-from frost_sheet.solver.stochastic_solver import StochasticSolver
-from frost_sheet.utils import cerror, cprint, crule
-from frost_sheet.visualization.gantt import plot_gantt_chart
+from frost_planner.core.schedule import Schedule, ScheduledTask
+from frost_planner.core.validate import validate_schedule
+from frost_planner.generator.instance_generator import load_instance_from_json
+from frost_planner.solver.base_solver import BaseSolver
+from frost_planner.solver.dummy_solver import DummySolver
+from frost_planner.solver.genetic_solver import GeneticAlgorithmSolver
+from frost_planner.solver.stochastic_solver import StochasticSolver
+from frost_planner.utils import cerror, cprint, crule
+from frost_planner.visualization.gantt import plot_gantt_chart
 
 
 def parse_args() -> argparse.Namespace:

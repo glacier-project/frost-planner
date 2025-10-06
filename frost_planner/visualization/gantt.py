@@ -2,8 +2,8 @@ import matplotlib
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 
-from frost_sheet.core.schedule import Schedule
-from frost_sheet.utils import cprint
+from frost_planner.core.schedule import Schedule
+from frost_planner.utils import cprint
 
 Y_START = 1.25
 Y_DELTA = 1

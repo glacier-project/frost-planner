@@ -30,4 +30,4 @@ repos:
         args:
           - --fix
       - id: ruff-format
-        files: ^((frost_sheet|tests)/.+)?[^/]+\.(py|pyi)$
+        files: ^((frost_planner|tests)/.+)?[^/]+\.(py|pyi)$

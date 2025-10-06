@@ -1,6 +1,6 @@
 import pytest
 
-from frost_sheet.core.base import Task, _sort_tasks
+from frost_planner.core.base import Task, _sort_tasks
 
 
 def test_sort_tasks_empty_list() -> None:

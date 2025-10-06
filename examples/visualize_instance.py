@@ -1,8 +1,8 @@
 import argparse
 
-from frost_sheet.core.base import SchedulingInstance
-from frost_sheet.utils import cprint
-from frost_sheet.visualization.instance_dot_exporter import (
+from frost_planner.core.base import SchedulingInstance
+from frost_planner.utils import cprint
+from frost_planner.visualization.instance_dot_exporter import (
     export_instance_to_dot,
     render_dot_to_file,
 )

@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 from pydantic import ValidationError
 
-from frost_sheet.core.base import Job, Machine, SchedulingInstance, Task, _sort_tasks
-from frost_sheet.utils import cprint, crule
+from frost_planner.core.base import Job, Machine, SchedulingInstance, Task, _sort_tasks
+from frost_planner.utils import cprint, crule
 
 
 @dataclass

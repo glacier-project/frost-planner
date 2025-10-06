@@ -1,12 +1,12 @@
-# 🧊 FrostSheet
+# 🧊 FrostPlanner
 
 A Python library for solving Flexible Job-Shop scheduling problems.
 
-FrostSheet is a powerful and intuitive Python framework for modeling and solving scheduling instances, from classic Job-Shop and Flow-Shop problems to custom, real-world resource allocation tasks.
+FrostPlanner is a powerful and intuitive Python framework for modeling and solving scheduling instances, from classic Job-Shop and Flow-Shop problems to custom, real-world resource allocation tasks.
 
 ## 🚀 Installation
 
-FrostSheet can be installed using `poetry`. If you don't have `poetry` installed, you can follow the instructions [here](https://python-poetry.org/docs/#installation).
+FrostPlanner can be installed using `poetry`. If you don't have `poetry` installed, you can follow the instructions [here](https://python-poetry.org/docs/#installation).
 
 Once `poetry` is set up, navigate to the project root and run:
 
@@ -16,7 +16,7 @@ poetry install
 
 This will install all the project's dependencies.
 
-## Frost-Sheet in Action: Solving a Simple Job-Shop Problem
+## FrostPlanner in Action: Solving a Simple Job-Shop Problem
 
 Here's how to model a simple Job-Shop problem and find an optimal schedule.
 
@@ -29,10 +29,10 @@ poetry run python examples/generate_random_instances.py -o data
 Then, you can use the following Python code:
 
 ```python
-from frost_sheet.core.base import SchedulingInstance
-from frost_sheet.solver.dummy_solver import DummySolver
-from frost_sheet.visualization.gantt import plot_gantt_chart
-from frost_sheet.core.metrics import calculate_makespan
+from frost_planner.core.base import SchedulingInstance
+from frost_planner.solver.dummy_solver import DummySolver
+from frost_planner.visualization.gantt import plot_gantt_chart
+from frost_planner.core.metrics import calculate_makespan
 import os
 import json
 
@@ -75,7 +75,7 @@ This project uses [Black](https://black.readthedocs.io/en/stable/) for code form
 To format the code, run the following command from the project root:
 
 ```bash
-black frost_sheet examples tests
+black frost_planner examples tests
 ```
 
 ### Linting with Ruff
@@ -85,7 +85,7 @@ This project uses [Ruff](https://beta.ruff.rs/docs/) for linting and code format
 To run the linter, execute the following command from the project root:
 
 ```bash
-ruff check --fix frost_sheet examples tests
+ruff check --fix frost_planner examples tests
 ```
 
 ### Type Checking with MyPy
@@ -95,7 +95,7 @@ This project uses [MyPy](https://mypy.readthedocs.io/en/stable/) for static type
 To run type checks, execute the following command from the project root:
 
 ```bash
-mypy frost_sheet examples tests
+mypy frost_planner examples tests
 ```
 
 ### Code Style Checking with Flake8
@@ -103,7 +103,7 @@ mypy frost_sheet examples tests
 This project uses [Flake8](https://flake8.pycqa.org/en/latest/) for code style checking.
 
 ```bash
-flake8p frost_sheet examples tests
+flake8p frost_planner examples tests
 ```
 
 Then, open `docs/_build/html/index.html` in your web browser.

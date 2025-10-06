@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, model_validator
 
-from frost_sheet.core.base import Job, Machine, Task, TaskStatus
+from frost_planner.core.base import Job, Machine, Task, TaskStatus
 
 
 class ScheduledTask(BaseModel):
