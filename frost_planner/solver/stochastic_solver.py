@@ -1,11 +1,13 @@
-import sys
 import random
-from typing_extensions import override
-from frost_sheet.solver import _schedule_by_order
-from frost_sheet.solver.base_solver import BaseSolver
-from frost_sheet.core.schedule import ScheduledTask
-from frost_sheet.core.base import Job, SchedulingInstance, _sort_tasks
+import sys
 from copy import deepcopy
+
+from typing_extensions import override
+
+from frost_planner.core.base import Job, SchedulingInstance, _sort_tasks
+from frost_planner.core.schedule import ScheduledTask
+from frost_planner.solver import _schedule_by_order
+from frost_planner.solver.base_solver import BaseSolver
 
 
 class StochasticSolver(BaseSolver):
@@ -30,6 +32,7 @@ class StochasticSolver(BaseSolver):
             Exploration rate.
         t_idle (int):
             Maximum number of consecutive idle iterations.
+
     """
 
     def __init__(
@@ -60,6 +63,7 @@ class StochasticSolver(BaseSolver):
         Returns:
             list[Job]:
                 A list of jobs with two jobs swapped.
+
         """
         if len(jobs) < 2:
             return jobs
@@ -80,6 +84,7 @@ class StochasticSolver(BaseSolver):
         Returns:
             list[Job]:
                 A list of jobs with two tasks swapped.
+
         """
         if not jobs:
             return jobs
@@ -124,6 +129,7 @@ class StochasticSolver(BaseSolver):
         Returns:
             list[Job]:
                 Randomly sorted list of jobs.
+
         """
         random.shuffle(jobs)
         return jobs
@@ -137,9 +143,11 @@ class StochasticSolver(BaseSolver):
         Args:
             jobs (list[Job]):
                 List of jobs to evaluate.
+
         Returns:
             tuple[list[ScheduledTask], int]:
                 A tuple containing the scheduled tasks and the makespan.
+
         """
         machine_intervals = deepcopy(machine_intervals)
         scheduled_tasks = _schedule_by_order(

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, model_validator
-from frost_sheet.core.base import Task, Machine, Job
+
+from frost_planner.core.base import Job, Machine, Task, TaskStatus
 
 
 class ScheduledTask(BaseModel):
@@ -20,6 +21,7 @@ class ScheduledTask(BaseModel):
             The task being scheduled.
         machine_id (int):
             The identifier of the machine this task is scheduled on.
+
     """
 
     start_time: int = Field(
@@ -51,9 +53,12 @@ class ScheduledTask(BaseModel):
         Returns:
             ScheduledTask:
                 The validated scheduled task.
+
         """
         if self.end_time < self.start_time:
-            raise ValueError("end_time must be greater than or equal to start_time")
+            raise ValueError(
+                f"Invalid time range: end_time ({self.end_time}) must be greater than or equal to start_time ({self.start_time})"
+            )
         duration = self.end_time - self.start_time
         if duration != self.task.processing_time:
             raise ValueError(
@@ -85,6 +90,7 @@ class Schedule(BaseModel):
             The machines available for scheduling tasks.
         schedule (dict[int, list[ScheduledTask]]):
             A mapping of machine IDs to the tasks scheduled on them.
+
     """
 
     machines: list[Machine] = Field(
@@ -103,6 +109,7 @@ class Schedule(BaseModel):
         Returns:
             list[ScheduledTask]:
                 A list of all scheduled tasks in the schedule.
+
         """
         all_tasks: list[ScheduledTask] = []
         for tasks in self.mapping.values():
@@ -120,24 +127,26 @@ class Schedule(BaseModel):
         Returns:
             list[ScheduledTask]:
                 A list of scheduled tasks for the machine.
+
         """
         return self.mapping.get(machine.id, [])
 
-    def get_task_mapping(self, task: Task) -> ScheduledTask | None:
+    def get_task_mapping(self, task_or_id: Task | str) -> ScheduledTask | None:
         """
         Get the ScheduledTask mapping for a specific Task.
 
         Args:
-            task (Task):
-                The task to get the mapping for.
+            task_or_id (Task | str):
+                The task or its ID to get the mapping for.
 
         Returns:
             ScheduledTask | None:
                 The scheduled task mapping or None if not found.
+
         """
         for scheduled_tasks in self.mapping.values():
             for st in scheduled_tasks:
-                if st.task == task:
+                if task_or_id in (st.task.id, st.task):
                     return st
         return None
 
@@ -152,6 +161,7 @@ class Schedule(BaseModel):
             float:
                 The earliest start time of the job, or 0.0 if no tasks are
                 scheduled.
+
         """
         earliest_start = float("inf")
         found_task = False
@@ -174,6 +184,7 @@ class Schedule(BaseModel):
             float:
                 The latest end time of the job, or 0.0 if no tasks are
                 scheduled.
+
         """
         latest_end = 0.0
         for task_in_job in job.tasks:
@@ -189,6 +200,7 @@ class Schedule(BaseModel):
         Args:
             scheduled_task (ScheduledTask):
                 The task to add.
+
         """
         machine_id = scheduled_task.machine.id
         if machine_id not in self.mapping:
@@ -202,6 +214,7 @@ class Schedule(BaseModel):
         Args:
             scheduled_task (ScheduledTask):
                 The task to remove.
+
         """
         machine_id = scheduled_task.machine.id
         if machine_id in self.mapping and scheduled_task in self.mapping[machine_id]:
@@ -222,6 +235,7 @@ class Schedule(BaseModel):
                 The task to update.
             new_machine (Machine):
                 The new machine for the task.
+
         """
         # Remove from old machine's list
         self.remove_scheduled_task(scheduled_task)
@@ -229,6 +243,29 @@ class Schedule(BaseModel):
         scheduled_task.machine = new_machine
         # Add to new machine's list
         self.add_scheduled_task(scheduled_task)
+
+    def can_start(self, task: ScheduledTask) -> bool:
+        """
+        Checks if a ScheduledTask can start based on its dependencies.
+
+        Args:
+            task (ScheduledTask):
+                The task to check.
+
+        Returns:
+            bool:
+                True if the task can start, False otherwise.
+
+        """
+        for dependency in task.task.dependencies:
+            dependency_scheduled = self.get_task_mapping(dependency)
+
+            if (
+                dependency_scheduled is None
+                or dependency_scheduled.task.status != TaskStatus.COMPLETED
+            ):
+                return False
+        return True
 
     def __str__(self) -> str:
         return f"Schedule(machines={self.machines}, schedule={self.mapping})"

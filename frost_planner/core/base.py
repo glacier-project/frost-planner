@@ -1,5 +1,14 @@
-from typing import Any
-from pydantic import BaseModel, Field, model_validator
+from enum import Enum
+
+from pydantic import BaseModel, Field, field_validator
+
+
+class TaskStatus(str, Enum):
+    WAITING = "WAITING"
+    READY = "READY"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 
 class Task(BaseModel):
@@ -25,13 +34,12 @@ class Task(BaseModel):
             The identifiers of the machines that can process this task.
         priority (int):
             The priority of the task. Lower values indicate higher priority.
-        start_time (int
-            The start time of the task.
-        end_time (int):
-            The end time of the task.
+        status (TaskStatus):
+            The current status of the task.
+
     """
 
-    model_config = {"frozen": True}
+    # model_config = {"frozen": True}
 
     id: str = Field(
         description="A global unique identifier for the task.",
@@ -57,8 +65,15 @@ class Task(BaseModel):
         gt=0,
         description="The priority of the task. Lower values indicate higher priority.",
     )
+    status: TaskStatus = Field(
+        default=TaskStatus.WAITING,
+        description="The current status of the task.",
+    )
 
     def __str__(self) -> str:
+        """
+        Return string representation of the object.
+        """
         return (
             f"Task("
             f"id={self.id}, "
@@ -66,13 +81,20 @@ class Task(BaseModel):
             f"processing_time={self.processing_time}, "
             f"dependencies={self.dependencies}, "
             f"requires={self.requires}, "
-            f"priority={self.priority})"
+            f"priority={self.priority}, "
+            f"status={self.status})"
         )
 
     def __repr__(self) -> str:
+        """
+        Return repr string for the object.
+        """
         return self.__str__()
 
     def __hash__(self) -> int:
+        """
+        Return hash value for the object.
+        """
         return hash(
             (
                 self.id,
@@ -81,12 +103,16 @@ class Task(BaseModel):
                 tuple(self.dependencies),
                 tuple(self.requires),
                 self.priority,
+                self.status,
             )
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
+        """
+        Check equality with another object.
+        """
         if not isinstance(other, Task):
-            raise TypeError("Comparisons must be between Task instances.")
+            return False
         return (
             self.id == other.id
             and self.name == other.name
@@ -94,6 +120,7 @@ class Task(BaseModel):
             and self.dependencies == other.dependencies
             and self.requires == other.requires
             and self.priority == other.priority
+            and self.status == other.status
         )
 
 
@@ -110,6 +137,7 @@ class Job(BaseModel):
             The tasks associated with the job.
         priority (int):
             The priority of the job. Lower values indicate higher priority.
+
     """
 
     model_config = {"frozen": True}
@@ -127,39 +155,69 @@ class Job(BaseModel):
     priority: int = Field(
         default=1,
         gt=0,
-        description="The priority of the job. Lower values indicate higher priority.",
+        description="The priority of the job. Lower values indicate "
+        "higher priority.",
     )
     due_date: int | None = Field(
         default=None,
         ge=0,
-        description="The due date for the job. If the job finishes after this date, it is considered tardy.",
+        description="The due date for the job. If the job finishes after "
+        "this date, it is considered tardy.",
     )
 
-    @model_validator(mode="after")
-    def _validate_tasks(self) -> "Job":
+    @field_validator("tasks", mode="after")
+    def _validate_tasks(cls, tasks: list[Task]) -> list[Task]:
         """
         Validates the tasks in the job.
 
+        Args:
+            tasks (list[Task]):
+                The list of tasks to validate.
+
         Returns:
-            Job:
-                The validated job instance.
+            list[Task]:
+                The validated list of tasks.
 
         Raises:
-            ValueError:
-                If any task IDs are duplicated.
+             ValueError:
+                 If any task IDs are duplicated.
+
         """
+        # Sort and verify that tasks form a DAG
+        tasks = _sort_tasks(tasks)
+
         # Make sure all task IDs are unique.
         task_ids = set()
-        for t in self.tasks:
+        for t in tasks:
             if t.id in task_ids:
-                raise ValueError(
-                    f"Task IDs must be unique inside a job. "
-                    f"Task ID {t.id} is duplicated."
-                )
+                msg = "Task IDs must be unique inside a job. "
+                msg += f"Task ID {t.id} is duplicated."
+                raise ValueError(msg)
             task_ids.add(t.id)
-        return self
+        return tasks
+
+    def find_task(self, task_id: str) -> Task | None:
+        """
+        Finds a task in the job by its ID.
+
+        Args:
+            task_id (str):
+                The ID of the task to find.
+
+        Returns:
+            Task | None:
+                The found task or None if not found.
+
+        """
+        for task in self.tasks:
+            if task.id == task_id:
+                return task
+        return None
 
     def __str__(self) -> str:
+        """
+        Return string representation of the object.
+        """
         return (
             f"Job("
             f"id={self.id}, "
@@ -169,9 +227,15 @@ class Job(BaseModel):
         )
 
     def __repr__(self) -> str:
+        """
+        Return repr string for the object.
+        """
         return self.__str__()
 
     def __hash__(self) -> int:
+        """
+        Return hash value for the object.
+        """
         return hash(
             (
                 self.id,
@@ -182,9 +246,13 @@ class Job(BaseModel):
             )
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
+        """
+        Check equality with another object.
+        """
         if not isinstance(other, Job):
-            raise TypeError("Comparisons must be between Job instances.")
+            msg = "Comparisons must be between Job instances."
+            raise TypeError(msg)
         return (
             self.id == other.id
             and self.name == other.name
@@ -205,6 +273,7 @@ class Machine(BaseModel):
             The name of the machine.
         capabilities (list[str]):
             The capabilities of the machine (e.g., "cutting", "welding").
+
     """
 
     model_config = {"frozen": True}
@@ -221,14 +290,23 @@ class Machine(BaseModel):
     )
 
     def __str__(self) -> str:
+        """
+        Return string representation of the object.
+        """
         return (
             f"Machine(id={self.id}, name={self.name}, capabilities={self.capabilities})"
         )
 
     def __repr__(self) -> str:
+        """
+        Return repr string for the object.
+        """
         return self.__str__()
 
     def __hash__(self) -> int:
+        """
+        Return hash value for the object.
+        """
         return hash(
             (
                 self.id,
@@ -237,9 +315,13 @@ class Machine(BaseModel):
             )
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
+        """
+        Check equality with another object.
+        """
         if not isinstance(other, Machine):
-            raise TypeError("Comparisons must be between Machine instances.")
+            msg = "Comparisons must be between Machine instances."
+            raise TypeError(msg)
         return (
             self.id == other.id
             and self.name == other.name
@@ -260,6 +342,7 @@ class SchedulingInstance(BaseModel):
         travel_times (dict[str, dict[str, int]]):
             The travel times between machines (source_machine_id ->
             {destination_machine_id -> time}).
+
     """
 
     model_config = {"frozen": True}
@@ -278,20 +361,21 @@ class SchedulingInstance(BaseModel):
         "-> {destination_machine_id -> time}).",
     )
 
-    def get_machine(self, id: str) -> Machine | None:
+    def get_machine(self, machine_id: str) -> Machine | None:
         """
         Retrieves a machine by its ID.
 
         Args:
-            id (str):
+            machine_id (str):
                 The ID of the machine to retrieve.
 
         Returns:
             Machine | None:
                 The machine with the specified ID, or None if not found.
+
         """
         for machine in self.machines:
-            if machine.id == id:
+            if machine.id == machine_id:
                 return machine
         return None
 
@@ -308,39 +392,43 @@ class SchedulingInstance(BaseModel):
         Returns:
             int:
                 The travel time between the two machines, or -1 if not found.
+
         """
         if m0.id == m1.id:
             return 0
         if m0.id not in self.travel_times:
-            raise ValueError(f"No travel times defined for machine {m0.id}.")
+            msg = f"No travel times defined for machine {m0.id}."
+            raise ValueError(msg)
         travel_time = self.travel_times[m0.id].get(m1.id, None)
         if travel_time is None:
-            raise ValueError(
-                f"No travel times defined from machine {m0.id} to machine {m1.id}."
-            )
+            msg = f"No travel times defined from machine {m0.id} to machine {m1.id}."
+            raise ValueError(msg)
         return travel_time
 
     def get_suitable_machines(self, task: Task) -> list[Machine]:
         """
         Finds all suitable machines for the given task based on its
-        requirements.
+         requirements.
 
         Args:
-            task (Task):
-                The task to find suitable machines for.
+             task (Task):
+                 The task to find suitable machines for.
 
         Returns:
-            list[Machine]:
-                A list of machines that can execute the task.
+             list[Machine]:
+                 A list of machines that can execute the task.
+
         """
-        suitable_machines: list[Machine] = []
-        for m in self.machines:
-            # A machine is suitable if it has ALL required capabilities
-            if all(req in m.capabilities for req in task.requires):
-                suitable_machines.append(m)
-        return suitable_machines
+        return [
+            m
+            for m in self.machines
+            if all(req in m.capabilities for req in task.requires)
+        ]
 
     def __str__(self) -> str:
+        """
+        Return string representation of the object.
+        """
         return (
             f"SchedulingInstance("
             f"jobs={self.jobs}, "
@@ -349,6 +437,9 @@ class SchedulingInstance(BaseModel):
         )
 
     def __repr__(self) -> str:
+        """
+        Return repr string for the object.
+        """
         return self.__str__()
 
 
@@ -361,8 +452,7 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
     graph (DAG).
 
     Args:
-        tasks (list[Task]):
-        The list of tasks to sort.
+        tasks (list[Task]): The list of tasks to sort.
 
     Raises:
         ValueError:
@@ -371,20 +461,23 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
     Returns:
         list[Task]:
             The sorted list of tasks.
+
     """
     if not tasks:
         return []
 
-    incoming_edges = {m.id: [dep for dep in m.dependencies] for m in tasks}
+    incoming_edges = {m.id: list(m.dependencies) for m in tasks}
     neighbors = {n.id: [m for m in tasks if n.id in m.dependencies] for n in tasks}
 
     sorted_tasks: list[Task] = []
     stack = [task for task in tasks if not task.dependencies]
 
     if not stack:
-        raise ValueError(
-            "Graph has no tasks without dependencies, indicating a cycle or an invalid DAG."
+        msg = (
+            "Graph has no tasks without dependencies, indicating a cycle "
+            "or an invalid DAG."
         )
+        raise ValueError(msg)
 
     while stack:
         task = stack.pop()
@@ -397,6 +490,7 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
                 stack.append(neighbor)
 
     if len(sorted_tasks) != len(tasks):
-        raise ValueError("Graph is not a DAG, it contains at least one cycle")
+        msg = "Graph is not a DAG, it contains at least one cycle"
+        raise ValueError(msg)
 
     return sorted_tasks

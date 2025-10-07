@@ -1,12 +1,10 @@
-from frost_sheet.core.base import SchedulingInstance
-from frost_sheet.utils import cerror
-from frost_sheet.core.schedule import ScheduledTask, Schedule
+from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.schedule import Schedule, ScheduledTask
+from frost_planner.utils import cerror
 
 
 class ScheduleValidationError(Exception):
     """Custom exception for schedule validation errors."""
-
-    pass
 
 
 def _validate_scheduled_task_times(scheduled_task: ScheduledTask) -> bool:
@@ -141,9 +139,11 @@ def _validate_task_dependencies(
             if dependent_st.end_time + travel_time > st.start_time:
                 cerror(
                     f"Dependency violation for task {st.task.id}: "
-                    f"Dependent task {dependent_st.task.id} ends at {dependent_st.end_time} "
-                    f"on machine {dependent_st.machine.id}. Travel time to {st.machine.id} "
-                    f"is {travel_time}. Expected start time >= {dependent_st.end_time + travel_time}, "
+                    f"Dependent task {dependent_st.task.id} "
+                    f"ends at {dependent_st.end_time} "
+                    f"on machine {dependent_st.machine.id}. "
+                    f"Travel time to {st.machine.id} is {travel_time}. "
+                    f"Expected start time >= {dependent_st.end_time + travel_time}, "
                     f"but actual start time is {st.start_time}."
                 )
                 valid = False
@@ -169,6 +169,7 @@ def validate_schedule(
     Returns:
         bool:
             True if the schedule is valid, False otherwise.
+
     """
     valid = True
     # Stage 1: Validate individual scheduled tasks

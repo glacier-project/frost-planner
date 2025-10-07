@@ -1,4 +1,5 @@
 from typing import Any
+
 from rich.console import Console
 from rich.rule import Rule
 
@@ -13,6 +14,7 @@ def cprint(*args: Any, **kwargs: Any) -> None:
     Returns:
         None:
             This function does not return any value.
+
     """
     _console.print(*args, **kwargs)
 
@@ -24,6 +26,7 @@ def cerror(*args: Any, **kwargs: Any) -> None:
     Returns:
         None:
             This function does not return any value.
+
     """
     _console.print(*args, style="red", **kwargs)
 
@@ -35,6 +38,7 @@ def cwarning(*args: Any, **kwargs: Any) -> None:
     Returns:
         None:
             This function does not return any value.
+
     """
     _console.print(*args, style="yellow", **kwargs)
 
@@ -46,5 +50,6 @@ def crule(*args: Any, **kwargs: Any) -> None:
     Returns:
         None:
             This function does not return any value.
+
     """
     _console.print(Rule(*args, **kwargs))

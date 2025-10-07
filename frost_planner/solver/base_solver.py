@@ -1,8 +1,9 @@
 import sys
 from abc import ABC, abstractmethod
-from frost_sheet.core.base import Task, Machine, SchedulingInstance
-from frost_sheet.core.schedule import Schedule, ScheduledTask
-from frost_sheet.solver import _create_schedule, _perform_task_interval_allocation
+
+from frost_planner.core.base import Machine, SchedulingInstance, Task
+from frost_planner.core.schedule import Schedule, ScheduledTask
+from frost_planner.solver import _create_schedule, _perform_task_interval_allocation
 
 
 class BaseSolver(ABC):
@@ -14,12 +15,14 @@ class BaseSolver(ABC):
             The scheduling instance containing jobs and machines.
         horizon (int):
             The time horizon for the scheduling.
+
     """
 
     def __init__(
         self,
         instance: SchedulingInstance,
         horizon: int = sys.maxsize,
+        machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
     ) -> None:
         self.instance: SchedulingInstance = instance
         self.horizon: int = horizon
@@ -35,17 +38,35 @@ class BaseSolver(ABC):
             for job in self.instance.jobs
             for t in job.tasks
         }
+        self.locked_tasks: list[ScheduledTask] = []
 
-    def _create_machine_intervals(self) -> dict[str, list[tuple[int, int]]]:
+    def _create_machine_intervals(
+        self, start_time: int = 0
+    ) -> dict[str, list[tuple[int, int]]]:
         """
         Creates the initial availability intervals for each machine.
 
+        Args:
+            start_time (int):
+                The start time for the machine intervals.
         Returns:
             dict[str, list[tuple[int, int]]]:
                 A dictionary mapping machine IDs to their availability
                 intervals.
+
         """
-        return {machine.id: [(0, self.horizon)] for machine in self.instance.machines}
+        machine_intervals = {
+            machine.id: [(start_time, self.horizon)]
+            for machine in self.instance.machines
+        }
+        for task in self.locked_tasks:
+            _perform_task_interval_allocation(
+                task.start_time,
+                task.task,
+                task.machine,
+                machine_intervals,
+            )
+        return machine_intervals
 
     def _allocate_task(
         self,
@@ -70,6 +91,7 @@ class BaseSolver(ABC):
         Returns:
             ScheduledTask:
                 The scheduled task after allocation.
+
         """
         _perform_task_interval_allocation(start_time, task, machine, machine_intervals)
         return ScheduledTask(
@@ -90,13 +112,29 @@ class BaseSolver(ABC):
         Args:
             machine_intervals (dict[int, list[tuple[int, int]]]):
                 The availability intervals for each machine.
+
         Returns:
             list[ScheduledTask]:
                 The scheduled tasks after allocation.
-        """
-        pass
 
-    def schedule(self) -> Schedule:
+        """
+
+    def lock_tasks(self, tasks: list[ScheduledTask] | ScheduledTask) -> None:
+        """
+        Locks the specified tasks in the schedule, preventing them from being
+        rescheduled.
+
+        Args:
+            tasks (list[ScheduledTask] | ScheduledTask):
+                The list of tasks to lock.
+
+        """
+        if isinstance(tasks, ScheduledTask):
+            tasks = [tasks]
+
+        self.locked_tasks += tasks
+
+    def schedule(self, start_time: int = 0) -> Schedule:
         """
         Schedules the tasks on the machines.
 
@@ -106,9 +144,12 @@ class BaseSolver(ABC):
         Returns:
             Schedule:
                 The schedule created by the scheduling algorithm.
+
         """
-        machine_intervals = self._create_machine_intervals()
+        machine_intervals = self._create_machine_intervals(start_time)
+
         scheduled_tasks = self._allocate_tasks(machine_intervals)
+        scheduled_tasks = self.locked_tasks + scheduled_tasks
 
         # create schedule from scheduled_tasks.
         return _create_schedule(

@@ -1,10 +1,12 @@
 import pytest
-from frost_sheet.generator.instance_generator import InstanceGenerator
-from frost_sheet.core.base import SchedulingInstance
-from frost_sheet.solver.dummy_solver import DummySolver
 
-
-from frost_sheet.generator.instance_generator import InstanceConfiguration
+from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.metrics import calculate_start_time
+from frost_planner.generator.instance_generator import (
+    InstanceConfiguration,
+    InstanceGenerator,
+)
+from frost_planner.solver.dummy_solver import DummySolver
 
 
 @pytest.mark.parametrize(
@@ -21,3 +23,12 @@ class TestDummySolver:
         schedule = solver.schedule()
 
         assert schedule is not None
+
+    @pytest.mark.parametrize("start_time", [0, 5, 10])
+    def test_schedule_from(self, instance: SchedulingInstance, start_time: int) -> None:
+        solver = DummySolver(instance=instance)
+
+        schedule = solver.schedule(start_time=start_time)
+
+        assert schedule is not None
+        assert calculate_start_time(schedule) == start_time

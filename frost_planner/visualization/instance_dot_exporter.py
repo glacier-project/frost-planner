@@ -1,9 +1,9 @@
-import subprocess
 import os
+import subprocess
 import sys
 
-from frost_sheet.core.base import SchedulingInstance
-from frost_sheet.utils import cerror, cprint
+from frost_planner.core.base import SchedulingInstance
+from frost_planner.utils import cerror, cprint
 
 
 def export_instance_to_dot(instance: SchedulingInstance) -> str:
@@ -17,6 +17,7 @@ def export_instance_to_dot(instance: SchedulingInstance) -> str:
     Returns:
         str:
             The DOT representation of the scheduling instance.
+
     """
     dot_string = "digraph G {\n"
     dot_string += "  rankdir=LR;\n"
@@ -59,6 +60,7 @@ def render_dot_to_file(
             The path to save the output image file.
         format (str):
             The output image format (e.g., "png", "svg", "pdf").
+
     """
     try:
         # Ensure the output directory exists.
