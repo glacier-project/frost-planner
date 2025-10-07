@@ -13,7 +13,6 @@ pandas = "^2.3.2"
 matplotlib = "^3.10.5"
 pyqt6 = "^6.9.1"
 argparse = "^1.4.0"
-logging = "^0.4.9.6"
 rich = "^13.0.0"
 
 [tool.poetry.group.dev.dependencies]

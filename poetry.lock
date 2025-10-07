@@ -784,18 +784,6 @@ pathspec = "*"
 pygments = "*"
 
 [[package]]
-name = "logging"
-version = "0.4.9.6"
-description = "A logging module for Python"
-optional = false
-python-versions = "*"
-groups = ["main"]
-markers = "python_version == \"3.11\" or python_version >= \"3.12\""
-files = [
-    {file = "logging-0.4.9.6.tar.gz", hash = "sha256:26f6b50773f085042d301085bd1bf5d9f3735704db9f37c1ce6d8b85c38f2417"},
-]
-
-[[package]]
 name = "mando"
 version = "0.7.1"
 description = "Create Python CLI apps with little to no effort at all!"
@@ -2304,4 +2292,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "d4eaafae4aebd0b1b33c0e0aa716e8e060fc0d0462bc1487334a749c75e38b2f"
+content-hash = "9be69a6d2573830b1c7ac68cea142c83ea2341e98a0ab7431f5ce4ef3090d1ad"
