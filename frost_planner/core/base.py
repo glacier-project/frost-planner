@@ -1,6 +1,8 @@
 from enum import Enum
+from typing import Any
+from typing_extensions import Self
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class TaskStatus(str, Enum):
@@ -30,12 +32,12 @@ class Task(BaseModel):
             can start.
         requires (list[str]):
             The capabilities required to complete the task.
-        machines (list[str]):
-            The identifiers of the machines that can process this task.
         priority (int):
             The priority of the task. Lower values indicate higher priority.
         status (TaskStatus):
             The current status of the task.
+        job_id (str | None):
+            Job ID of the parent job.
 
     """
 
@@ -68,6 +70,13 @@ class Task(BaseModel):
     status: TaskStatus = Field(
         default=TaskStatus.WAITING,
         description="The current status of the task.",
+    )
+    job_id: str | None = Field(
+        default=None,
+        description="Job ID of this task",
+        # this field is retrieved from the parent job:
+        # don't serialize it.
+        exclude=True,
     )
 
     def __str__(self) -> str:
@@ -164,6 +173,32 @@ class Job(BaseModel):
         description="The due date for the job. If the job finishes after "
         "this date, it is considered tardy.",
     )
+
+    def model_post_init(self, context: Any) -> None:
+        """
+        After the model's initialization,
+        set the job ID of all the child tasks.
+
+        Args:
+            context (Any):
+                Pydantic context
+        """
+        for task in self.tasks:
+            task.job_id = self.id
+
+    @model_validator(mode="after")
+    def _validate_tasks_job_id(self) -> Self:
+        """
+        Validates that all tasks must have a job id after initialization.
+
+        Returns:
+            Self:
+                Validated model.
+        """
+        for task in self.tasks:
+            if task.job_id is None:
+                raise ValueError("The task's job id wasn't set during post init")
+        return self
 
     @field_validator("tasks", mode="after")
     def _validate_tasks(cls, tasks: list[Task]) -> list[Task]:
