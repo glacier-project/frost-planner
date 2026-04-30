@@ -52,6 +52,7 @@ class GeneticAlgorithmSolver(BaseSolver):
         self,
         job_permutation: list[Job],
         machine_intervals: dict[str, list[tuple[int, int]]],
+        start_time: int = 0,
     ) -> tuple[list[ScheduledTask], float]:
         """
         Evaluates the fitness of a job permutation.
@@ -60,6 +61,7 @@ class GeneticAlgorithmSolver(BaseSolver):
         """
         # Deepcopy machine_intervals to ensure each evaluation starts fresh
         temp_machine_intervals = deepcopy(machine_intervals)
+        locked_tasks_map = {st.task.id: st for st in self.locked_tasks.values()}
         scheduled_tasks: list[ScheduledTask] = _schedule_by_order(
             self.instance,
             job_permutation,
@@ -69,6 +71,8 @@ class GeneticAlgorithmSolver(BaseSolver):
             self.instance.travel_times,
             self.machine_id_map,
             self.suitable_machines_map,
+            initial_scheduled_tasks=locked_tasks_map,
+            min_time=start_time,
         )
         makespan = (
             max(st.end_time for st in scheduled_tasks) if scheduled_tasks else 0.0
@@ -162,7 +166,9 @@ class GeneticAlgorithmSolver(BaseSolver):
 
     @override
     def _allocate_tasks(
-        self, machine_intervals: dict[str, list[tuple[int, int]]]
+        self,
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        start_time: int = 0,
     ) -> list[ScheduledTask]:
         best_solution_tasks: list[ScheduledTask] = []
         best_makespan: float = float("inf")
@@ -178,7 +184,7 @@ class GeneticAlgorithmSolver(BaseSolver):
                 scheduled_tasks: list[ScheduledTask]
                 makespan: float
                 scheduled_tasks, makespan = self._evaluate_fitness(
-                    individual, machine_intervals
+                    individual, machine_intervals, start_time=start_time
                 )
                 evaluated_population.append((individual, scheduled_tasks, makespan))
 

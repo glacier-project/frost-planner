@@ -23,8 +23,11 @@ class DummySolver(BaseSolver):
 
     @override
     def _allocate_tasks(
-        self, machine_intervals: dict[str, list[tuple[int, int]]]
+        self,
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        start_time: int = 0,
     ) -> list[ScheduledTask]:
+        locked_tasks_map = {st.task.id: st for st in self.locked_tasks.values()}
         return _schedule_by_order(
             self.instance,
             self.instance.jobs,
@@ -34,4 +37,6 @@ class DummySolver(BaseSolver):
             self.instance.travel_times,
             self.machine_id_map,
             self.suitable_machines_map,
+            initial_scheduled_tasks=locked_tasks_map,
+            min_time=start_time,
         )

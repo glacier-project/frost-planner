@@ -135,7 +135,10 @@ class StochasticSolver(BaseSolver):
         return jobs
 
     def _evaluate_solution(
-        self, jobs: list[Job], machine_intervals: dict[str, list[tuple[int, int]]]
+        self,
+        jobs: list[Job],
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        start_time: int = 0,
     ) -> tuple[list[ScheduledTask], int]:
         """
         Evaluate the quality of a solution based on the makespan.
@@ -143,6 +146,10 @@ class StochasticSolver(BaseSolver):
         Args:
             jobs (list[Job]):
                 List of jobs to evaluate.
+            machine_intervals (dict[str, list[tuple[int, int]]]):
+                The availability intervals for each machine.
+            start_time (int):
+                The global lower bound for task start times.
 
         Returns:
             tuple[list[ScheduledTask], int]:
@@ -150,6 +157,7 @@ class StochasticSolver(BaseSolver):
 
         """
         machine_intervals = deepcopy(machine_intervals)
+        locked_tasks_map = {st.task.id: st for st in self.locked_tasks.values()}
         scheduled_tasks = _schedule_by_order(
             self.instance,
             jobs,
@@ -159,6 +167,8 @@ class StochasticSolver(BaseSolver):
             self.instance.travel_times,
             self.machine_id_map,
             self.suitable_machines_map,
+            initial_scheduled_tasks=locked_tasks_map,
+            min_time=start_time,
         )
 
         return scheduled_tasks, (
@@ -167,7 +177,9 @@ class StochasticSolver(BaseSolver):
 
     @override
     def _allocate_tasks(
-        self, machine_intervals: dict[str, list[tuple[int, int]]]
+        self,
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        start_time: int = 0,
     ) -> list[ScheduledTask]:
         # init random
         alpha = self.alpha
@@ -175,7 +187,9 @@ class StochasticSolver(BaseSolver):
         R = self.R
         local_iterations = round(((1 - alpha) * B) / R)
         jobs = self._sort_jobs_random(list(self.instance.jobs))
-        solution, makespan = self._evaluate_solution(jobs, machine_intervals)
+        solution, makespan = self._evaluate_solution(
+            jobs, machine_intervals, start_time=start_time
+        )
         idle_iterations = 0
 
         for _ in range(self.T):
@@ -188,26 +202,24 @@ class StochasticSolver(BaseSolver):
 
             # αB local explorations
             for _ in range(int(self.alpha * self.B)):
-                local_neighbor = self._get_local_neighbor(deepcopy(local_jobs))
+                local_neighbor = self._get_local_neighbor(local_jobs.copy())
                 local_solution, local_makespan = self._evaluate_solution(
-                    local_neighbor, machine_intervals
+                    local_neighbor, machine_intervals, start_time=start_time
                 )
-                if local_makespan < makespan:
+                if local_makespan < current_makespan:
                     local_jobs = local_neighbor
-                    local_solution = local_solution
                     current_makespan = local_makespan
 
             for _ in range(self.R):
-                remote_neighbor = self._get_random_neighbor(deepcopy(local_jobs))
+                remote_neighbor = self._get_random_neighbor(local_jobs.copy())
 
                 for _ in range(local_iterations):
-                    local_neighbor = self._get_local_neighbor(deepcopy(remote_neighbor))
+                    local_neighbor = self._get_local_neighbor(remote_neighbor.copy())
                     local_solution, local_makespan = self._evaluate_solution(
-                        local_jobs, machine_intervals
+                        local_neighbor, machine_intervals, start_time=start_time
                     )
-                    if local_makespan < makespan:
+                    if local_makespan < current_makespan:
                         local_jobs = local_neighbor
-                        local_solution = local_solution
                         current_makespan = local_makespan
 
             if current_makespan < makespan:

@@ -6,10 +6,11 @@ from frost_planner.solver.base_solver import BaseSolver
 
 
 class StaticExecutor(BaseExecutor):
-    def __init__(self, solver: BaseSolver):
-        super().__init__(solver)
+    def __init__(self, solver: BaseSolver, live_plot: bool = False):
+        super().__init__(solver, live_plot=live_plot)
         self.schedule: Schedule = self.solver.schedule()
 
     @override
     def update_schedule(self, start_time: int = 0) -> Schedule:
+        # Static executor doesn't re-solve, just returns the initial plan
         return self.schedule
