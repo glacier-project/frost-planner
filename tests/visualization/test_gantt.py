@@ -23,8 +23,8 @@ def _build_schedule() -> Schedule:
     t00 = Task(id="T0_0", name="T0_0", processing_time=3)
     t01 = Task(id="T0_1", name="T0_1", processing_time=2)
     t10 = Task(id="T1_0", name="T1_0", processing_time=4)
-    
-    j00 = Job(id="J0", name="J0", tasks=[t00, t01, t10])
+
+    _ = Job(id="J0", name="J0", tasks=[t00, t01, t10])
 
     schedule = Schedule()
     schedule.machines = [m0, m1]
