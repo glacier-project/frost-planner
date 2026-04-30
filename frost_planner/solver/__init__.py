@@ -190,6 +190,8 @@ def _schedule_by_order(
     travel_times: dict[str, dict[str, int]],
     machine_id_map: dict[str, Machine],
     suitable_machines_map: dict[str, list[Machine]],
+    initial_scheduled_tasks: dict[str, ScheduledTask] | None = None,
+    min_time: int = 0,
 ) -> list[ScheduledTask]:
     """
     Schedules jobs based on their predefined order and machine availability.
@@ -215,6 +217,12 @@ def _schedule_by_order(
             A mapping of machine IDs to their corresponding Machine objects.
         suitable_machines_map (dict[str, list[Machine]]):
             A mapping of task IDs to their suitable machines.
+        initial_scheduled_tasks (dict[str, ScheduledTask], optional):
+            A dictionary of tasks that are already scheduled and should be
+            accounted for.
+        min_time (int):
+            A global lower bound for the start time of any task not already
+            present in initial_scheduled_tasks.
 
     Returns:
         list[ScheduledTask]:
@@ -224,7 +232,9 @@ def _schedule_by_order(
     """
     # Dictionary to store already scheduled tasks, keyed by their task_id. This
     # allows for quick lookup of dependency completion times.
-    scheduled_tasks: dict[str, ScheduledTask] = {}
+    scheduled_tasks: dict[str, ScheduledTask] = (
+        initial_scheduled_tasks.copy() if initial_scheduled_tasks else {}
+    )
 
     # Flatten the list of jobs into a single list of tasks. Tasks are processed
     # in the order they appear, which is assumed to be a valid topological order
@@ -233,13 +243,16 @@ def _schedule_by_order(
 
     # Iterate through each task to schedule it.
     for task in tasks:
+        # Skip tasks that are already scheduled
+        if task.id in scheduled_tasks:
+            continue
+
         # Determine the earliest possible start time for the current task based
-        # on its dependencies. A task cannot start until all its direct
-        # predecessors are completed.
-        min_start_time = 0
+        # on its dependencies.
+        # It must be at least min_time and also at least the end time of all its
+        # predecessors.
+        min_start_time = min_time
         for dep in task.dependencies:
-            # The task can only start after its dependency has finished. We take
-            # the maximum end time among all dependencies.
             start_time = scheduled_tasks[dep].end_time
             min_start_time = max(min_start_time, start_time)
 

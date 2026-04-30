@@ -1,4 +1,5 @@
 import sys
+from copy import deepcopy
 from abc import ABC, abstractmethod
 
 from frost_planner.core.base import Machine, SchedulingInstance, Task
@@ -26,7 +27,12 @@ class BaseSolver(ABC):
     ) -> None:
         self.instance: SchedulingInstance = instance
         self.horizon: int = horizon
-        # Add pre-computed maps.
+        self.initial_machine_intervals = machine_intervals
+        self._update_maps()
+        self.locked_tasks: dict[str, ScheduledTask] = {}
+
+    def _update_maps(self) -> None:
+        """Re-compute internal maps when the instance changes."""
         self.machine_id_map: dict[str, Machine] = {
             m.id: m for m in self.instance.machines
         }
@@ -38,121 +44,99 @@ class BaseSolver(ABC):
             for job in self.instance.jobs
             for t in job.tasks
         }
-        self.locked_tasks: list[ScheduledTask] = []
+
+    def update_instance(self, instance: SchedulingInstance) -> None:
+        """
+        Update the scheduling instance (e.g., when new jobs arrive).
+        """
+        self.instance = instance
+        self._update_maps()
 
     def _create_machine_intervals(
         self, start_time: int = 0
     ) -> dict[str, list[tuple[int, int]]]:
         """
         Creates the initial availability intervals for each machine.
-
-        Args:
-            start_time (int):
-                The start time for the machine intervals.
-        Returns:
-            dict[str, list[tuple[int, int]]]:
-                A dictionary mapping machine IDs to their availability
-                intervals.
-
         """
-        machine_intervals = {
-            machine.id: [(start_time, self.horizon)]
-            for machine in self.instance.machines
-        }
-        for task in self.locked_tasks:
-            _perform_task_interval_allocation(
-                task.start_time,
-                task.task,
-                task.machine,
-                machine_intervals,
-            )
+        if self.initial_machine_intervals:
+            machine_intervals = deepcopy(self.initial_machine_intervals)
+        else:
+            machine_intervals = {
+                machine.id: [(start_time, self.horizon)]
+                for machine in self.instance.machines
+            }
+
+        # Truncate all intervals to start at least at start_time
+        for machine_id in machine_intervals:
+            intervals = machine_intervals[machine_id]
+            while intervals and intervals[0][1] <= start_time:
+                intervals.pop(0)
+            if intervals and intervals[0][0] < start_time:
+                intervals[0] = (start_time, intervals[0][1])
+
+        for task in self.locked_tasks.values():
+            # If the task ends before or at start_time, it's effectively "history"
+            # and doesn't consume future machine capacity.
+            if task.end_time <= start_time:
+                continue
+
+            # If it's active (started < now < end), we must ensure the machine is busy.
+            if task.start_time < start_time:
+                intervals = machine_intervals[task.machine.id]
+                # Machine should be busy from start_time until task.end_time
+                if intervals and intervals[0][0] == start_time:
+                    new_start = task.end_time
+                    if new_start < intervals[0][1]:
+                        intervals[0] = (new_start, intervals[0][1])
+                    else:
+                        intervals.pop(0)
+            else:
+                # Standard locking for future tasks
+                _perform_task_interval_allocation(
+                    task.start_time,
+                    task.task,
+                    task.machine,
+                    machine_intervals,
+                )
         return machine_intervals
-
-    def _allocate_task(
-        self,
-        start_time: int,
-        task: Task,
-        machine: Machine,
-        machine_intervals: dict[str, list[tuple[int, int]]],
-    ) -> ScheduledTask:
-        """
-        Allocates a task to a machine at a specific start time.
-
-        Args:
-            start_time (int):
-                The start time for the task allocation.
-            task (Task):
-                The task to allocate.
-            machine (Machine):
-                The machine to allocate the task to.
-            machine_intervals (dict[str, list[tuple[int, int]]]):
-                The availability intervals for each machine.
-
-        Returns:
-            ScheduledTask:
-                The scheduled task after allocation.
-
-        """
-        _perform_task_interval_allocation(start_time, task, machine, machine_intervals)
-        return ScheduledTask(
-            start_time=start_time,
-            end_time=start_time + task.processing_time,
-            task=task,
-            machine=machine,
-        )
 
     @abstractmethod
     def _allocate_tasks(
         self,
         machine_intervals: dict[str, list[tuple[int, int]]],
+        start_time: int = 0,
     ) -> list[ScheduledTask]:
         """
         Allocates tasks to machines based on solver strategy.
-
-        Args:
-            machine_intervals (dict[int, list[tuple[int, int]]]):
-                The availability intervals for each machine.
-
-        Returns:
-            list[ScheduledTask]:
-                The scheduled tasks after allocation.
-
         """
 
     def lock_tasks(self, tasks: list[ScheduledTask] | ScheduledTask) -> None:
         """
-        Locks the specified tasks in the schedule, preventing them from being
-        rescheduled.
-
-        Args:
-            tasks (list[ScheduledTask] | ScheduledTask):
-                The list of tasks to lock.
-
+        Locks the specified tasks in the schedule.
         """
         if isinstance(tasks, ScheduledTask):
             tasks = [tasks]
 
-        self.locked_tasks += tasks
+        for st in tasks:
+            self.locked_tasks[st.task.id] = st
 
     def schedule(self, start_time: int = 0) -> Schedule:
-        """
-        Schedules the tasks on the machines.
-
-        This method should be implemented by subclasses to provide specific
-        scheduling algorithms.
-
-        Returns:
-            Schedule:
-                The schedule created by the scheduling algorithm.
-
-        """
+        """Generate a complete schedule, respecting locked tasks and simulation time."""
         machine_intervals = self._create_machine_intervals(start_time)
 
-        scheduled_tasks = self._allocate_tasks(machine_intervals)
-        scheduled_tasks = self.locked_tasks + scheduled_tasks
+        all_scheduled_tasks = self._allocate_tasks(
+            machine_intervals, start_time=start_time
+        )
 
-        # create schedule from scheduled_tasks.
+        # Merge logic
+        combined_tasks = list(self.locked_tasks.values())
+        locked_ids = {st.task.id for st in combined_tasks}
+
+        for st in all_scheduled_tasks:
+            if st.task.id not in locked_ids:
+                combined_tasks.append(st)
+
         return _create_schedule(
-            scheduled_tasks=scheduled_tasks,
+            scheduled_tasks=combined_tasks,
             machines=self.instance.machines,
         )
