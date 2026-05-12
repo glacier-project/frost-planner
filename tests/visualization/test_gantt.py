@@ -1,8 +1,10 @@
+from pathlib import Path
 from unittest.mock import Mock
 
 import matplotlib.pyplot as plt
+import pytest
 
-from frost_planner.core.base import Machine, Task, Job
+from frost_planner.core.base import Job, Machine, Task
 from frost_planner.core.schedule import Schedule, ScheduledTask
 from frost_planner.visualization.gantt import (
     LiveGanttChart,
@@ -82,7 +84,10 @@ def test_draw_schedule_on_axes_reuses_existing_colors() -> None:
     plt.close(fig)
 
 
-def test_plot_gantt_chart_saves_to_path(tmp_path, monkeypatch) -> None:
+def test_plot_gantt_chart_saves_to_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The wrapper writes the figure to output_path when provided."""
     monkeypatch.setattr(plt, "show", Mock())
     schedule = _build_schedule()

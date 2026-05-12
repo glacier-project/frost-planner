@@ -17,9 +17,12 @@ class DummySolver(BaseSolver):
     """
 
     def __init__(
-        self, instance: SchedulingInstance, horizon: int = sys.maxsize
+        self,
+        instance: SchedulingInstance,
+        horizon: int = sys.maxsize,
+        machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
     ) -> None:
-        super().__init__(instance, horizon)
+        super().__init__(instance, horizon, machine_intervals)
 
     @override
     def _allocate_tasks(

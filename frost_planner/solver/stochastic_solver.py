@@ -44,8 +44,9 @@ class StochasticSolver(BaseSolver):
         R: int = 16,
         alpha: float = 0.4,
         t_idle: int = 10,
+        machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
     ) -> None:
-        super().__init__(instance, horizon)
+        super().__init__(instance, horizon, machine_intervals)
         self.T = T
         self.B = B
         self.R = R

@@ -5,6 +5,7 @@ from frost_planner.solver.stochastic_solver import StochasticSolver
 from frost_planner.executor.dynamic_executor import DynamicExecutor
 from frost_planner.utils import cprint, crule
 
+
 def main() -> None:
     """
     Event-driven scheduling simulation
@@ -35,8 +36,12 @@ def main() -> None:
             if step > 0 and step % 10 == 0 and pending_jobs:
                 new_job = pending_jobs.pop(0)
                 initial_jobs.append(new_job)
-                cprint(f"\n[bold magenta]>>> Time {executor.current_time}: New Job Arrived: {new_job.name}[/bold magenta]")
-                current_instance = current_instance.model_copy(update={"jobs": list(initial_jobs)})
+                cprint(
+                    f"\n[bold magenta]>>> Time {executor.current_time}: New Job Arrived: {new_job.name}[/bold magenta]"
+                )
+                current_instance = current_instance.model_copy(
+                    update={"jobs": list(initial_jobs)}
+                )
                 solver.update_instance(current_instance)
                 executor.update_schedule(start_time=executor.current_time)
 
@@ -59,7 +64,10 @@ def main() -> None:
                 if st.end_time <= now and st.task.status != TaskStatus.COMPLETED:
                     executor.task_completed(st)
                     cprint(f"  [green]✔ Task {st.task.name} finished.[/green]")
-                elif st.start_time <= now < st.end_time and st.task.status != TaskStatus.IN_PROGRESS:
+                elif (
+                    st.start_time <= now < st.end_time
+                    and st.task.status != TaskStatus.IN_PROGRESS
+                ):
                     executor.task_started(st)
                     cprint(f"  [red]▶ Task {st.task.name} started.[/red]")
 
@@ -79,7 +87,10 @@ def main() -> None:
 
             # Exit if everything is done
             if not pending_jobs and locked_count == total_tasks:
-                if all(st.task.status == TaskStatus.COMPLETED for st in solver.locked_tasks.values()):
+                if all(
+                    st.task.status == TaskStatus.COMPLETED
+                    for st in solver.locked_tasks.values()
+                ):
                     cprint("\n[bold green]Success: All tasks completed![/bold green]")
                     time.sleep(2)
                     break
@@ -88,6 +99,7 @@ def main() -> None:
         cprint("\nInterrupted by user.", style="red")
     finally:
         executor.close()
+
 
 if __name__ == "__main__":
     main()
