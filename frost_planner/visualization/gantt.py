@@ -29,7 +29,9 @@ def _draw_schedule_on_axes(
     of axes state this function touches is re-applied on each call.
     """
     x_max = (
-        max(st.end_time for st in solution.get_tasks()) if solution.get_tasks() else 100
+        max(st.end_time for st in solution.get_tasks())
+        if solution.get_tasks()
+        else 100
     )
     if current_time is not None:
         x_max = max(x_max, current_time)
@@ -103,14 +105,17 @@ def _draw_schedule_on_axes(
             )
 
     # Reconstruct legend using job names if possible, or just IDs
-    # Since job_color uses job_id, we'll just label them as "Job" for simplicity here
-    # or we could try to find the job name if we had the instance.
+    # Since job_color uses job_id, we'll just label them as "Job" for
+    # simplicity here or we could try to find the job name if we had the
+    # instance.
     patches = [
         mpatches.Patch(color=color, label=f"Job {jid[:8]}")
         for jid, color in sorted(job_color.items())
     ]
     patches.append(
-        mpatches.Patch(facecolor="white", edgecolor="red", linewidth=2, label="Running")
+        mpatches.Patch(
+            facecolor="white", edgecolor="red", linewidth=2, label="Running"
+        )
     )
     patches.append(
         mpatches.Patch(
@@ -126,8 +131,7 @@ def plot_gantt_chart(
     figsize: tuple[int, int] = (12, 8),
     output_path: str | None = None,
 ) -> None:
-    """
-    Plot a Gantt chart from a Schedule object.
+    """Plot a Gantt chart from a Schedule object.
 
     Args:
         solution (Schedule):
@@ -154,15 +158,16 @@ def plot_gantt_chart(
 class LiveGanttChart:
     """Re-renders a Gantt chart in place each time a new Schedule is pushed in.
 
-    Usage:
-        chart = LiveGanttChart()
-        for schedule in stream_of_schedules:
-            chart.update(schedule)
-        chart.close()
+    The chart runs in matplotlib's interactive mode so ``update`` returns
+    quickly without blocking the caller's loop. Job colors persist across
+    updates, so a given job keeps the same color even as bars move between
+    frames.
 
-    The chart runs in matplotlib's interactive mode so `update` returns quickly
-    without blocking the caller's loop. Job colors persist across updates, so a
-    given job keeps the same color even as bars move between frames.
+    Example:
+        >>> chart = LiveGanttChart()
+        >>> for schedule in stream_of_schedules:
+        ...     chart.update(schedule)
+        >>> chart.close()
     """
 
     def __init__(self, figsize: tuple[int, int] = (12, 8)) -> None:
@@ -171,7 +176,9 @@ class LiveGanttChart:
         self.fig, self.ax = plt.subplots(figsize=figsize)
         self._job_color: dict[str, tuple] = {}
 
-    def update(self, solution: Schedule, current_time: int | None = None) -> None:
+    def update(
+        self, solution: Schedule, current_time: int | None = None
+    ) -> None:
         """Redraw the chart for the given schedule."""
         self.ax.clear()
         _draw_schedule_on_axes(
@@ -181,7 +188,7 @@ class LiveGanttChart:
         plt.pause(0.001)
 
     def close(self) -> None:
-        """Close the underlying figure and restore matplotlib's interactive mode."""
+        """Close the figure and restore matplotlib's interactive mode."""
         plt.close(self.fig)
         if not self._was_interactive:
             plt.ioff()
