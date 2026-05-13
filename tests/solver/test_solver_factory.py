@@ -7,8 +7,10 @@ from collections.abc import Callable
 import pytest
 
 from frost_planner.core.base import Job, Machine, SchedulingInstance, Task
+from frost_planner.solver.cp_sat_solver import CpSatSolver
 from frost_planner.solver.dummy_solver import DummySolver
 from frost_planner.solver.factory import (
+    CpSatSolverConfiguration,
     DummySolverConfiguration,
     GeneticAlgorithmSolverConfiguration,
     SolverConfiguration,
@@ -19,7 +21,10 @@ from frost_planner.solver.genetic_solver import GeneticAlgorithmSolver
 from frost_planner.solver.stochastic_solver import StochasticSolver
 
 SolverClass = (
-    type[DummySolver] | type[StochasticSolver] | type[GeneticAlgorithmSolver]
+    type[DummySolver]
+    | type[StochasticSolver]
+    | type[GeneticAlgorithmSolver]
+    | type[CpSatSolver]
 )
 
 
@@ -50,12 +55,17 @@ def _genetic_configuration(instance: SchedulingInstance) -> SolverConfiguration:
     return GeneticAlgorithmSolverConfiguration(instance=instance)
 
 
+def _cp_sat_configuration(instance: SchedulingInstance) -> SolverConfiguration:
+    return CpSatSolverConfiguration(instance=instance)
+
+
 @pytest.mark.parametrize(
     ("configuration", "solver_class"),
     [
         (_dummy_configuration, DummySolver),
         (_stochastic_configuration, StochasticSolver),
         (_genetic_configuration, GeneticAlgorithmSolver),
+        (_cp_sat_configuration, CpSatSolver),
     ],
 )
 def test_create_solver_from_configuration(
@@ -117,6 +127,26 @@ def test_create_genetic_solver_with_ad_hoc_parameters(
     assert solver.mutation_rate == 0.2
     assert solver.crossover_rate == 0.7
     assert solver.elitism_count == 2
+
+
+def test_create_cp_sat_solver_with_ad_hoc_parameters(
+    instance: SchedulingInstance,
+) -> None:
+    solver = create_solver(
+        CpSatSolverConfiguration(
+            instance=instance,
+            time_limit_seconds=2.5,
+            num_workers=2,
+            relative_gap=0.01,
+            log_search_progress=True,
+        )
+    )
+
+    assert isinstance(solver, CpSatSolver)
+    assert solver.time_limit_seconds == 2.5
+    assert solver.num_workers == 2
+    assert solver.relative_gap == 0.01
+    assert solver.log_search_progress is True
 
 
 def test_create_solver_uses_default_specific_parameters_for_base_configuration(

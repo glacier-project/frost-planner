@@ -19,6 +19,7 @@ class SolverType(StrEnum):
     DUMMY = "dummy"
     STOCHASTIC = "stochastic"
     GENETIC = "genetic"
+    CP_SAT = "cp_sat"
 
 
 @dataclass
@@ -41,7 +42,8 @@ class SolverConfiguration(ABC):
                 "SolverConfiguration is abstract and cannot be instantiated "
                 "directly; use a concrete subclass (DummySolverConfiguration, "
                 "StochasticSolverConfiguration, "
-                "GeneticAlgorithmSolverConfiguration)."
+                "GeneticAlgorithmSolverConfiguration, "
+                "CpSatSolverConfiguration)."
             )
 
 
@@ -74,6 +76,17 @@ class GeneticAlgorithmSolverConfiguration(SolverConfiguration):
     mutation_rate: float = 0.01
     crossover_rate: float = 0.9
     elitism_count: int = 5
+
+
+@dataclass
+class CpSatSolverConfiguration(SolverConfiguration):
+    """Configuration for the CP-SAT solver."""
+
+    solver_type: SolverType | str = SolverType.CP_SAT
+    time_limit_seconds: float | None = None
+    num_workers: int | None = None
+    relative_gap: float = 0.0
+    log_search_progress: bool = False
 
 
 def create_solver(configuration: SolverConfiguration) -> BaseSolver:
@@ -111,6 +124,22 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             R=configuration.R,
             alpha=configuration.alpha,
             t_idle=configuration.t_idle,
+        )
+
+    if solver_type is SolverType.CP_SAT:
+        assert isinstance(configuration, CpSatSolverConfiguration), (
+            "Expected CpSatSolverConfiguration for CP-SAT solver type"
+        )
+        from frost_planner.solver.cp_sat_solver import CpSatSolver
+
+        return CpSatSolver(
+            instance=configuration.instance,
+            horizon=configuration.horizon,
+            machine_intervals=configuration.machine_intervals,
+            time_limit_seconds=configuration.time_limit_seconds,
+            num_workers=configuration.num_workers,
+            relative_gap=configuration.relative_gap,
+            log_search_progress=configuration.log_search_progress,
         )
 
     assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (
