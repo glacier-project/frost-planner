@@ -7,8 +7,7 @@ from frost_planner.utils import cerror, cprint
 
 
 def export_instance_to_dot(instance: SchedulingInstance) -> str:
-    """
-    Convert a SchedulingInstance to a DOT representation.
+    """Convert a SchedulingInstance to a DOT representation.
 
     Args:
         instance (SchedulingInstance):
@@ -50,8 +49,7 @@ def render_dot_to_file(
     output_path: str,
     format: str = "png",
 ) -> None:
-    """
-    Renders a DOT string to an image file using the 'dot' command (Graphviz).
+    """Renders a DOT string to an image file using the 'dot' command (Graphviz).
 
     Args:
         dot_string (str):

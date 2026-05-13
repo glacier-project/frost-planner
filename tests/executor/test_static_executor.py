@@ -13,7 +13,9 @@ from frost_planner.solver.dummy_solver import DummySolver
 @pytest.mark.parametrize(
     "instance",
     [
-        InstanceGenerator().create_instance(configuration=InstanceConfiguration())
+        InstanceGenerator().create_instance(
+            configuration=InstanceConfiguration()
+        )
         for _ in range(3)
     ],
 )

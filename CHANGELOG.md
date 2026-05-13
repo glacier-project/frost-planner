@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- chore(build): migrate dependency and environment management from Poetry to [uv](https://docs.astral.sh/uv/); replace `poetry.lock` with `uv.lock` and switch the build backend to `hatchling`.
+- chore(deps): drop the stdlib-shadowing `argparse` runtime dep; bump pinned majors — pandas 2 → 3, rich 13 → 15, pytest 8 → 9, pytest-cov 6 → 7, mypy 1 → 2, ruff 0.8 → 0.15, sphinx 8 → 9.
+- chore(python): raise minimum supported Python to 3.12; CI and tox matrices reduced to `py{312,313}`.
+- chore(ci): replace `abatilo/actions-poetry` with `astral-sh/setup-uv@v5` and `uv python install`.
+- chore(cleanup): remove unused `setup.cfg` (isort/flake8) and `.pylintrc`; prune stale Black/Flake8 sections from `README.md`.
+- fix(types): add missing parameter annotations on `test_plot_gantt_chart_saves_to_path`.
+- docs(sphinx): wire `sphinx-autoapi` + `sphinx.ext.napoleon` so the API reference is generated from Google-style docstrings; replace placeholder project name/author in `conf.py`, set version from package metadata, and add intersphinx mappings for Python, Pydantic, pandas, and matplotlib.
+- docs(content): add a Markdown landing page (`quickstart.md`) and an `examples.md` survey of the runnable scripts under `examples/`; the changelog page now includes `CHANGELOG.md` via `myst-parser` so it's only maintained in one place.
+- docs(ux): enable `myst-parser` (Markdown source) and `sphinx-copybutton` (one-click copy on code blocks, with `>>>`/`$` prompts auto-stripped).
+- ci(docs): add a `docs` job that builds the site with `-W` (warnings as errors) on every PR and uploads the HTML as an artifact.
+- chore(changelog): add `cliff.toml` + `scripts/gen_changelog.sh` so the changelog can be regenerated from git history via `uvx git-cliff`.
+- chore(scripts): polish all helper scripts — POSIX shebang, `set -euo pipefail`, self-locate via `BASH_SOURCE` (work from any cwd), quoted variables, default fallbacks for `PROJECT_SOURCE_DIR`/`PROJECT_TEST_DIR`, and inline usage docstrings.
+- chore(scripts): replace the empty `gen_doc.sh` stub with a real Sphinx builder supporting `--serve` (open the rendered HTML) and `--watch` (live-reload via `sphinx-autobuild`).
+- chore(scripts): collapse `check_typing.sh` into a single `mypy` invocation; strip the Poetry-era `python_path` noise from `run_tox.sh`.
+
 ## 0.2.1 - 2025-09-03
 
 - [8af6469] refactor(solver): centralize pre-computation in BaseSolver

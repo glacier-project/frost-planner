@@ -29,7 +29,9 @@ def _draw_schedule_on_axes(
     of axes state this function touches is re-applied on each call.
     """
     x_max = (
-        max(st.end_time for st in solution.get_tasks()) if solution.get_tasks() else 100
+        max(st.end_time for st in solution.get_tasks())
+        if solution.get_tasks()
+        else 100
     )
     if current_time is not None:
         x_max = max(x_max, current_time)
@@ -57,21 +59,56 @@ def _draw_schedule_on_axes(
     # Map machine ID to its index for Y-axis positioning
     machine_idx = {m.id: i for i, m in enumerate(solution.machines)}
 
+    any_overrun = False
     for machine_id, tasks in solution.mapping.items():
         i = machine_idx[machine_id]
+        # Process tasks in start-time order so each task's "next neighbour"
+        # is well defined for the overrun clamp below.
+        sorted_tasks = sorted(tasks, key=lambda st: st.start_time)
         bars = []
         colors = []
         edge_colors = []
         line_widths = []
+        overrun_bars: list[tuple[float, float]] = []
+        labels: list[tuple[float, str]] = []
 
-        for t in tasks:
+        for idx, t in enumerate(sorted_tasks):
             # Use job_id for stable coloring
             jid = str(t.task.job_id)
             if jid not in job_color:
                 job_color[jid] = cmap(len(job_color) % cmap.N)
 
-            bars.append((t.start_time, t.task.processing_time))
+            # An IN_PROGRESS task whose scheduled end is in the past is
+            # rendered as long as it has actually been running, so the bar
+            # reaches the current-time line. The original [start, end]
+            # window is highlighted with a hatched overlay below.
+            #
+            # The displayed width is clamped to the start of the next
+            # scheduled task on this machine, which keeps bars from
+            # overlapping when several tasks are simultaneously
+            # IN_PROGRESS — a state the domain model says shouldn't occur
+            # (one task per machine at a time), but which the chart
+            # should still render legibly if it does.
+            displayed_width = t.task.processing_time
+            if (
+                current_time is not None
+                and t.task.status == TaskStatus.IN_PROGRESS
+                and current_time > t.end_time
+            ):
+                next_start = (
+                    sorted_tasks[idx + 1].start_time
+                    if idx + 1 < len(sorted_tasks)
+                    else current_time
+                )
+                cap = min(current_time, next_start)
+                if cap > t.end_time:
+                    displayed_width = cap - t.start_time
+                    overrun_bars.append((t.end_time, cap - t.end_time))
+                    any_overrun = True
+
+            bars.append((t.start_time, displayed_width))
             colors.append(job_color[jid])
+            labels.append((t.start_time + displayed_width / 2, t.task.name))
 
             # Highlight tasks based on their status
             if t.task.status == TaskStatus.IN_PROGRESS:
@@ -92,31 +129,53 @@ def _draw_schedule_on_axes(
             linewidths=line_widths,
         )
 
-        for t in tasks:
+        if overrun_bars:
+            ax.broken_barh(
+                overrun_bars,
+                yrange=(i + Y_START - BAR_WIDTH / 2, BAR_WIDTH),
+                facecolors="none",
+                edgecolors="black",
+                linewidths=1.0,
+                hatch="//",
+            )
+
+        for x, label in labels:
             ax.text(
-                t.start_time + t.task.processing_time / 2,
+                x,
                 i + Y_START,
-                t.task.name,
+                label,
                 ha="center",
                 va="center",
                 fontsize=9,
             )
 
     # Reconstruct legend using job names if possible, or just IDs
-    # Since job_color uses job_id, we'll just label them as "Job" for simplicity here
-    # or we could try to find the job name if we had the instance.
+    # Since job_color uses job_id, we'll just label them as "Job" for
+    # simplicity here or we could try to find the job name if we had the
+    # instance.
     patches = [
         mpatches.Patch(color=color, label=f"Job {jid[:8]}")
         for jid, color in sorted(job_color.items())
     ]
     patches.append(
-        mpatches.Patch(facecolor="white", edgecolor="red", linewidth=2, label="Running")
+        mpatches.Patch(
+            facecolor="white", edgecolor="red", linewidth=2, label="Running"
+        )
     )
     patches.append(
         mpatches.Patch(
             facecolor="white", edgecolor="green", linewidth=1, label="Completed"
         )
     )
+    if any_overrun:
+        patches.append(
+            mpatches.Patch(
+                facecolor="white",
+                edgecolor="black",
+                hatch="//",
+                label="Overrun",
+            )
+        )
 
     ax.legend(handles=patches, fontsize=9, loc="upper right")
 
@@ -126,8 +185,7 @@ def plot_gantt_chart(
     figsize: tuple[int, int] = (12, 8),
     output_path: str | None = None,
 ) -> None:
-    """
-    Plot a Gantt chart from a Schedule object.
+    """Plot a Gantt chart from a Schedule object.
 
     Args:
         solution (Schedule):
@@ -154,15 +212,16 @@ def plot_gantt_chart(
 class LiveGanttChart:
     """Re-renders a Gantt chart in place each time a new Schedule is pushed in.
 
-    Usage:
-        chart = LiveGanttChart()
-        for schedule in stream_of_schedules:
-            chart.update(schedule)
-        chart.close()
+    The chart runs in matplotlib's interactive mode so ``update`` returns
+    quickly without blocking the caller's loop. Job colors persist across
+    updates, so a given job keeps the same color even as bars move between
+    frames.
 
-    The chart runs in matplotlib's interactive mode so `update` returns quickly
-    without blocking the caller's loop. Job colors persist across updates, so a
-    given job keeps the same color even as bars move between frames.
+    Example:
+        >>> chart = LiveGanttChart()
+        >>> for schedule in stream_of_schedules:
+        ...     chart.update(schedule)
+        >>> chart.close()
     """
 
     def __init__(self, figsize: tuple[int, int] = (12, 8)) -> None:
@@ -171,7 +230,9 @@ class LiveGanttChart:
         self.fig, self.ax = plt.subplots(figsize=figsize)
         self._job_color: dict[str, tuple] = {}
 
-    def update(self, solution: Schedule, current_time: int | None = None) -> None:
+    def update(
+        self, solution: Schedule, current_time: int | None = None
+    ) -> None:
         """Redraw the chart for the given schedule."""
         self.ax.clear()
         _draw_schedule_on_axes(
@@ -181,7 +242,7 @@ class LiveGanttChart:
         plt.pause(0.001)
 
     def close(self) -> None:
-        """Close the underlying figure and restore matplotlib's interactive mode."""
+        """Close the figure and restore matplotlib's interactive mode."""
         plt.close(self.fig)
         if not self._was_interactive:
             plt.ioff()

@@ -32,8 +32,12 @@ def test_sort_tasks_multiple_tasks_no_dependencies() -> None:
 
 def test_sort_tasks_linear_dependencies() -> None:
     """Test sorting tasks with linear dependencies (A -> B -> C)."""
-    task_c = Task(id="T3", name="Task C", processing_time=10, dependencies=["T2"])
-    task_b = Task(id="T2", name="Task B", processing_time=10, dependencies=["T1"])
+    task_c = Task(
+        id="T3", name="Task C", processing_time=10, dependencies=["T2"]
+    )
+    task_b = Task(
+        id="T2", name="Task B", processing_time=10, dependencies=["T1"]
+    )
     task_a = Task(id="T1", name="Task A", processing_time=10)
     tasks = [task_c, task_b, task_a]
     sorted_tasks = _sort_tasks(tasks)
@@ -42,24 +46,34 @@ def test_sort_tasks_linear_dependencies() -> None:
 
 def test_sort_tasks_branching_dependencies() -> None:
     """Test sorting tasks with branching dependencies (A -> B, A -> C)."""
-    task_b = Task(id="T2", name="Task B", processing_time=10, dependencies=["T1"])
-    task_c = Task(id="T3", name="Task C", processing_time=10, dependencies=["T1"])
+    task_b = Task(
+        id="T2", name="Task B", processing_time=10, dependencies=["T1"]
+    )
+    task_c = Task(
+        id="T3", name="Task C", processing_time=10, dependencies=["T1"]
+    )
     task_a = Task(id="T1", name="Task A", processing_time=10)
     tasks = [task_b, task_c, task_a]
     sorted_tasks = _sort_tasks(tasks)
     assert sorted_tasks[0] == task_a
-    assert {task_b, task_c} == set(sorted_tasks[1:])  # Order of B and C can vary
+    assert {task_b, task_c} == set(
+        sorted_tasks[1:]
+    )  # Order of B and C can vary
 
 
 def test_sort_tasks_converging_dependencies() -> None:
     """Test sorting tasks with converging dependencies (A -> C, B -> C)."""
-    task_c = Task(id="T3", name="Task C", processing_time=10, dependencies=["T1", "T2"])
+    task_c = Task(
+        id="T3", name="Task C", processing_time=10, dependencies=["T1", "T2"]
+    )
     task_a = Task(id="T1", name="Task A", processing_time=10)
     task_b = Task(id="T2", name="Task B", processing_time=10)
     tasks = [task_c, task_a, task_b]
     sorted_tasks = _sort_tasks(tasks)
     assert sorted_tasks[-1] == task_c
-    assert {task_a, task_b} == set(sorted_tasks[:-1])  # Order of A and B can vary
+    assert {task_a, task_b} == set(
+        sorted_tasks[:-1]
+    )  # Order of A and B can vary
 
 
 def test_sort_tasks_complex_dag() -> None:
@@ -83,13 +97,17 @@ def test_sort_tasks_cycle_detection() -> None:
     """
     Test that _sort_tasks detects and raises ValueError for cycles.
     """
-    task_a = Task(id="T1", name="Task A", processing_time=10, dependencies=["T2"])
-    task_b = Task(id="T2", name="Task B", processing_time=10, dependencies=["T1"])
+    task_a = Task(
+        id="T1", name="Task A", processing_time=10, dependencies=["T2"]
+    )
+    task_b = Task(
+        id="T2", name="Task B", processing_time=10, dependencies=["T1"]
+    )
     tasks = [task_a, task_b]
     with pytest.raises(
         ValueError,
-        match="Graph has no tasks without dependencies, indicating a cycle "
-        "or an invalid DAG.",
+        match=r"Graph has no tasks without dependencies, indicating a cycle "
+        r"or an invalid DAG.",
     ):
         _sort_tasks(tasks)
 
@@ -101,14 +119,20 @@ def test_sort_tasks_no_initial_dependencies() -> None:
     """
     # This scenario implies a graph where all nodes have incoming edges, which
     # is a cycle or disconnected components that cannot be started.
-    task_a = Task(id="T1", name="Task A", processing_time=10, dependencies=["T2"])
-    task_b = Task(id="T2", name="Task B", processing_time=10, dependencies=["T3"])
-    task_c = Task(id="T3", name="Task C", processing_time=10, dependencies=["T1"])
+    task_a = Task(
+        id="T1", name="Task A", processing_time=10, dependencies=["T2"]
+    )
+    task_b = Task(
+        id="T2", name="Task B", processing_time=10, dependencies=["T3"]
+    )
+    task_c = Task(
+        id="T3", name="Task C", processing_time=10, dependencies=["T1"]
+    )
     tasks = [task_a, task_b, task_c]
     with pytest.raises(
         ValueError,
-        match="Graph has no tasks without dependencies, indicating a cycle "
-        "or an invalid DAG.",
+        match=r"Graph has no tasks without dependencies, indicating a cycle "
+        r"or an invalid DAG.",
     ):
         _sort_tasks(tasks)
 
@@ -117,8 +141,12 @@ def test_sort_tasks_disconnected_components() -> None:
     """Test sorting tasks with disconnected components."""
     task_a = Task(id="T1", name="Task A", processing_time=10)
     task_b = Task(id="T2", name="Task B", processing_time=10)
-    task_c = Task(id="T3", name="Task C", processing_time=10, dependencies=["T1"])
-    task_d = Task(id="T4", name="Task D", processing_time=10, dependencies=["T2"])
+    task_c = Task(
+        id="T3", name="Task C", processing_time=10, dependencies=["T1"]
+    )
+    task_d = Task(
+        id="T4", name="Task D", processing_time=10, dependencies=["T2"]
+    )
     tasks = [task_c, task_d, task_a, task_b]
     sorted_tasks = _sort_tasks(tasks)
     # A and B must come before C and D respectively. The relative order of A/B

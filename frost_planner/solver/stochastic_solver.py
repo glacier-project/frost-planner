@@ -1,8 +1,7 @@
 import random
 import sys
 from copy import deepcopy
-
-from typing_extensions import override
+from typing import override
 
 from frost_planner.core.base import Job, SchedulingInstance, _sort_tasks
 from frost_planner.core.schedule import ScheduledTask
@@ -11,8 +10,7 @@ from frost_planner.solver.base_solver import BaseSolver
 
 
 class StochasticSolver(BaseSolver):
-    """
-    Stochastic solver that uses randomization to find better schedules.
+    """Stochastic solver that uses randomization to find better schedules.
 
     This solver explores the solution space by exploring random and local
     neighbor solutions.
@@ -39,22 +37,21 @@ class StochasticSolver(BaseSolver):
         self,
         instance: SchedulingInstance,
         horizon: int = sys.maxsize,
-        T: int = 1000,
-        B: int = 400,
-        R: int = 16,
+        t: int = 1000,
+        b: int = 400,
+        r: int = 16,
         alpha: float = 0.4,
         t_idle: int = 10,
     ) -> None:
         super().__init__(instance, horizon)
-        self.T = T
-        self.B = B
-        self.R = R
+        self.T = t
+        self.B = b
+        self.R = r
         self.alpha = alpha
         self.t_idle = t_idle
 
     def _get_random_neighbor(self, jobs: list[Job]) -> list[Job]:
-        """
-        Generate a random neighbor solution by swapping two jobs.
+        """Generate a random neighbor solution by swapping two jobs.
 
         Args:
             jobs (list[Job]):
@@ -73,9 +70,7 @@ class StochasticSolver(BaseSolver):
         return jobs
 
     def _get_local_neighbor(self, jobs: list[Job]) -> list[Job]:
-        """
-        Generate a local neighbor solution by swapping two tasks within the same
-        job.
+        """Generate a local neighbor by swapping two tasks within the same job.
 
         Args:
             jobs (list[Job]):
@@ -84,7 +79,6 @@ class StochasticSolver(BaseSolver):
         Returns:
             list[Job]:
                 A list of jobs with two tasks swapped.
-
         """
         if not jobs:
             return jobs
@@ -119,8 +113,7 @@ class StochasticSolver(BaseSolver):
         return jobs
 
     def _sort_jobs_random(self, jobs: list[Job]) -> list[Job]:
-        """
-        Sort jobs randomly.
+        """Sort jobs randomly.
 
         Args:
             jobs (list[Job]):
@@ -140,8 +133,7 @@ class StochasticSolver(BaseSolver):
         machine_intervals: dict[str, list[tuple[int, int]]],
         start_time: int = 0,
     ) -> tuple[list[ScheduledTask], int]:
-        """
-        Evaluate the quality of a solution based on the makespan.
+        """Evaluate the quality of a solution based on the makespan.
 
         Args:
             jobs (list[Job]):
@@ -172,7 +164,9 @@ class StochasticSolver(BaseSolver):
         )
 
         return scheduled_tasks, (
-            max(task.end_time for task in scheduled_tasks) if scheduled_tasks else 0
+            max(task.end_time for task in scheduled_tasks)
+            if scheduled_tasks
+            else 0
         )
 
     @override
@@ -183,9 +177,9 @@ class StochasticSolver(BaseSolver):
     ) -> list[ScheduledTask]:
         # init random
         alpha = self.alpha
-        B = self.B
-        R = self.R
-        local_iterations = round(((1 - alpha) * B) / R)
+        b = self.B
+        r = self.R
+        local_iterations = round(((1 - alpha) * b) / r)
         jobs = self._sort_jobs_random(list(self.instance.jobs))
         solution, makespan = self._evaluate_solution(
             jobs, machine_intervals, start_time=start_time
@@ -200,8 +194,8 @@ class StochasticSolver(BaseSolver):
             local_solution = solution
             current_makespan = sys.maxsize
 
-            # αB local explorations
-            for _ in range(int(self.alpha * self.B)):
+            # alpha*B local explorations
+            for _ in range(int(self.alpha * b)):
                 local_neighbor = self._get_local_neighbor(local_jobs.copy())
                 local_solution, local_makespan = self._evaluate_solution(
                     local_neighbor, machine_intervals, start_time=start_time
@@ -210,11 +204,13 @@ class StochasticSolver(BaseSolver):
                     local_jobs = local_neighbor
                     current_makespan = local_makespan
 
-            for _ in range(self.R):
+            for _ in range(r):
                 remote_neighbor = self._get_random_neighbor(local_jobs.copy())
 
                 for _ in range(local_iterations):
-                    local_neighbor = self._get_local_neighbor(remote_neighbor.copy())
+                    local_neighbor = self._get_local_neighbor(
+                        remote_neighbor.copy()
+                    )
                     local_solution, local_makespan = self._evaluate_solution(
                         local_neighbor, machine_intervals, start_time=start_time
                     )
