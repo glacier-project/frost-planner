@@ -1,6 +1,7 @@
 import sys
+from abc import ABC
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from frost_planner.core.base import SchedulingInstance
 from frost_planner.solver.base_solver import BaseSolver
@@ -9,7 +10,7 @@ from frost_planner.solver.genetic_solver import GeneticAlgorithmSolver
 from frost_planner.solver.stochastic_solver import StochasticSolver
 
 
-class SolverType(str, Enum):
+class SolverType(StrEnum):
     """Supported solver identifiers."""
 
     DUMMY = "dummy"
@@ -18,13 +19,27 @@ class SolverType(str, Enum):
 
 
 @dataclass
-class SolverConfiguration:
-    """Common configuration for every solver."""
+class SolverConfiguration(ABC):
+    """Common configuration for every solver.
+
+    Abstract base: instantiate one of the concrete subclasses (e.g.
+    `DummySolverConfiguration`) instead.
+    """
 
     instance: SchedulingInstance
     solver_type: SolverType | str = SolverType.DUMMY
     horizon: int = sys.maxsize
     machine_intervals: dict[str, list[tuple[int, int]]] | None = None
+
+    def __post_init__(self) -> None:
+        """Reject direct instantiation of the abstract base class."""
+        if type(self) is SolverConfiguration:
+            raise TypeError(
+                "SolverConfiguration is abstract and cannot be instantiated "
+                "directly; use a concrete subclass (DummySolverConfiguration, "
+                "StochasticSolverConfiguration, "
+                "GeneticAlgorithmSolverConfiguration)."
+            )
 
 
 @dataclass
@@ -63,7 +78,9 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
     try:
         solver_type = SolverType(configuration.solver_type)
     except ValueError as exc:
-        supported_types = ", ".join(solver_type.value for solver_type in SolverType)
+        supported_types = ", ".join(
+            solver_type.value for solver_type in SolverType
+        )
         msg = (
             f"Unsupported solver type {configuration.solver_type!r}. "
             f"Supported solver types: {supported_types}."
@@ -78,9 +95,9 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
         )
 
     if solver_type is SolverType.STOCHASTIC:
-        assert isinstance(
-            configuration, StochasticSolverConfiguration
-        ), "Expected StochasticSolverConfiguration for stochastic solver type"
+        assert isinstance(configuration, StochasticSolverConfiguration), (
+            "Expected StochasticSolverConfiguration for stochastic solver type"
+        )
 
         return StochasticSolver(
             instance=configuration.instance,
@@ -93,9 +110,9 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             t_idle=configuration.t_idle,
         )
 
-    assert isinstance(
-        configuration, GeneticAlgorithmSolverConfiguration
-    ), "Expected GeneticAlgorithmSolverConfiguration for genetic solver type"
+    assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (
+        "Expected GeneticAlgorithmSolverConfiguration for genetic solver type"
+    )
     return GeneticAlgorithmSolver(
         instance=configuration.instance,
         horizon=configuration.horizon,

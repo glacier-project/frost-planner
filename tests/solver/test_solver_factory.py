@@ -9,15 +9,15 @@ from frost_planner.solver.factory import (
     DummySolverConfiguration,
     GeneticAlgorithmSolverConfiguration,
     SolverConfiguration,
-    SolverType,
     StochasticSolverConfiguration,
     create_solver,
 )
 from frost_planner.solver.genetic_solver import GeneticAlgorithmSolver
 from frost_planner.solver.stochastic_solver import StochasticSolver
 
-
-SolverClass = type[DummySolver] | type[StochasticSolver] | type[GeneticAlgorithmSolver]
+SolverClass = (
+    type[DummySolver] | type[StochasticSolver] | type[GeneticAlgorithmSolver]
+)
 
 
 @pytest.fixture
@@ -37,19 +37,14 @@ def _dummy_configuration(instance: SchedulingInstance) -> SolverConfiguration:
     return DummySolverConfiguration(instance=instance)
 
 
-def _stochastic_configuration(instance: SchedulingInstance) -> SolverConfiguration:
+def _stochastic_configuration(
+    instance: SchedulingInstance,
+) -> SolverConfiguration:
     return StochasticSolverConfiguration(instance=instance)
 
 
 def _genetic_configuration(instance: SchedulingInstance) -> SolverConfiguration:
     return GeneticAlgorithmSolverConfiguration(instance=instance)
-
-
-def _base_configuration(instance: SchedulingInstance) -> SolverConfiguration:
-    return SolverConfiguration(
-        instance=instance,
-        solver_type="dummy",
-    )
 
 
 @pytest.mark.parametrize(
@@ -58,7 +53,6 @@ def _base_configuration(instance: SchedulingInstance) -> SolverConfiguration:
         (_dummy_configuration, DummySolver),
         (_stochastic_configuration, StochasticSolver),
         (_genetic_configuration, GeneticAlgorithmSolver),
-        (_base_configuration, DummySolver),
     ],
 )
 def test_create_solver_from_configuration(
@@ -66,16 +60,16 @@ def test_create_solver_from_configuration(
     configuration: Callable[[SchedulingInstance], SolverConfiguration],
     solver_class: SolverClass,
 ) -> None:
-    solver_configuration = configuration(instance)
-    solver_configuration.horizon = 100
-    solver_configuration.machine_intervals = {"M1": [(5, sys.maxsize)]}
+    sc = configuration(instance)
+    sc.horizon = 100
+    sc.machine_intervals = {"M1": [(5, sys.maxsize)]}
 
-    solver = create_solver(solver_configuration)
+    solver = create_solver(sc)
 
     assert isinstance(solver, solver_class)
     assert solver.instance == instance
     assert solver.horizon == 100
-    assert solver.initial_machine_intervals == solver_configuration.machine_intervals
+    assert solver.initial_machine_intervals == sc.machine_intervals
 
 
 def test_create_stochastic_solver_with_ad_hoc_parameters(
@@ -125,12 +119,7 @@ def test_create_genetic_solver_with_ad_hoc_parameters(
 def test_create_solver_uses_default_specific_parameters_for_base_configuration(
     instance: SchedulingInstance,
 ) -> None:
-    solver = create_solver(
-        SolverConfiguration(
-            instance=instance,
-            solver_type=SolverType.STOCHASTIC,
-        )
-    )
+    solver = create_solver(StochasticSolverConfiguration(instance=instance))
 
     assert isinstance(solver, StochasticSolver)
     assert solver.T == 1000
@@ -142,8 +131,16 @@ def test_create_solver_rejects_unknown_type(
 ) -> None:
     with pytest.raises(ValueError, match="Unsupported solver type"):
         create_solver(
-            SolverConfiguration(
+            DummySolverConfiguration(
                 instance=instance,
                 solver_type="unknown",
             )
         )
+
+
+def test_solver_configuration_cannot_be_instantiated(
+    instance: SchedulingInstance,
+) -> None:
+    """The abstract base rejects direct construction."""
+    with pytest.raises(TypeError, match="abstract"):
+        SolverConfiguration(instance=instance)
