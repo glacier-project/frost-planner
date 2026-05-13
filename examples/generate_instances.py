@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 import argparse
 import os
 
@@ -63,6 +66,14 @@ MEDIUM_CONFIG = InstanceConfiguration(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for generating scheduling instances.
+
+    Returns:
+        argparse.Namespace: The parsed command-line arguments, including the
+        configuration level, random seed, output directory, and number of
+        instances to generate.
+
+    """
     parser = argparse.ArgumentParser(description="Generate random instances")
     parser.add_argument(
         "-c",
@@ -96,16 +107,16 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Main function to generate random scheduling instances."""
     args = parse_args()
-    if args.config == "easy":
-        config = EASY_CONFIG
-    else:
-        config = MEDIUM_CONFIG
+    config = EASY_CONFIG if args.config == "easy" else MEDIUM_CONFIG
 
     dump_configuration(config)
 
     if os.path.exists(args.output_dir) and not os.path.isdir(args.output_dir):
-        raise ValueError(f"Output path {args.output_dir} exists and is not a directory")
+        raise ValueError(
+            f"Output path {args.output_dir} exists and is not a directory"
+        )
 
     cprint(
         f"Creating output directory [green]{args.output_dir}[/green]...",
@@ -125,7 +136,10 @@ def main() -> None:
         instance_path = os.path.join(args.output_dir, f"instance_{i}.json")
         # Save the instance to a JSON file.
         save_instance_to_json(instance, instance_path)
-        cprint(f"  Saved instance to [green]{instance_path}[/green]", style="yellow")
+        cprint(
+            f"  Saved instance to [green]{instance_path}[/green]",
+            style="yellow",
+        )
 
     cprint("Finished generating instances.", style="yellow")
 

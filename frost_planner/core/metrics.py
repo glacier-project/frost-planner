@@ -1,10 +1,12 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 from frost_planner.core.base import SchedulingInstance
 from frost_planner.core.schedule import Schedule
 
 
 def calculate_start_time(schedule: Schedule) -> float:
-    """
-    Calculates the start time of a given schedule.
+    """Calculates the start time of a given schedule.
 
     Args:
         schedule (Schedule):
@@ -24,8 +26,7 @@ def calculate_start_time(schedule: Schedule) -> float:
 
 
 def calculate_makespan(schedule: Schedule) -> float:
-    """
-    Calculates the makespan of a given schedule.
+    """Calculates the makespan of a given schedule.
 
     Args:
         schedule (Schedule):
@@ -45,8 +46,7 @@ def calculate_makespan(schedule: Schedule) -> float:
 
 
 def calculate_total_flow_time(schedule: Schedule) -> float:
-    """
-    Calculates the total flow time of a given schedule.
+    """Calculates the total flow time of a given schedule.
 
     Args:
         schedule (Schedule):
@@ -67,8 +67,7 @@ def calculate_lateness(
     schedule: Schedule,
     instance: SchedulingInstance,
 ) -> dict[str, float]:
-    """
-    Calculates the lateness for each job in the schedule.
+    """Calculates the lateness for each job in the schedule.
 
     Args:
         schedule (Schedule):
@@ -94,8 +93,7 @@ def calculate_tardiness(
     schedule: Schedule,
     instance: SchedulingInstance,
 ) -> dict[str, float]:
-    """
-    Calculates the tardiness for each job in the schedule.
+    """Calculates the tardiness for each job in the schedule.
 
     Args:
         schedule (Schedule):
@@ -119,9 +117,9 @@ def calculate_num_tardy_jobs(
     schedule: Schedule,
     instance: SchedulingInstance,
 ) -> int:
-    """
-    Calculates the number of tardy jobs in the schedule. A job is considered
-    tardy if its completion time exceeds its due date.
+    """Calculates the number of tardy jobs in the schedule.
+
+    A job is considered tardy if its completion time exceeds its due date.
 
     Args:
         schedule (Schedule):

@@ -1,9 +1,15 @@
-from enum import Enum
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
 
-from pydantic import BaseModel, Field, field_validator
+from enum import StrEnum
+from typing import Any, Self
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
+    """Enumeration of possible task statuses."""
+
     WAITING = "WAITING"
     READY = "READY"
     IN_PROGRESS = "IN_PROGRESS"
@@ -12,8 +18,7 @@ class TaskStatus(str, Enum):
 
 
 class Task(BaseModel):
-    """
-    Represents a single, indivisible unit of work.
+    """Represents a single, indivisible unit of work.
 
     A task is defined by its unique identifier, the machines that can process
     it, and its duration.
@@ -30,12 +35,12 @@ class Task(BaseModel):
             can start.
         requires (list[str]):
             The capabilities required to complete the task.
-        machines (list[str]):
-            The identifiers of the machines that can process this task.
         priority (int):
             The priority of the task. Lower values indicate higher priority.
         status (TaskStatus):
             The current status of the task.
+        job_id (str | None):
+            Job ID of the parent job.
 
     """
 
@@ -63,17 +68,23 @@ class Task(BaseModel):
     priority: int = Field(
         default=1,
         gt=0,
-        description="The priority of the task. Lower values indicate higher priority.",
+        description="The priority of the task. Lower values indicate higher "
+        "priority.",
     )
     status: TaskStatus = Field(
         default=TaskStatus.WAITING,
         description="The current status of the task.",
     )
+    job_id: str | None = Field(
+        default=None,
+        description="Job ID of this task",
+        # this field is retrieved from the parent job:
+        # don't serialize it.
+        exclude=True,
+    )
 
     def __str__(self) -> str:
-        """
-        Return string representation of the object.
-        """
+        """Return string representation of the object."""
         return (
             f"Task("
             f"id={self.id}, "
@@ -86,15 +97,11 @@ class Task(BaseModel):
         )
 
     def __repr__(self) -> str:
-        """
-        Return repr string for the object.
-        """
+        """Return repr string for the object."""
         return self.__str__()
 
     def __hash__(self) -> int:
-        """
-        Return hash value for the object.
-        """
+        """Return hash value for the object."""
         return hash(
             (
                 self.id,
@@ -108,9 +115,7 @@ class Task(BaseModel):
         )
 
     def __eq__(self, other: object) -> bool:
-        """
-        Check equality with another object.
-        """
+        """Check equality with another object."""
         if not isinstance(other, Task):
             return False
         return (
@@ -125,8 +130,7 @@ class Task(BaseModel):
 
 
 class Job(BaseModel):
-    """
-    Represents a job consisting of multiple tasks.
+    """Represents a job consisting of multiple tasks.
 
     Attributes:
         id (str):
@@ -165,10 +169,35 @@ class Job(BaseModel):
         "this date, it is considered tardy.",
     )
 
-    @field_validator("tasks", mode="after")
-    def _validate_tasks(cls, tasks: list[Task]) -> list[Task]:
+    def model_post_init(self, context: Any) -> None:
+        """After initialization, set the job ID of all the child tasks.
+
+        Args:
+            context (Any):
+                Pydantic context
         """
-        Validates the tasks in the job.
+        for task in self.tasks:
+            task.job_id = self.id
+
+    @model_validator(mode="after")
+    def _validate_tasks_job_id(self) -> Self:
+        """Validates that all tasks must have a job id after initialization.
+
+        Returns:
+            Self:
+                Validated model.
+        """
+        for task in self.tasks:
+            if task.job_id is None:
+                raise ValueError(
+                    "The task's job id wasn't set during post init"
+                )
+        return self
+
+    @field_validator("tasks", mode="after")
+    @classmethod
+    def _validate_tasks(cls, tasks: list[Task]) -> list[Task]:
+        """Validates the tasks in the job.
 
         Args:
             tasks (list[Task]):
@@ -197,8 +226,7 @@ class Job(BaseModel):
         return tasks
 
     def find_task(self, task_id: str) -> Task | None:
-        """
-        Finds a task in the job by its ID.
+        """Finds a task in the job by its ID.
 
         Args:
             task_id (str):
@@ -215,9 +243,7 @@ class Job(BaseModel):
         return None
 
     def __str__(self) -> str:
-        """
-        Return string representation of the object.
-        """
+        """Return string representation of the object."""
         return (
             f"Job("
             f"id={self.id}, "
@@ -227,15 +253,11 @@ class Job(BaseModel):
         )
 
     def __repr__(self) -> str:
-        """
-        Return repr string for the object.
-        """
+        """Return repr string for the object."""
         return self.__str__()
 
     def __hash__(self) -> int:
-        """
-        Return hash value for the object.
-        """
+        """Return hash value for the object."""
         return hash(
             (
                 self.id,
@@ -247,9 +269,7 @@ class Job(BaseModel):
         )
 
     def __eq__(self, other: object) -> bool:
-        """
-        Check equality with another object.
-        """
+        """Check equality with another object."""
         if not isinstance(other, Job):
             msg = "Comparisons must be between Job instances."
             raise TypeError(msg)
@@ -263,8 +283,7 @@ class Job(BaseModel):
 
 
 class Machine(BaseModel):
-    """
-    Represents a machine that can process tasks.
+    """Represents a machine that can process tasks.
 
     Attributes:
         id (str):
@@ -290,23 +309,18 @@ class Machine(BaseModel):
     )
 
     def __str__(self) -> str:
-        """
-        Return string representation of the object.
-        """
+        """Return string representation of the object."""
         return (
-            f"Machine(id={self.id}, name={self.name}, capabilities={self.capabilities})"
+            f"Machine(id={self.id}, name={self.name}, "
+            f"capabilities={self.capabilities})"
         )
 
     def __repr__(self) -> str:
-        """
-        Return repr string for the object.
-        """
+        """Return repr string for the object."""
         return self.__str__()
 
     def __hash__(self) -> int:
-        """
-        Return hash value for the object.
-        """
+        """Return hash value for the object."""
         return hash(
             (
                 self.id,
@@ -316,9 +330,7 @@ class Machine(BaseModel):
         )
 
     def __eq__(self, other: object) -> bool:
-        """
-        Check equality with another object.
-        """
+        """Check equality with another object."""
         if not isinstance(other, Machine):
             msg = "Comparisons must be between Machine instances."
             raise TypeError(msg)
@@ -330,9 +342,11 @@ class Machine(BaseModel):
 
 
 class SchedulingInstance(BaseModel):
-    """
-    Represents a scheduling instance containing a set of jobs that need to be
-    scheduled on a set of machines.
+    """Represents a scheduling instance.
+
+    A scheduling instance consists of a set of jobs to be scheduled, a set of
+    machines available for processing the tasks, and the travel times between
+    machines.
 
     Attributes:
         jobs (list[Job]):
@@ -362,8 +376,7 @@ class SchedulingInstance(BaseModel):
     )
 
     def get_machine(self, machine_id: str) -> Machine | None:
-        """
-        Retrieves a machine by its ID.
+        """Retrieves a machine by its ID.
 
         Args:
             machine_id (str):
@@ -380,8 +393,7 @@ class SchedulingInstance(BaseModel):
         return None
 
     def get_travel_time(self, m0: Machine, m1: Machine) -> int:
-        """
-        Retrieves the travel time between two machines.
+        """Retrieves the travel time between two machines.
 
         Args:
             m0 (Machine):
@@ -401,14 +413,15 @@ class SchedulingInstance(BaseModel):
             raise ValueError(msg)
         travel_time = self.travel_times[m0.id].get(m1.id, None)
         if travel_time is None:
-            msg = f"No travel times defined from machine {m0.id} to machine {m1.id}."
+            msg = (
+                f"No travel times defined from machine {m0.id} to "
+                f"machine {m1.id}."
+            )
             raise ValueError(msg)
         return travel_time
 
     def get_suitable_machines(self, task: Task) -> list[Machine]:
-        """
-        Finds all suitable machines for the given task based on its
-         requirements.
+        """Finds all suitable machines for the given task.
 
         Args:
              task (Task):
@@ -426,9 +439,7 @@ class SchedulingInstance(BaseModel):
         ]
 
     def __str__(self) -> str:
-        """
-        Return string representation of the object.
-        """
+        """Return string representation of the object."""
         return (
             f"SchedulingInstance("
             f"jobs={self.jobs}, "
@@ -437,19 +448,19 @@ class SchedulingInstance(BaseModel):
         )
 
     def __repr__(self) -> str:
-        """
-        Return repr string for the object.
-        """
+        """Return repr string for the object."""
         return self.__str__()
 
 
 def _sort_tasks(tasks: list[Task]) -> list[Task]:
-    """
-    Performs a topological sort on the given list of tasks based on their
-    dependencies using the Kahn's algorithm.
+    """Performs a topological sort on the given list of tasks.
 
-    This function assumes that the input list of tasks is a directed acyclic
-    graph (DAG).
+    Tasks are sorted in an order that respects their dependencies, meaning that
+    a task will only appear after all of its dependencies have been listed. The
+    sorting is done using Kahn's algorithm, which is an efficient method for
+    topologically sorting a directed acyclic graph (DAG). If the input list of
+    tasks contains a cycle, a ValueError is raised indicating that the graph is
+    not a DAG.
 
     Args:
         tasks (list[Task]): The list of tasks to sort.
@@ -461,13 +472,14 @@ def _sort_tasks(tasks: list[Task]) -> list[Task]:
     Returns:
         list[Task]:
             The sorted list of tasks.
-
     """
     if not tasks:
         return []
 
     incoming_edges = {m.id: list(m.dependencies) for m in tasks}
-    neighbors = {n.id: [m for m in tasks if n.id in m.dependencies] for n in tasks}
+    neighbors = {
+        n.id: [m for m in tasks if n.id in m.dependencies] for n in tasks
+    }
 
     sorted_tasks: list[Task] = []
     stack = [task for task in tasks if not task.dependencies]

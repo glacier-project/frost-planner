@@ -1,12 +1,13 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 from pydantic import BaseModel, Field, model_validator
 
 from frost_planner.core.base import Job, Machine, Task, TaskStatus
 
 
 class ScheduledTask(BaseModel):
-    """
-    Represents a single task that has been assigned a start and end time on a
-    specific machine.
+    """Represents a scheduled task in the production schedule.
 
     This is a mutable data object representing a piece of the final schedule.
     The `order=True` argument automatically makes instances sortable by their
@@ -41,8 +42,7 @@ class ScheduledTask(BaseModel):
 
     @model_validator(mode="after")
     def validate_scheduled_task(self) -> "ScheduledTask":
-        """
-        Validate the scheduled task's attributes.
+        """Validate the scheduled task's attributes.
 
         Raises:
             ValueError:
@@ -57,7 +57,8 @@ class ScheduledTask(BaseModel):
         """
         if self.end_time < self.start_time:
             raise ValueError(
-                f"Invalid time range: end_time ({self.end_time}) must be greater than or equal to start_time ({self.start_time})"
+                f"Invalid time range: end_time ({self.end_time}) must be "
+                f"greater than or equal to start_time ({self.start_time})"
             )
         duration = self.end_time - self.start_time
         if duration != self.task.processing_time:
@@ -81,9 +82,12 @@ class ScheduledTask(BaseModel):
 
 
 class Schedule(BaseModel):
-    """
-    Represents a schedule consisting of multiple tasks assigned to specific
-    machines.
+    """Represents a production schedule.
+
+    A schedule consists of a set of machines and a mapping of machine IDs to
+    lists of scheduled tasks. Each scheduled task includes the task being
+    performed, the machine it's assigned to, and the start and end times for
+    that task.
 
     Attributes:
         machines (list[Machine]):
@@ -103,8 +107,7 @@ class Schedule(BaseModel):
     )
 
     def get_tasks(self) -> list[ScheduledTask]:
-        """
-        Get all ScheduledTasks in the schedule.
+        """Get all ScheduledTasks in the schedule.
 
         Returns:
             list[ScheduledTask]:
@@ -117,8 +120,7 @@ class Schedule(BaseModel):
         return all_tasks
 
     def get_machine_tasks(self, machine: Machine) -> list[ScheduledTask]:
-        """
-        Get all ScheduledTasks for a specific Machine.
+        """Get all ScheduledTasks for a specific Machine.
 
         Args:
             machine (Machine):
@@ -132,8 +134,7 @@ class Schedule(BaseModel):
         return self.mapping.get(machine.id, [])
 
     def get_task_mapping(self, task_or_id: Task | str) -> ScheduledTask | None:
-        """
-        Get the ScheduledTask mapping for a specific Task.
+        """Get the ScheduledTask mapping for a specific Task.
 
         Args:
             task_or_id (Task | str):
@@ -151,8 +152,7 @@ class Schedule(BaseModel):
         return None
 
     def get_job_start_time(self, job: Job) -> float:
-        """
-        Calculates the earliest start time of a job from the schedule.
+        """Calculates the earliest start time of a job from the schedule.
 
         Args:
             job (Job): The job to find the start time for.
@@ -168,13 +168,14 @@ class Schedule(BaseModel):
         for task_in_job in job.tasks:
             scheduled_task = self.get_task_mapping(task_in_job)
             if scheduled_task:
-                earliest_start = min(earliest_start, float(scheduled_task.start_time))
+                earliest_start = min(
+                    earliest_start, float(scheduled_task.start_time)
+                )
                 found_task = True
         return earliest_start if found_task else 0.0
 
     def get_job_end_time(self, job: Job) -> float:
-        """
-        Calculates the latest end time of a job from the schedule.
+        """Calculates the latest end time of a job from the schedule.
 
         Args:
             job (Job):
@@ -194,41 +195,38 @@ class Schedule(BaseModel):
         return latest_end
 
     def add_scheduled_task(self, scheduled_task: ScheduledTask) -> None:
-        """
-        Adds a ScheduledTask to the schedule.
+        """Adds a ScheduledTask to the schedule.
 
         Args:
             scheduled_task (ScheduledTask):
                 The task to add.
 
         """
-        machine_id = scheduled_task.machine.id
-        if machine_id not in self.mapping:
-            self.mapping[machine_id] = []
-        self.mapping[machine_id].append(scheduled_task)
+        m_id = scheduled_task.machine.id
+        if m_id not in self.mapping:
+            self.mapping[m_id] = []
+        self.mapping[m_id].append(scheduled_task)
 
     def remove_scheduled_task(self, scheduled_task: ScheduledTask) -> None:
-        """
-        Removes a ScheduledTask from the schedule.
+        """Removes a ScheduledTask from the schedule.
 
         Args:
             scheduled_task (ScheduledTask):
                 The task to remove.
 
         """
-        machine_id = scheduled_task.machine.id
-        if machine_id in self.mapping and scheduled_task in self.mapping[machine_id]:
-            self.mapping[machine_id].remove(scheduled_task)
-            if not self.mapping[machine_id]:
-                del self.mapping[machine_id]
+        m_id = scheduled_task.machine.id
+        if m_id in self.mapping and scheduled_task in self.mapping[m_id]:
+            self.mapping[m_id].remove(scheduled_task)
+            if not self.mapping[m_id]:
+                del self.mapping[m_id]
 
     def update_scheduled_task_machine(
         self,
         scheduled_task: ScheduledTask,
         new_machine: Machine,
     ) -> None:
-        """
-        Updates the machine for a ScheduledTask in the schedule.
+        """Updates the machine for a ScheduledTask in the schedule.
 
         Args:
             scheduled_task (ScheduledTask):
@@ -245,8 +243,7 @@ class Schedule(BaseModel):
         self.add_scheduled_task(scheduled_task)
 
     def can_start(self, task: ScheduledTask) -> bool:
-        """
-        Checks if a ScheduledTask can start based on its dependencies.
+        """Checks if a ScheduledTask can start based on its dependencies.
 
         Args:
             task (ScheduledTask):

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 import argparse
 
 from frost_planner.core.base import SchedulingInstance
@@ -9,8 +12,15 @@ from frost_planner.visualization.instance_dot_exporter import (
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for visualizing a scheduling instance.
+
+    Returns:
+        argparse.Namespace: The parsed command-line arguments, including the
+                            instance file path and output file path.
+
+    """
     parser = argparse.ArgumentParser(
-        description="Visualize a job-shop scheduling instance using DOT language"
+        description="Visualize a scheduling instance using DOT language"
     )
     parser.add_argument(
         "-i",
@@ -31,8 +41,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_instance(file_path: str) -> SchedulingInstance:
-    """
-    Load a scheduling instance from a JSON file.
+    """Load a scheduling instance from a JSON file.
 
     Args:
         file_path (str): Path to the JSON file.
@@ -46,10 +55,14 @@ def load_instance(file_path: str) -> SchedulingInstance:
 
 
 def main() -> None:
+    """Main function to visualize a scheduling instance."""
     args = parse_args()
 
     if args.instance:
-        cprint(f"Loading instance [green]{args.instance}[/green]...", style="yellow")
+        cprint(
+            f"Loading instance [green]{args.instance}[/green]...",
+            style="yellow",
+        )
         instance = load_instance(args.instance)
     else:
         cprint("No instance specified.", style="red")
@@ -64,9 +77,15 @@ def main() -> None:
         if output_extension == "dot":
             with open(args.output, "w") as f:
                 f.write(dot_string)
-            cprint(f"DOT string saved to [green]{args.output}[/green]", style="yellow")
+            cprint(
+                f"DOT string saved to [green]{args.output}[/green]",
+                style="yellow",
+            )
         else:
-            cprint(f"Rendering DOT to [green]{args.output}[/green]...", style="yellow")
+            cprint(
+                f"Rendering DOT to [green]{args.output}[/green]...",
+                style="yellow",
+            )
             render_dot_to_file(dot_string, args.output, output_extension)
     else:
         print(dot_string)

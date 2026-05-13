@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 from frost_planner.core.base import SchedulingInstance
 from frost_planner.core.schedule import Schedule, ScheduledTask
 from frost_planner.utils import cerror
@@ -12,7 +15,8 @@ def _validate_scheduled_task_times(scheduled_task: ScheduledTask) -> bool:
     valid = True
     if scheduled_task.start_time < 0 or scheduled_task.end_time < 0:
         cerror(
-            f"Scheduled task {scheduled_task.task.id} has negative start or end time."
+            f"Scheduled task {scheduled_task.task.id} has negative start or "
+            f"end time."
         )
         valid = False
     if scheduled_task.start_time > scheduled_task.end_time:
@@ -78,7 +82,7 @@ def _validate_machine_task_overlaps(schedule: Schedule) -> bool:
 def _validate_all_instance_tasks_scheduled(
     schedule: Schedule, instance: SchedulingInstance
 ) -> bool:
-    """Validates that all tasks from the instance are present in the schedule."""
+    """Validates that all instance tasks are present in the schedule."""
     valid = True
     instance_task_ids = {task.id for job in instance.jobs for task in job.tasks}
     scheduled_task_ids = set()
@@ -99,7 +103,7 @@ def _validate_all_instance_tasks_scheduled(
 
 
 def _validate_machine_capabilities(schedule: Schedule) -> bool:
-    """Validates that assigned machines have the required capabilities for tasks."""
+    """Validates that machines assigned to tasks have the req capabilities."""
     valid = True
     for st in schedule.get_tasks():
         task_requirements = set(st.task.requires)
@@ -107,8 +111,9 @@ def _validate_machine_capabilities(schedule: Schedule) -> bool:
         if not task_requirements.issubset(machine_capabilities):
             missing_capabilities = task_requirements - machine_capabilities
             cerror(
-                f"Task {st.task.id} requires capabilities {list(missing_capabilities)} "
-                f"but machine {st.machine.id} only has {list(machine_capabilities)}."
+                f"Task {st.task.id} requires capabilities "
+                f"{list(missing_capabilities)} but machine {st.machine.id} "
+                f"only has {list(machine_capabilities)}."
             )
             valid = False
     return valid
@@ -135,15 +140,18 @@ def _validate_task_dependencies(
                 valid = False
                 continue
 
-            travel_time = instance.get_travel_time(dependent_st.machine, st.machine)
-            if dependent_st.end_time + travel_time > st.start_time:
+            travel_time = instance.get_travel_time(
+                dependent_st.machine, st.machine
+            )
+            expected_start_time = dependent_st.end_time + travel_time
+            if expected_start_time > st.start_time:
                 cerror(
                     f"Dependency violation for task {st.task.id}: "
                     f"Dependent task {dependent_st.task.id} "
                     f"ends at {dependent_st.end_time} "
                     f"on machine {dependent_st.machine.id}. "
                     f"Travel time to {st.machine.id} is {travel_time}. "
-                    f"Expected start time >= {dependent_st.end_time + travel_time}, "
+                    f"Expected start time >= {expected_start_time}, "
                     f"but actual start time is {st.start_time}."
                 )
                 valid = False
@@ -154,8 +162,7 @@ def validate_schedule(
     schedule: Schedule,
     instance: SchedulingInstance | None = None,
 ) -> bool:
-    """
-    Performs a comprehensive validation of the given schedule.
+    """Performs a comprehensive validation of the given schedule.
 
     Args:
         schedule (Schedule):

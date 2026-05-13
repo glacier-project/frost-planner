@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 import os
 import random
 import uuid
@@ -5,7 +8,13 @@ from dataclasses import dataclass
 
 from pydantic import ValidationError
 
-from frost_planner.core.base import Job, Machine, SchedulingInstance, Task, _sort_tasks
+from frost_planner.core.base import (
+    Job,
+    Machine,
+    SchedulingInstance,
+    Task,
+    _sort_tasks,
+)
 from frost_planner.utils import cprint, crule
 
 
@@ -68,8 +77,7 @@ class InstanceGenerator:
         self,
         configuration: InstanceConfiguration,
     ) -> SchedulingInstance:
-        """
-        Create a scheduling instance based on the provided configuration.
+        """Create a scheduling instance based on the provided configuration.
 
         Args:
             configuration (InstanceConfiguration):
@@ -98,8 +106,7 @@ class InstanceGenerator:
         self,
         configuration: InstanceConfiguration,
     ) -> tuple[list[Job], set[tuple[str, ...]], list[str]]:
-        """
-        Generate jobs and tasks for the scheduling instance.
+        """Generate jobs and tasks for the scheduling instance.
 
         Args:
             configuration (InstanceConfiguration):
@@ -118,7 +125,8 @@ class InstanceGenerator:
 
         jobs: list[Job] = []
         all_capabilities = [
-            f"capability_{k}" for k in range(configuration.num_machine_capabilities)
+            f"capability_{k}"
+            for k in range(configuration.num_machine_capabilities)
         ]
         # Build jobs and tasks.
         for i in range(configuration.num_jobs):
@@ -214,9 +222,13 @@ class InstanceGenerator:
         required_capability_combinations: set[tuple[str, ...]],
         all_capabilities: list[str],
     ) -> list[Machine]:
-        """
-        Generate a list of machines based on the configuration and required
-        capabilities.
+        """Generate a list of machines from the provided parameters.
+
+        This method ensures that all required capability combinations are
+        covered by at least one machine, and that all individual capabilities
+        are also covered. Additional machines are added with random capabilities
+        until the total number of machines specified in the configuration is
+        reached.
 
         Args:
             configuration (InstanceConfiguration):
@@ -291,8 +303,7 @@ class InstanceGenerator:
         configuration: InstanceConfiguration,
         machines: list[Machine],
     ) -> dict[str, dict[str, int]]:
-        """
-        Generate travel times between machines.
+        """Generate travel times between machines.
 
         Args:
             configuration (InstanceConfiguration):
@@ -320,8 +331,7 @@ class InstanceGenerator:
 
 
 def save_instance_to_json(instance: SchedulingInstance, file_path: str) -> None:
-    """
-    Save a SchedulingInstance to a JSON file.
+    """Save a SchedulingInstance to a JSON file.
 
     Args:
         instance (SchedulingInstance): The scheduling instance to save.
@@ -341,8 +351,7 @@ def save_instance_to_json(instance: SchedulingInstance, file_path: str) -> None:
 
 
 def load_instance_from_json(file_path: str) -> SchedulingInstance:
-    """
-    Load a scheduling instance from a JSON file.
+    """Load a scheduling instance from a JSON file.
 
     Args:
         file_path (str): Path to the JSON file.
@@ -362,15 +371,18 @@ def load_instance_from_json(file_path: str) -> SchedulingInstance:
     try:
         with open(file_path) as f:
             return SchedulingInstance.model_validate_json(f.read())
-    except FileNotFoundError:
-        raise FileNotFoundError(f"File not found: {file_path}")
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"File not found: {file_path}") from e
     except (OSError, ValidationError) as e:
-        raise OSError(f"Error reading file {file_path}: {e}")
+        raise OSError(f"Error reading file {file_path}: {e}") from e
+    except Exception as e:
+        raise Exception(
+            f"Unexpected error loading instance from {file_path}: {e}"
+        ) from e
 
 
 def dump_configuration(config: InstanceConfiguration) -> None:
-    """
-    Dump the instance configuration to the console.
+    """Dump the instance configuration to the console.
 
     Args:
         config (InstanceConfiguration): The configuration to dump.
@@ -385,7 +397,8 @@ def dump_configuration(config: InstanceConfiguration) -> None:
         style="magenta",
     )
     cprint(
-        f"  Tasks per Job: [{config.min_tasks_per_job}-{config.max_tasks_per_job}]",
+        f"  Tasks per Job: [{config.min_tasks_per_job}-"
+        f"{config.max_tasks_per_job}]",
         style="magenta",
     )
     cprint(
@@ -415,7 +428,8 @@ def dump_configuration(config: InstanceConfiguration) -> None:
         style="magenta",
     )
     cprint(
-        f"  Task Priority: [{config.min_task_priority}-{config.max_task_priority}]",
+        f"  Task Priority: [{config.min_task_priority}-"
+        f"{config.max_task_priority}]",
         style="magenta",
     )
     cprint(

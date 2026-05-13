@@ -1,0 +1,41 @@
+# git-cliff configuration — keeps the existing CHANGELOG.md format:
+#
+#   ## VERSION - DATE
+#
+#   - [shorthash] type(scope): subject
+#
+# Run `scripts/gen_changelog.sh` (or `uvx git-cliff -o CHANGELOG.md`) to
+# regenerate the file from git history.
+
+[changelog]
+header = "# Changelog\n\n"
+body = """
+{% if version %}\
+## {{ version | trim_start_matches(pat="v") }} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## Unreleased
+{% endif %}
+
+{% for commit in commits %}\
+- [{{ commit.id | truncate(length=7, end="") }}] {{ commit.message | split(pat="\n") | first | trim }}
+{% endfor %}\n
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = false
+filter_unconventional = false
+split_commits = false
+protect_breaking_commits = false
+filter_commits = false
+tag_pattern = "v[0-9]*"
+skip_tags = ""
+ignore_tags = ""
+topo_order = false
+sort_commits = "oldest"
+commit_parsers = [
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^Merge ", skip = true },
+    { message = ".*", group = "Changes" },
+]

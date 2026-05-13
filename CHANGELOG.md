@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.4 - 2026-05-13
+
+
+- [f45300d] fix(license): Update copyright holder to Glacier project contributors
+- [99f9227] chore: Remove pyqt6 from dependencies
+- [2730af4] feat(core): add job id to tasks during JSON de-serialization
+- [bd702b6] Fix py3.11 CI: import Self from typing_extensions
+- [9993bc1] feat: Enhance scheduling executors and visualization
+- [e79c678] fix: update version to 0.2.4 in pyproject.toml
+- [6580e34] fix: remove unused variable assignment in _build_schedule function
+- [f71b3d9] feat(solver): add solver factory
+- [7d42152] chore(build): migrate from Poetry to uv
+- [4a8b5cd] docs(sphinx): auto-generate API reference and add landing pages
+- [3fd8c36] chore(changelog): support git-cliff regeneration
+- [fcc6377] style: apply ruff Google-style auto-fixes
+- [a5ba907] docs(changelog): record uv migration and docs work under Unreleased
+- [9c79728] fix(core): restore @classmethod on Job._validate_tasks
+- [fcf50f8] feat(gantt): render IN_PROGRESS overruns past their planned end
+- [40fef3d] style: apply ruff formatting
+- [2067fc5] refactor(factory): change SolverType to use StrEnum and enforce abstract base class instantiation
+- [e0fd01d] chore(license): add SPDX headers and REUSE compliance
+
 ## 0.2.1 - 2025-09-03
 
 - [8af6469] refactor(solver): centralize pre-computation in BaseSolver

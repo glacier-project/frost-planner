@@ -24,10 +24,14 @@ repos:
       #     - --branch=dev
       #     - --branch=main
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.3
+    rev: v0.15.12
     hooks:
       - id: ruff
         args:
           - --fix
       - id: ruff-format
         files: ^((frost_planner|tests)/.+)?[^/]+\.(py|pyi)$
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v6.2.0
+    hooks:
+      - id: reuse

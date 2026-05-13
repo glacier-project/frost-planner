@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 import argparse
 import time
 
@@ -10,15 +13,19 @@ from frost_planner.core.metrics import (
 from frost_planner.core.schedule import Schedule, ScheduledTask
 from frost_planner.core.validate import validate_schedule
 from frost_planner.generator.instance_generator import load_instance_from_json
-from frost_planner.solver.base_solver import BaseSolver
-from frost_planner.solver.dummy_solver import DummySolver
-from frost_planner.solver.genetic_solver import GeneticAlgorithmSolver
-from frost_planner.solver.stochastic_solver import StochasticSolver
+from frost_planner.solver.factory import SolverConfiguration, create_solver
 from frost_planner.utils import cerror, cprint, crule
 from frost_planner.visualization.gantt import plot_gantt_chart
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for solving a scheduling instance.
+
+    Returns:
+        argparse.Namespace: The parsed command-line arguments, including the
+                            instance file path, solver choice, and whether to
+                            plot a Gantt chart.
+    """
     parser = argparse.ArgumentParser(
         description="Generate random job-shop scheduling instances"
     )
@@ -47,8 +54,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def scheduled_task_to_str(st: ScheduledTask) -> str:
-    """
-    Convert a ScheduledTask to a string representation.
+    """Convert a ScheduledTask to a string representation.
 
     Args:
         st (ScheduledTask): The scheduled task to convert.
@@ -67,8 +73,7 @@ def dump_schedule(
     solution: Schedule,
     instance: SchedulingInstance,
 ) -> None:
-    """
-    Dumps the schedule information for the given solution and instance.
+    """Dumps the schedule information for the given solution and instance.
 
     Args:
         solution (Schedule):
@@ -102,7 +107,9 @@ def dump_schedule(
         for st in scheduled_tasks:
             # Print the travel time.
             if prev_st:
-                travel_time = instance.get_travel_time(prev_st.machine, st.machine)
+                travel_time = instance.get_travel_time(
+                    prev_st.machine, st.machine
+                )
                 if travel_time > 0:
                     cprint(
                         f"      [yellow]Travel from "
@@ -119,8 +126,7 @@ def dump_metrics(
     solution: Schedule,
     instance: SchedulingInstance,
 ) -> None:
-    """
-    Dumps the scheduling metrics for the given solution and instance.
+    """Dumps the scheduling metrics for the given solution and instance.
 
     Args:
         solution (Schedule):
@@ -147,24 +153,27 @@ def dump_metrics(
 
 
 def main() -> None:
+    """Main function to solve a scheduling instance."""
     args = parse_args()
 
-    cprint(f"Loading instance [green]{args.instance}[/green]...", style="yellow")
+    cprint(
+        f"Loading instance [green]{args.instance}[/green]...", style="yellow"
+    )
 
     instance = load_instance_from_json(args.instance)
 
     cprint("Loaded Scheduling Instance:")
     cprint(f"  Machines : {len(instance.machines)}")
     cprint(f"  Jobs     : {len(instance.jobs)}")
-    cprint(f"  Tasks    : {len([task for job in instance.jobs for task in job.tasks])}")
+    cprint(
+        f"  Tasks    : {
+            len([task for job in instance.jobs for task in job.tasks])
+        }"
+    )
 
-    solver: BaseSolver
-    if args.solver == "dummy":
-        solver = DummySolver(instance=instance)
-    elif args.solver == "genetic":
-        solver = GeneticAlgorithmSolver(instance=instance)
-    else:
-        solver = StochasticSolver(instance=instance)
+    solver = create_solver(
+        SolverConfiguration(instance=instance, solver_type=args.solver)
+    )
 
     cprint("Solving...", style="yellow")
 
@@ -175,7 +184,8 @@ def main() -> None:
     dump_schedule(solution, instance)
 
     cprint(
-        f"Scheduling completed in {end_time - start_time:.4f} seconds.", style="green"
+        f"Scheduling completed in {end_time - start_time:.4f} seconds.",
+        style="green",
     )
 
     cprint("Validating schedule...", style="yellow")

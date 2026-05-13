@@ -1,15 +1,19 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 from typing import Any
 
 from rich.console import Console
 from rich.rule import Rule
 
 # Initialize the rich console.
-_console = Console(markup=True, width=120, force_terminal=True, force_jupyter=False)
+_console = Console(
+    markup=True, width=120, force_terminal=True, force_jupyter=False
+)
 
 
 def cprint(*args: Any, **kwargs: Any) -> None:
-    """
-    Custom print function to use rich console.
+    """Custom print function to use rich console.
 
     Returns:
         None:
@@ -20,8 +24,7 @@ def cprint(*args: Any, **kwargs: Any) -> None:
 
 
 def cerror(*args: Any, **kwargs: Any) -> None:
-    """
-    Custom print function for error messages.
+    """Custom print function for error messages.
 
     Returns:
         None:
@@ -32,8 +35,7 @@ def cerror(*args: Any, **kwargs: Any) -> None:
 
 
 def cwarning(*args: Any, **kwargs: Any) -> None:
-    """
-    Custom print function for warning messages.
+    """Custom print function for warning messages.
 
     Returns:
         None:
@@ -44,8 +46,7 @@ def cwarning(*args: Any, **kwargs: Any) -> None:
 
 
 def crule(*args: Any, **kwargs: Any) -> None:
-    """
-    Custom print function for rules.
+    """Custom print function for rules.
 
     Returns:
         None:

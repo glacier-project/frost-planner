@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 import pytest
 
 from frost_planner.core.base import SchedulingInstance, TaskStatus
@@ -13,7 +16,9 @@ from frost_planner.solver.dummy_solver import DummySolver
 @pytest.mark.parametrize(
     "instance",
     [
-        InstanceGenerator().create_instance(configuration=InstanceConfiguration())
+        InstanceGenerator().create_instance(
+            configuration=InstanceConfiguration()
+        )
         for _ in range(3)
     ],
 )
