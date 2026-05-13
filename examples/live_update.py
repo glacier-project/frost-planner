@@ -28,7 +28,7 @@ def main() -> None:
     current_instance = full_instance.model_copy(
         update={"jobs": list(initial_jobs)}
     )
-    solver = StochasticSolver(instance=current_instance, t=100, b=200)
+    solver = StochasticSolver(instance=current_instance, T=100, B=200)
     executor = DynamicExecutor(solver, live_plot=True)
 
     cprint(

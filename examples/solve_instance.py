@@ -13,9 +13,21 @@ from frost_planner.core.metrics import (
 from frost_planner.core.schedule import Schedule, ScheduledTask
 from frost_planner.core.validate import validate_schedule
 from frost_planner.generator.instance_generator import load_instance_from_json
-from frost_planner.solver.factory import SolverConfiguration, create_solver
+from frost_planner.solver.factory import (
+    DummySolverConfiguration,
+    GeneticAlgorithmSolverConfiguration,
+    SolverConfiguration,
+    StochasticSolverConfiguration,
+    create_solver,
+)
 from frost_planner.utils import cerror, cprint, crule
 from frost_planner.visualization.gantt import plot_gantt_chart
+
+_SOLVER_CONFIGS: dict[str, type[SolverConfiguration]] = {
+    "dummy": DummySolverConfiguration,
+    "stochastic": StochasticSolverConfiguration,
+    "genetic": GeneticAlgorithmSolverConfiguration,
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,7 +62,49 @@ def parse_args() -> argparse.Namespace:
         choices=["dummy", "stochastic", "genetic"],
         help="Solver to use for scheduling",
     )
+    parser.add_argument(
+        "-t",
+        "--theme",
+        type=str,
+        default="light",
+        choices=["light", "dark"],
+        help="Color theme for the Gantt chart",
+    )
+    parser.add_argument(
+        "--idle",
+        type=str,
+        default="hide",
+        choices=["hide", "compress", "show"],
+        help="How to treat machines with no work",
+    )
+    parser.add_argument(
+        "--annotation",
+        action="append",
+        default=[],
+        metavar="TIME:LABEL[:COLOR]",
+        help=(
+            "Add a vertical event marker. Repeatable. "
+            "Example: --annotation 60:deploy --annotation 120:review:#9B59B6"
+        ),
+    )
+    parser.add_argument(
+        "--no-utilization",
+        dest="utilization",
+        action="store_false",
+        help="Suppress the per-machine utilization percentage in the y-axis",
+    )
     return parser.parse_args()
+
+
+def _parse_annotation(spec: str) -> tuple:
+    """Parse a --annotation arg of the form TIME:LABEL[:COLOR]."""
+    parts = spec.split(":", 2)
+    if len(parts) < 2:
+        raise ValueError(
+            f"--annotation {spec!r} must be TIME:LABEL or TIME:LABEL:COLOR"
+        )
+    time = float(parts[0])
+    return (time, parts[1]) if len(parts) == 2 else (time, parts[1], parts[2])
 
 
 def scheduled_task_to_str(st: ScheduledTask) -> str:
@@ -171,9 +225,7 @@ def main() -> None:
         }"
     )
 
-    solver = create_solver(
-        SolverConfiguration(instance=instance, solver_type=args.solver)
-    )
+    solver = create_solver(_SOLVER_CONFIGS[args.solver](instance=instance))
 
     cprint("Solving...", style="yellow")
 
@@ -199,7 +251,15 @@ def main() -> None:
 
     if args.gantt:
         cprint("Plotting Gantt chart and saving to file...", style="yellow")
-        plot_gantt_chart(solution, output_path="data/gantt_chart.png")
+        plot_gantt_chart(
+            solution,
+            output_path="data/gantt_chart.png",
+            theme=args.theme,
+            idle=args.idle,
+            jobs=instance.jobs,
+            annotations=[_parse_annotation(s) for s in args.annotation] or None,
+            utilization=args.utilization,
+        )
 
 
 if __name__ == "__main__":
