@@ -1,6 +1,5 @@
 import sys
-
-from typing_extensions import override
+from typing import override
 
 from frost_planner.core.base import SchedulingInstance
 from frost_planner.core.schedule import ScheduledTask
@@ -9,8 +8,7 @@ from frost_planner.solver.base_solver import BaseSolver
 
 
 class DummySolver(BaseSolver):
-    """
-    Dummy solver that does not perform any optimization.
+    """Dummy solver that does not perform any optimization.
 
     This solver simply allocates tasks to the machines based on their order in
     the instance.

@@ -12,7 +12,9 @@ from frost_planner.solver.dummy_solver import DummySolver
 @pytest.mark.parametrize(
     "instance",
     [
-        InstanceGenerator().create_instance(configuration=InstanceConfiguration())
+        InstanceGenerator().create_instance(
+            configuration=InstanceConfiguration()
+        )
         for _ in range(3)
     ],
 )
@@ -25,7 +27,9 @@ class TestDummySolver:
         assert schedule is not None
 
     @pytest.mark.parametrize("start_time", [0, 5, 10])
-    def test_schedule_from(self, instance: SchedulingInstance, start_time: int) -> None:
+    def test_schedule_from(
+        self, instance: SchedulingInstance, start_time: int
+    ) -> None:
         solver = DummySolver(instance=instance)
 
         schedule = solver.schedule(start_time=start_time)
