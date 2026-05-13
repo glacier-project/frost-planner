@@ -37,16 +37,17 @@ class StochasticSolver(BaseSolver):
         self,
         instance: SchedulingInstance,
         horizon: int = sys.maxsize,
-        t: int = 1000,
-        b: int = 400,
-        r: int = 16,
+        T: int = 1000,  # noqa: N803 — math convention (temperature)
+        B: int = 400,  # noqa: N803 — math convention (budget)
+        R: int = 16,  # noqa: N803 — math convention (remote neighbors)
         alpha: float = 0.4,
         t_idle: int = 10,
+        machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
     ) -> None:
-        super().__init__(instance, horizon)
-        self.T = t
-        self.B = b
-        self.R = r
+        super().__init__(instance, horizon, machine_intervals)
+        self.T = T
+        self.B = B
+        self.R = R
         self.alpha = alpha
         self.t_idle = t_idle
 
@@ -177,9 +178,9 @@ class StochasticSolver(BaseSolver):
     ) -> list[ScheduledTask]:
         # init random
         alpha = self.alpha
-        b = self.B
-        r = self.R
-        local_iterations = round(((1 - alpha) * b) / r)
+        B = self.B  # noqa: N806 — math convention (budget)
+        R = self.R  # noqa: N806 — math convention (remote neighbors)
+        local_iterations = round(((1 - alpha) * B) / R)
         jobs = self._sort_jobs_random(list(self.instance.jobs))
         solution, makespan = self._evaluate_solution(
             jobs, machine_intervals, start_time=start_time
@@ -195,7 +196,7 @@ class StochasticSolver(BaseSolver):
             current_makespan = sys.maxsize
 
             # alpha*B local explorations
-            for _ in range(int(self.alpha * b)):
+            for _ in range(int(self.alpha * B)):
                 local_neighbor = self._get_local_neighbor(local_jobs.copy())
                 local_solution, local_makespan = self._evaluate_solution(
                     local_neighbor, machine_intervals, start_time=start_time
@@ -204,7 +205,7 @@ class StochasticSolver(BaseSolver):
                     local_jobs = local_neighbor
                     current_makespan = local_makespan
 
-            for _ in range(r):
+            for _ in range(R):
                 remote_neighbor = self._get_random_neighbor(local_jobs.copy())
 
                 for _ in range(local_iterations):

@@ -25,8 +25,9 @@ class GeneticAlgorithmSolver(BaseSolver):
         mutation_rate: float = 0.01,
         crossover_rate: float = 0.9,
         elitism_count: int = 5,
+        machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
     ) -> None:
-        super().__init__(instance, horizon)
+        super().__init__(instance, horizon, machine_intervals)
         self.population_size = population_size
         self.generations = generations
         self.mutation_rate = mutation_rate

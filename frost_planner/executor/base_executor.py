@@ -1,4 +1,3 @@
-import sys
 from abc import ABC, abstractmethod
 
 from frost_planner.core.base import TaskStatus
@@ -35,7 +34,7 @@ class BaseExecutor(ABC):
 
         return self.schedule
 
-    def get_next_event_time(self) -> int:
+    def get_next_event_time(self) -> int | None:
         """Returns the time of the next event after the current time.
 
         This method looks at the current schedule and finds the next start or
@@ -44,11 +43,15 @@ class BaseExecutor(ABC):
         be used to advance the simulation time accordingly.
         """
         schedule = self.get_current_schedule()
-        event_time = sys.maxsize
+        event_time: int | None = None
         for st in schedule.get_tasks():
-            if st.start_time > self.current_time and st.start_time < event_time:
+            if st.start_time > self.current_time and (
+                event_time is None or st.start_time < event_time
+            ):
                 event_time = st.start_time
-            if st.end_time > self.current_time and st.end_time < event_time:
+            if st.end_time > self.current_time and (
+                event_time is None or st.end_time < event_time
+            ):
                 event_time = st.end_time
         return event_time
 

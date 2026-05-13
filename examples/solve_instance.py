@@ -1,6 +1,5 @@
 import argparse
 import time
-from typing import TYPE_CHECKING
 
 from frost_planner.core.base import SchedulingInstance
 from frost_planner.core.metrics import (
@@ -11,14 +10,9 @@ from frost_planner.core.metrics import (
 from frost_planner.core.schedule import Schedule, ScheduledTask
 from frost_planner.core.validate import validate_schedule
 from frost_planner.generator.instance_generator import load_instance_from_json
-from frost_planner.solver.dummy_solver import DummySolver
-from frost_planner.solver.genetic_solver import GeneticAlgorithmSolver
-from frost_planner.solver.stochastic_solver import StochasticSolver
+from frost_planner.solver.factory import SolverConfiguration, create_solver
 from frost_planner.utils import cerror, cprint, crule
 from frost_planner.visualization.gantt import plot_gantt_chart
-
-if TYPE_CHECKING:
-    from frost_planner.solver.base_solver import BaseSolver
 
 
 def parse_args() -> argparse.Namespace:
@@ -174,13 +168,9 @@ def main() -> None:
         }"
     )
 
-    solver: BaseSolver
-    if args.solver == "dummy":
-        solver = DummySolver(instance=instance)
-    elif args.solver == "genetic":
-        solver = GeneticAlgorithmSolver(instance=instance)
-    else:
-        solver = StochasticSolver(instance=instance)
+    solver = create_solver(
+        SolverConfiguration(instance=instance, solver_type=args.solver)
+    )
 
     cprint("Solving...", style="yellow")
 
