@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 import sys
 
 from frost_planner.core.base import Job, Machine, SchedulingInstance, Task

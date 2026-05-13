@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Apply code-style fixes: lint, format, complexity check.
 #
 # Targets default to the source and test trees but can be overridden via env:

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 from pydantic import BaseModel, Field, model_validator
 
 from frost_planner.core.base import Job, Machine, Task, TaskStatus

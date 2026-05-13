@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Regenerate CHANGELOG.md from git history using the rules in cliff.toml.
 # Requires git-cliff (fetched automatically by `uvx`).
 #

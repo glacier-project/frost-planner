@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Run mypy across the source and test packages.
 #
 # Targets default to the in-repo packages but can be overridden via env:

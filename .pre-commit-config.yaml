@@ -31,3 +31,7 @@ repos:
           - --fix
       - id: ruff-format
         files: ^((frost_planner|tests)/.+)?[^/]+\.(py|pyi)$
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v6.2.0
+    hooks:
+      - id: reuse
