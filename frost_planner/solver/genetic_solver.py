@@ -1,8 +1,7 @@
 import random
 import sys
 from copy import deepcopy
-
-from typing_extensions import override
+from typing import override
 
 from frost_planner.core.base import Job, SchedulingInstance
 from frost_planner.core.schedule import ScheduledTask
@@ -11,8 +10,7 @@ from frost_planner.solver.base_solver import BaseSolver
 
 
 class GeneticAlgorithmSolver(BaseSolver):
-    """
-    Genetic Algorithm solver for job shop scheduling problems.
+    """Genetic Algorithm solver for job shop scheduling problems.
 
     This solver uses a genetic algorithm to find an optimized schedule
     by evolving a population of job order permutations.
@@ -37,8 +35,8 @@ class GeneticAlgorithmSolver(BaseSolver):
         self.elitism_count = elitism_count
 
     def _initialize_population(self) -> list[list[Job]]:
-        """
-        Initializes a population of random job permutations.
+        """Initializes a population of random job permutations.
+
         Each individual in the population is a list of Job objects,
         representing a job processing order.
         """
@@ -55,8 +53,8 @@ class GeneticAlgorithmSolver(BaseSolver):
         machine_intervals: dict[str, list[tuple[int, int]]],
         start_time: int = 0,
     ) -> tuple[list[ScheduledTask], float]:
-        """
-        Evaluates the fitness of a job permutation.
+        """Evaluates the fitness of a job permutation.
+
         Fitness is based on the makespan (lower makespan = higher fitness).
         Returns the scheduled tasks and the makespan.
         """
@@ -76,16 +74,16 @@ class GeneticAlgorithmSolver(BaseSolver):
             min_time=start_time,
         )
         makespan = (
-            max(st.end_time for st in scheduled_tasks) if scheduled_tasks else 0.0
+            max(st.end_time for st in scheduled_tasks)
+            if scheduled_tasks
+            else 0.0
         )
         return scheduled_tasks, makespan
 
     def _select_parents(
         self, population: list[list[Job]], fitnesses: list[float]
     ) -> list[list[Job]]:
-        """
-        Selects parents for the next generation using tournament selection.
-        """
+        """Selects parents for the next gen using tournament selection."""
         selected_parents = []
         # Assuming lower makespan is better, so we want to select individuals
         # with lower fitness values.
@@ -119,18 +117,19 @@ class GeneticAlgorithmSolver(BaseSolver):
         offspring2[point1:point2] = parent2[point1:point2]
 
         # Keep track of jobs already placed in the segment
-        offspring1_segment_jobs: set[Job] = set(
+        offspring1_segment_jobs: set[Job] = {
             job for job in offspring1[point1:point2] if job is not None
-        )
-        offspring2_segment_jobs: set[Job] = set(
+        }
+        offspring2_segment_jobs: set[Job] = {
             job for job in offspring2[point1:point2] if job is not None
-        )
+        }
 
         # Fill offspring1
         p2_idx = 0
         for i in range(size):
             if offspring1[i] is None:
-                # Find next available job from parent2 that is not in the segment
+                # Find next available job from parent2 that is not in the
+                # segment
                 while parent2[p2_idx] in offspring1_segment_jobs:
                     p2_idx = (p2_idx + 1) % size
                 offspring1[i] = parent2[p2_idx]
@@ -142,7 +141,8 @@ class GeneticAlgorithmSolver(BaseSolver):
         p1_idx = 0
         for i in range(size):
             if offspring2[i] is None:
-                # Find next available job from parent1 that is not in the segment
+                # Find next available job from parent1 that is not in the
+                # segment
                 while parent1[p1_idx] in offspring2_segment_jobs:
                     p1_idx = (p1_idx + 1) % size
                 offspring2[i] = parent1[p1_idx]
@@ -153,9 +153,7 @@ class GeneticAlgorithmSolver(BaseSolver):
         return offspring1, offspring2  # type: ignore[return-value]
 
     def _mutate(self, job_permutation: list[Job]) -> list[Job]:
-        """
-        Performs a simple swap mutation on a job permutation.
-        """
+        """Performs a simple swap mutation on a job permutation."""
         if len(job_permutation) < 2:
             return job_permutation
         idx1, idx2 = random.sample(range(len(job_permutation)), 2)
@@ -176,7 +174,7 @@ class GeneticAlgorithmSolver(BaseSolver):
 
         population: list[list[Job]] = self._initialize_population()
 
-        for generation in range(self.generations):
+        for _generation in range(self.generations):
             # Evaluate fitness for the current population
             evaluated_population: list[
                 tuple[list[Job], list[ScheduledTask], float]
@@ -187,18 +185,20 @@ class GeneticAlgorithmSolver(BaseSolver):
                 scheduled_tasks, makespan = self._evaluate_fitness(
                     individual, machine_intervals, start_time=start_time
                 )
-                evaluated_population.append((individual, scheduled_tasks, makespan))
+                evaluated_population.append(
+                    (individual, scheduled_tasks, makespan)
+                )
 
             # Sort by makespan (ascending, as lower is better)
             evaluated_population.sort(key=lambda x: x[2])
 
             # Update best solution found so far
-            current_best_tasks: list[ScheduledTask]
-            current_best_makespan: float
-            _, current_best_tasks, current_best_makespan = evaluated_population[0]
-            if current_best_makespan < best_makespan:
-                best_makespan = current_best_makespan
-                best_solution_tasks = current_best_tasks
+            current_bt: list[ScheduledTask]
+            current_bm: float
+            _, current_bt, current_bm = evaluated_population[0]
+            if current_bm < best_makespan:
+                best_makespan = current_bm
+                best_solution_tasks = current_bt
 
             # Create next generation
             new_population: list[list[Job]] = []

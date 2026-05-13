@@ -35,7 +35,13 @@ class BaseExecutor(ABC):
         return self.schedule
 
     def get_next_event_time(self) -> int | None:
-        """Returns the time of the next task start or completion after current_time."""
+        """Returns the time of the next event after the current time.
+
+        This method looks at the current schedule and finds the next start or
+        end time of any task that is greater than the current time. This allows
+        the executor to know when the next task will start or finish, which can
+        be used to advance the simulation time accordingly.
+        """
         schedule = self.get_current_schedule()
         event_time: int | None = None
         for st in schedule.get_tasks():
@@ -83,7 +89,9 @@ class BaseExecutor(ABC):
         self.solver.lock_tasks(tasks)
         self._plot_needs_update = True
 
-    def task_completed(self, tasks: list[ScheduledTask] | ScheduledTask) -> None:
+    def task_completed(
+        self, tasks: list[ScheduledTask] | ScheduledTask
+    ) -> None:
         """Mark tasks as completed and lock them in the solver."""
         if isinstance(tasks, ScheduledTask):
             tasks = [tasks]
@@ -102,7 +110,11 @@ class BaseExecutor(ABC):
         self._plot_needs_update = True
 
     def update_task_status(self) -> None:
-        """Update the status of all tasks based on dependencies (WAITING -> READY)."""
+        """Update the status of all tasks based on dependencies.
+
+        A task becomes READY if all its dependencies are COMPLETED, and it is
+        not already IN_PROGRESS or COMPLETED.
+        """
         instance = self.solver.instance
         for job in instance.jobs:
             for task in job.tasks:
@@ -127,7 +139,7 @@ class BaseExecutor(ABC):
                     task.status = TaskStatus.READY
 
     def next_ready_tasks(self) -> list[tuple[ScheduledTask, str]]:
-        """Return the next tasks that are ready to be executed on each machine."""
+        """Return the next tasks ready to be executed on each machine."""
         schedule = self.get_current_schedule()
         instance = self.solver.instance
 

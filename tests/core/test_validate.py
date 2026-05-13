@@ -187,7 +187,8 @@ def test_validate_all_instance_tasks_scheduled_valid(
     sample_instance: SchedulingInstance,
 ) -> None:
     assert (
-        _validate_all_instance_tasks_scheduled(sample_schedule, sample_instance) is True
+        _validate_all_instance_tasks_scheduled(sample_schedule, sample_instance)
+        is True
     )
 
 
@@ -199,10 +200,16 @@ def test_validate_all_instance_tasks_scheduled_missing_task(
 ) -> None:
     task_missing = Task(id="T_missing", name="Missing Task", processing_time=5)
     instance = SchedulingInstance(
-        jobs=[sample_job, Job(id="J_new", name="Job New", tasks=[task_missing])],
+        jobs=[
+            sample_job,
+            Job(id="J_new", name="Job New", tasks=[task_missing]),
+        ],
         machines=[sample_machine],
     )
-    assert _validate_all_instance_tasks_scheduled(sample_schedule, instance) is False
+    assert (
+        _validate_all_instance_tasks_scheduled(sample_schedule, instance)
+        is False
+    )
     mock_cerror.assert_called()
 
 
@@ -271,7 +278,9 @@ def test_validate_machine_capabilities_invalid(
 # Tests for _validate_task_dependencies
 def test_validate_task_dependencies_valid(sample_machine: Machine) -> None:
     task_a = Task(id="T_A", name="Task A", processing_time=5)
-    task_b = Task(id="T_B", name="Task B", processing_time=5, dependencies=["T_A"])
+    task_b = Task(
+        id="T_B", name="Task B", processing_time=5, dependencies=["T_A"]
+    )
 
     scheduled_task_a = ScheduledTask(
         start_time=0, end_time=5, task=task_a, machine=sample_machine
@@ -296,7 +305,9 @@ def test_validate_task_dependencies_invalid_order(
     mock_cerror: Any,
 ) -> None:
     task_a = Task(id="T_A", name="Task A", processing_time=5)
-    task_b = Task(id="T_B", name="Task B", processing_time=5, dependencies=["T_A"])
+    task_b = Task(
+        id="T_B", name="Task B", processing_time=5, dependencies=["T_A"]
+    )
 
     scheduled_task_a = ScheduledTask(
         start_time=5, end_time=10, task=task_a, machine=sample_machine
@@ -322,7 +333,9 @@ def test_validate_task_dependencies_missing_dependent_task(
     mock_cerror: Any,
 ) -> None:
     task_a = Task(id="T_A", name="Task A", processing_time=5)
-    task_b = Task(id="T_B", name="Task B", processing_time=5, dependencies=["T_A"])
+    task_b = Task(
+        id="T_B", name="Task B", processing_time=5, dependencies=["T_A"]
+    )
 
     scheduled_task_b = ScheduledTask(
         start_time=0, end_time=5, task=task_b, machine=sample_machine
@@ -348,10 +361,14 @@ def test_validate_task_dependencies_travel_time_violation(
     instance = SchedulingInstance(
         jobs=[Job(id="J1", name="J1", tasks=[sample_task])],
         machines=[sample_machine, machine2],
-        travel_times={sample_machine.id: {machine2.id: 5}},  # 5 units travel time
+        travel_times={
+            sample_machine.id: {machine2.id: 5}
+        },  # 5 units travel time
     )
     task_a = Task(id="T_A", name="Task A", processing_time=5)
-    task_b = Task(id="T_B", name="Task B", processing_time=5, dependencies=["T_A"])
+    task_b = Task(
+        id="T_B", name="Task B", processing_time=5, dependencies=["T_A"]
+    )
 
     scheduled_task_a = ScheduledTask(
         start_time=0, end_time=5, task=task_a, machine=sample_machine

@@ -1,16 +1,25 @@
-.. project_name documentation master file, created by
-   sphinx-quickstart on Thu Mar  6 09:47:04 2025.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+FrostPlanner
+============
 
-project_name documentation
-==========================
+|release| · BSD-2-Clause
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+**FrostPlanner** is a Python library for modeling and solving Flexible
+Job-Shop scheduling problems, from classic Job-Shop and Flow-Shop instances
+to custom, real-world resource allocation tasks.
 
+The full API reference below is generated automatically from the source
+docstrings by `sphinx-autoapi <https://sphinx-autoapi.readthedocs.io/>`_.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: User Guide
+
+   quickstart
+   examples
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+
+   autoapi/index
+   changelog

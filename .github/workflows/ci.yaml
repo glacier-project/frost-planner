@@ -33,29 +33,49 @@ jobs:
       matrix:
         # uncomment the following line to test on all platforms
         os: ["ubuntu-latest"] #, "macos-latest", "windows-latest"]
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.12", "3.13"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Run image
-        uses: abatilo/actions-poetry@v3.0.1
-        with:
-          poetry-version: "1.8.5"
+          enable-cache: true
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
-        run: poetry install --all-extras
+        run: uv sync --all-groups
       - name: Setup test suite
-        run: poetry run tox run -vv --notest
+        run: uv run tox run -vv --notest
         env:
           TOX_GH_MAJOR_MINOR: ${{ matrix.python-version }}
       - name: Run test suite
-        run: poetry run tox run --skip-pkg-install --skip-missing-interpreters true --skip-env "(formatter|type|coverage)"
+        run: uv run tox run --skip-pkg-install --skip-missing-interpreters true --skip-env "(formatter|type|coverage)"
         env:
           TOX_GH_MAJOR_MINOR: ${{ matrix.python-version }}
       - name: Run type checks
-        if: matrix.python-version == '3.11'
-        run: poetry run tox run --skip-pkg-install -e type
+        if: matrix.python-version == '3.12'
+        run: uv run tox run --skip-pkg-install -e type
         env:
           TOX_GH_MAJOR_MINOR: ${{ matrix.python-version }}
+  docs:
+    needs: qa
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install docs dependencies
+        run: uv sync --group docs
+      - name: Build documentation
+        run: uv run sphinx-build -W --keep-going -b html docs/source docs/build/html
+      - name: Upload HTML artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: docs/build/html
+          retention-days: 14

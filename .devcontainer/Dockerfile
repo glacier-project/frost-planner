@@ -11,22 +11,13 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     PIP_DEFAULT_TIMEOUT=100 \
     \
-    # poetry
-    # make poetry install to this location
-    POETRY_HOME="/opt/poetry" \
-    # make poetry create the virtual environment in the project's root
-    # it gets named `.venv`
-    POETRY_VIRTUALENVS_IN_PROJECT=true \
-    # do not ask any interactive question
-    POETRY_NO_INTERACTION=1 \
-    \
-    # paths
-    # this is where our requirements + virtual environment will live
-    PYSETUP_PATH="/opt/pysetup" \
-    VENV_PATH="/opt/pysetup/.venv"
-
-# prepend poetry and venv to path
-ENV PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"
+    # uv
+    # install uv binaries into a stable location on PATH
+    UV_INSTALL_DIR="/usr/local/bin" \
+    # create the project's virtual environment in-tree as .venv
+    UV_PROJECT_ENVIRONMENT=".venv" \
+    # do not check for newer uv versions at runtime
+    UV_NO_SYNC=0
 
 
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
@@ -41,6 +32,5 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 # [Optional] Uncomment this line to install global node packages.
 # RUN su vscode -c "source /usr/local/share/nvm/nvm.sh && npm install -g <your-package-here>" 2>&1
 
-# Poetry installation:
-RUN curl -sSL https://install.python-poetry.org | python3 -
-RUN poetry self add poetry-dotenv-plugin
+# uv installation:
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh

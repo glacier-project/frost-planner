@@ -6,15 +6,15 @@ FrostPlanner is a powerful and intuitive Python framework for modeling and solvi
 
 ## 🚀 Installation
 
-FrostPlanner can be installed using `poetry`. If you don't have `poetry` installed, you can follow the instructions [here](https://python-poetry.org/docs/#installation).
+FrostPlanner uses [`uv`](https://docs.astral.sh/uv/) for dependency and environment management. If you don't have `uv` installed, follow the instructions [here](https://docs.astral.sh/uv/getting-started/installation/).
 
-Once `poetry` is set up, navigate to the project root and run:
+Once `uv` is set up, navigate to the project root and run:
 
 ```bash
-poetry install
+uv sync
 ```
 
-This will install all the project's dependencies.
+This will create a virtual environment in `.venv/` and install all the project's dependencies. To also install the dev/test/docs groups, use `uv sync --all-groups`.
 
 ## FrostPlanner in Action: Solving a Simple Job-Shop Problem
 
@@ -23,7 +23,7 @@ Here's how to model a simple Job-Shop problem and find an optimal schedule.
 First, generate an instance (if you don't have one):
 
 ```bash
-poetry run python examples/generate_random_instances.py -o data
+uv run python examples/generate_random_instances.py -o data
 ```
 
 Then, you can use the following Python code:
@@ -62,30 +62,24 @@ This will output the optimal schedule and generate a Gantt chart visualization s
 
 ## 📚 Documentation
 
-For full API references, tutorials, and advanced usage guides, you can build the documentation locally. Navigate to the `docs/` directory and run:
+The API reference is generated automatically from source docstrings using [`sphinx-autoapi`](https://sphinx-autoapi.readthedocs.io/). To build the documentation locally, install the `docs` dependency group and run Sphinx:
 
 ```bash
-make html
+uv sync --group docs
+uv run sphinx-build -b html docs/source docs/build/html
 ```
 
-### Code formating using Black
+Then, open `docs/build/html/index.html` in your web browser.
 
-This project uses [Black](https://black.readthedocs.io/en/stable/) for code formatting.
+### Linting and formatting with Ruff
 
-To format the code, run the following command from the project root:
+This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and code formatting. Ruff is configured via the `pyproject.toml` file in the project root.
 
-```bash
-black frost_planner examples tests
-```
-
-### Linting with Ruff
-
-This project uses [Ruff](https://beta.ruff.rs/docs/) for linting and code formatting. Ruff is configured via the `pyproject.toml` file in the project root.
-
-To run the linter, execute the following command from the project root:
+To run the linter and formatter, execute the following commands from the project root:
 
 ```bash
-ruff check --fix frost_planner examples tests
+uv run ruff check --fix frost_planner examples tests
+uv run ruff format frost_planner examples tests
 ```
 
 ### Type Checking with MyPy
@@ -95,18 +89,8 @@ This project uses [MyPy](https://mypy.readthedocs.io/en/stable/) for static type
 To run type checks, execute the following command from the project root:
 
 ```bash
-mypy frost_planner examples tests
+uv run mypy frost_planner examples tests
 ```
-
-### Code Style Checking with Flake8
-
-This project uses [Flake8](https://flake8.pycqa.org/en/latest/) for code style checking.
-
-```bash
-flake8p frost_planner examples tests
-```
-
-Then, open `docs/_build/html/index.html` in your web browser.
 
 ## 📜 License
 

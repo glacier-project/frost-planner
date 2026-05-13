@@ -16,6 +16,13 @@ from frost_planner.visualization.gantt import plot_gantt_chart
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for solving a scheduling instance.
+
+    Returns:
+        argparse.Namespace: The parsed command-line arguments, including the
+                            instance file path, solver choice, and whether to
+                            plot a Gantt chart.
+    """
     parser = argparse.ArgumentParser(
         description="Generate random job-shop scheduling instances"
     )
@@ -44,8 +51,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def scheduled_task_to_str(st: ScheduledTask) -> str:
-    """
-    Convert a ScheduledTask to a string representation.
+    """Convert a ScheduledTask to a string representation.
 
     Args:
         st (ScheduledTask): The scheduled task to convert.
@@ -64,8 +70,7 @@ def dump_schedule(
     solution: Schedule,
     instance: SchedulingInstance,
 ) -> None:
-    """
-    Dumps the schedule information for the given solution and instance.
+    """Dumps the schedule information for the given solution and instance.
 
     Args:
         solution (Schedule):
@@ -99,7 +104,9 @@ def dump_schedule(
         for st in scheduled_tasks:
             # Print the travel time.
             if prev_st:
-                travel_time = instance.get_travel_time(prev_st.machine, st.machine)
+                travel_time = instance.get_travel_time(
+                    prev_st.machine, st.machine
+                )
                 if travel_time > 0:
                     cprint(
                         f"      [yellow]Travel from "
@@ -116,8 +123,7 @@ def dump_metrics(
     solution: Schedule,
     instance: SchedulingInstance,
 ) -> None:
-    """
-    Dumps the scheduling metrics for the given solution and instance.
+    """Dumps the scheduling metrics for the given solution and instance.
 
     Args:
         solution (Schedule):
@@ -144,16 +150,23 @@ def dump_metrics(
 
 
 def main() -> None:
+    """Main function to solve a scheduling instance."""
     args = parse_args()
 
-    cprint(f"Loading instance [green]{args.instance}[/green]...", style="yellow")
+    cprint(
+        f"Loading instance [green]{args.instance}[/green]...", style="yellow"
+    )
 
     instance = load_instance_from_json(args.instance)
 
     cprint("Loaded Scheduling Instance:")
     cprint(f"  Machines : {len(instance.machines)}")
     cprint(f"  Jobs     : {len(instance.jobs)}")
-    cprint(f"  Tasks    : {len([task for job in instance.jobs for task in job.tasks])}")
+    cprint(
+        f"  Tasks    : {
+            len([task for job in instance.jobs for task in job.tasks])
+        }"
+    )
 
     solver = create_solver(
         SolverConfiguration(instance=instance, solver_type=args.solver)
@@ -168,7 +181,8 @@ def main() -> None:
     dump_schedule(solution, instance)
 
     cprint(
-        f"Scheduling completed in {end_time - start_time:.4f} seconds.", style="green"
+        f"Scheduling completed in {end_time - start_time:.4f} seconds.",
+        style="green",
     )
 
     cprint("Validating schedule...", style="yellow")

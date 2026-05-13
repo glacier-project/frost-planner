@@ -128,7 +128,7 @@ def test_calculate_total_flow_time_single_task() -> None:
 
 
 def test_calculate_total_flow_time_multiple_tasks() -> None:
-    """Test total flow time calculation for multiple tasks on different machines."""
+    """Test total flow time computation for tasks on different machines."""
     task1 = Task(id="T1", name="T1", processing_time=5)
     task2 = Task(id="T2", name="T2", processing_time=7)
     task3 = Task(id="T3", name="T3", processing_time=3)
