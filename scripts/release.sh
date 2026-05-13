@@ -51,7 +51,7 @@ if git rev-parse "$tag" >/dev/null 2>&1; then
     exit 1
 fi
 
-if ! git diff-index --quiet HEAD --; then
+if [ "$dry_run" = "0" ] && ! git diff-index --quiet HEAD --; then
     echo "error: working tree has uncommitted changes; commit or stash them first" >&2
     exit 1
 fi
@@ -82,10 +82,11 @@ import pathlib, re, sys
 v = sys.argv[1]
 p = pathlib.Path("pyproject.toml")
 text = p.read_text()
-new = re.sub(r'^version\s*=\s*"[^"]*"', f'version = "{v}"', text, count=1, flags=re.M)
-if new == text:
+new, count = re.subn(r'^version\s*=\s*"[^"]*"', f'version = "{v}"', text, count=1, flags=re.M)
+if count == 0:
     sys.exit("error: could not find a version line in pyproject.toml")
-p.write_text(new)
+if new != text:
+    p.write_text(new)
 PY
 
 if [ -n "$range" ]; then
