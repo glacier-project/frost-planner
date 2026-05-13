@@ -3,19 +3,23 @@
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
 from matplotlib.patches import FancyBboxPatch, Polygon
 from matplotlib.ticker import MaxNLocator
 
 from frost_planner.core.base import Job, TaskStatus
-from frost_planner.core.schedule import Schedule
 from frost_planner.utils import cprint
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
+    from frost_planner.core.schedule import Schedule
 
 ThemeName = Literal["light", "dark"]
 IdleMode = Literal["hide", "compress", "show"]
@@ -47,8 +51,8 @@ class _Theme:
     palette: tuple[str, ...]
     overrun_edge: str
     late_flag: str
-    annotation_line: str           # default color for custom annotation marks
-    annotation_label_text: str     # text color shown on the annotation pill
+    annotation_line: str  # default color for custom annotation marks
+    annotation_label_text: str  # text color shown on the annotation pill
 
 
 _LIGHT = _Theme(
@@ -169,12 +173,16 @@ def _palette_color(
     return (*rgb, 1.0)
 
 
-def _darken(rgb: tuple[float, ...], amount: float) -> tuple[float, float, float]:
+def _darken(
+    rgb: tuple[float, ...], amount: float
+) -> tuple[float, float, float]:
     r, g, b = rgb[:3]
     return (r * (1 - amount), g * (1 - amount), b * (1 - amount))
 
 
-def _lighten(rgb: tuple[float, ...], amount: float) -> tuple[float, float, float]:
+def _lighten(
+    rgb: tuple[float, ...], amount: float
+) -> tuple[float, float, float]:
     r, g, b = rgb[:3]
     return (r + (1 - r) * amount, g + (1 - g) * amount, b + (1 - b) * amount)
 
@@ -242,6 +250,10 @@ def _draw_schedule_on_axes(
             shade late tasks (those whose end_time exceeds their job's
             due_date).
         palette: optional override of the theme's categorical color list.
+        annotations: optional list of vertical event markers (e.g. deploys,
+            shift changes, milestones) shown as labeled lines across the chart.
+        utilization: when True (default), show each machine's utilization % in
+            the y-axis labels.
     """
     th = _THEMES[theme]
     pal = tuple(palette) if palette else th.palette
@@ -252,11 +264,7 @@ def _draw_schedule_on_axes(
 
     # Decide which machines to render
     all_machines = list(solution.machines)
-    has_work = {
-        m.id
-        for m in all_machines
-        if solution.mapping.get(m.id)
-    }
+    has_work = {m.id for m in all_machines if solution.mapping.get(m.id)}
     if idle == "show":
         machines = all_machines
     else:
@@ -275,7 +283,7 @@ def _draw_schedule_on_axes(
     if utilization and makespan > 0:
         tick_labels = [
             f"{m.name}  ·  "
-            f"{int(round(_machine_utilization(solution, m.id, makespan) * 100))}%"
+            f"{round(_machine_utilization(solution, m.id, makespan) * 100)}%"
             for m in machines
         ]
     else:
@@ -323,7 +331,8 @@ def _draw_schedule_on_axes(
         xycoords=ax.transAxes,
         xytext=(0, subtitle_offset_pt),
         textcoords="offset points",
-        ha="left", va="bottom",
+        ha="left",
+        va="bottom",
         color=th.text_muted,
         fontsize=10,
     )
@@ -343,8 +352,15 @@ def _draw_schedule_on_axes(
     ax.xaxis.set_major_locator(MaxNLocator(nbins=8, integer=True, prune="both"))
 
     # Grid
-    ax.grid(True, axis="x", which="major",
-            color=th.grid, linewidth=0.8, alpha=1.0, linestyle="-")
+    ax.grid(
+        True,
+        axis="x",
+        which="major",
+        color=th.grid,
+        linewidth=0.8,
+        alpha=1.0,
+        linestyle="-",
+    )
     ax.set_axisbelow(True)
 
     # Zebra row stripes
@@ -362,8 +378,11 @@ def _draw_schedule_on_axes(
     # Now indicator
     if current_time is not None and n_machines:
         ax.axvline(
-            x=current_time, color=th.now_line,
-            linewidth=1.5, alpha=0.9, zorder=3.5,
+            x=current_time,
+            color=th.now_line,
+            linewidth=1.5,
+            alpha=0.9,
+            zorder=3.5,
         )
         y_top = (n_machines - 1) * _Y_DELTA + _Y_START + _Y_DELTA / 2
         ax.annotate(
@@ -371,8 +390,10 @@ def _draw_schedule_on_axes(
             xy=(current_time, y_top),
             xytext=(0, 6),
             textcoords="offset points",
-            ha="center", va="bottom",
-            fontsize=8.5, fontweight="bold",
+            ha="center",
+            va="bottom",
+            fontsize=8.5,
+            fontweight="bold",
             color=th.now_label_text,
             bbox={
                 "boxstyle": "round,pad=0.32",
@@ -388,9 +409,12 @@ def _draw_schedule_on_axes(
         for a in annots_pre:
             color = a.color or th.annotation_line
             line = ax.axvline(
-                x=a.time, color=color,
-                linewidth=1.0, linestyle=(0, (4, 3)),
-                alpha=0.85, zorder=3.2,
+                x=a.time,
+                color=color,
+                linewidth=1.0,
+                linestyle=(0, (4, 3)),
+                alpha=0.85,
+                zorder=3.2,
             )
             line.frost_kind = "annotation_line"  # type: ignore[attr-defined]
             pill = ax.annotate(
@@ -398,8 +422,10 @@ def _draw_schedule_on_axes(
                 xy=(a.time, y_top),
                 xytext=(0, annot_offset_pt),
                 textcoords="offset points",
-                ha="center", va="bottom",
-                fontsize=8.5, fontweight="bold",
+                ha="center",
+                va="bottom",
+                fontsize=8.5,
+                fontweight="bold",
                 color=th.annotation_label_text,
                 bbox={
                     "boxstyle": "round,pad=0.32",
@@ -550,7 +576,8 @@ def _draw_schedule_on_axes(
                     t.start_time + displayed_width / 2,
                     i * _Y_DELTA + _Y_START,
                     label_text,
-                    ha="center", va="center",
+                    ha="center",
+                    va="center",
                     fontsize=9,
                     color=_text_on(color, th),
                     zorder=2.6,
@@ -633,12 +660,12 @@ def _focus_artists(ax: Axes) -> list:
 
 
 def _apply_focus(ax: Axes, target_job: str | None) -> None:
-    """Dim every focus-able artist whose ``frost_job_id`` doesn't match
-    ``target_job``. Pass ``None`` to clear the dimming.
-    """
+    """Dim every focus-able artist who isn't part of the selected job."""
     for art in _focus_artists(ax):
         jid = getattr(art, "frost_job_id", None)
-        art.set_alpha(1.0 if target_job is None or jid == target_job else _DIM_ALPHA)
+        art.set_alpha(
+            1.0 if target_job is None or jid == target_job else _DIM_ALPHA
+        )
     ax.figure.canvas.draw_idle()
 
 
@@ -663,7 +690,9 @@ def _attach_hover(ax: Axes):  # type: ignore[no-untyped-def]
             _pick_info.compute_pick.registry[Polygon]
         )
 
-    targets = [p for p in ax.patches if getattr(p, "frost_kind", None) == "task"]
+    targets = [
+        p for p in ax.patches if getattr(p, "frost_kind", None) == "task"
+    ]
     if not targets:
         return None
 
@@ -691,7 +720,7 @@ def _attach_hover(ax: Axes):  # type: ignore[no-untyped-def]
 
 
 def _attach_click_highlight(ax: Axes) -> None:
-    """Clicking a task bar dims every bar whose job differs; click empty to reset.
+    """Clicking a task bar dims every bar whose job differs.
 
     The currently-focused job id is persisted on ``ax._frost_focused_job`` so
     the highlight can be re-applied to fresh artists after ``ax.clear()`` (the
@@ -750,23 +779,31 @@ def plot_gantt_chart(
             default categorical palette.
         job_colors: optional mapping of job id -> color, used to lock in
             specific colors for given jobs (e.g. brand colors).
+        annotations: optional list of vertical event markers (e.g. deploys,
+            shift changes, milestones) shown as labeled lines across the chart.
+        utilization: when True (default), show each machine's utilization % in
+            the y-axis labels.
         interactive: when True (default), attach hover tooltips and
             click-to-focus handlers if the matplotlib backend supports them.
     """
     if idle == "show":
         n_rows = len(solution.machines)
     else:
-        n_rows = sum(
-            1 for m in solution.machines if solution.mapping.get(m.id)
-        )
+        n_rows = sum(1 for m in solution.machines if solution.mapping.get(m.id))
 
     fig, ax = plt.subplots(figsize=figsize or _autosize(n_rows))
     fig.patch.set_facecolor(_THEMES[theme].fig_bg)
     job_color: dict[str, tuple] = _coerce_job_colors(job_colors)
     _draw_schedule_on_axes(
-        ax, solution, job_color,
-        theme=theme, idle=idle, jobs=jobs, palette=palette,
-        annotations=annotations, utilization=utilization,
+        ax,
+        solution,
+        job_color,
+        theme=theme,
+        idle=idle,
+        jobs=jobs,
+        palette=palette,
+        annotations=annotations,
+        utilization=utilization,
     )
     fig.tight_layout()
 
@@ -867,18 +904,22 @@ class LiveGanttChart:
                 self._cursor.remove()
             except Exception:
                 # mplcursors can raise if the cursor is already gone; not fatal.
-                pass
+                contextlib.suppress(Exception)
             self._cursor = None
 
         self.ax.clear()
         _draw_schedule_on_axes(
-            self.ax, solution, self._job_color,
+            self.ax,
+            solution,
+            self._job_color,
             current_time=current_time,
             theme=self._theme,
             idle=self._idle,
             jobs=self._jobs,
             palette=self._palette,
-            annotations=annotations if annotations is not None else self._annotations,
+            annotations=annotations
+            if annotations is not None
+            else self._annotations,
             utilization=self._utilization,
         )
 
@@ -905,10 +946,9 @@ class LiveGanttChart:
             try:
                 self._cursor.remove()
             except Exception:
-                pass
+                # mplcursors can raise if the cursor is already gone
+                contextlib.suppress(Exception)
             self._cursor = None
         plt.close(self.fig)
         if not self._was_interactive:
             plt.ioff()
-
-

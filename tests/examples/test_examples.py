@@ -18,6 +18,7 @@ would see them.
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import os
 import subprocess
@@ -62,10 +63,17 @@ def workspace(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def instance_file(workspace: Path) -> Path:
-    """Generate one easy instance into ``workspace/data`` and return its path."""
+    """Generate one easy instance in ``workspace/data`` and return its path."""
     _run(
         str(EXAMPLES / "generate_instances.py"),
-        "-c", "easy", "-s", "42", "-n", "1", "-o", str(workspace / "data"),
+        "-c",
+        "easy",
+        "-s",
+        "42",
+        "-n",
+        "1",
+        "-o",
+        str(workspace / "data"),
         cwd=workspace,
     )
     path = workspace / "data" / "instance_0.json"
@@ -79,7 +87,14 @@ def instance_files(workspace: Path) -> list[Path]:
     ``data/instance_3.json`` exists."""
     _run(
         str(EXAMPLES / "generate_instances.py"),
-        "-c", "easy", "-s", "7", "-n", "4", "-o", str(workspace / "data"),
+        "-c",
+        "easy",
+        "-s",
+        "7",
+        "-n",
+        "4",
+        "-o",
+        str(workspace / "data"),
         cwd=workspace,
     )
     return [workspace / "data" / f"instance_{i}.json" for i in range(4)]
@@ -89,10 +104,17 @@ def instance_files(workspace: Path) -> list[Path]:
 
 
 def test_generate_instances_writes_json(workspace: Path) -> None:
-    """generate_instances.py emits the requested number of instance JSON files."""
+    """generate_instances.py emits the requested number of instances."""
     _run(
         str(EXAMPLES / "generate_instances.py"),
-        "-c", "easy", "-s", "1", "-n", "2", "-o", str(workspace / "out"),
+        "-c",
+        "easy",
+        "-s",
+        "1",
+        "-n",
+        "2",
+        "-o",
+        str(workspace / "out"),
         cwd=workspace,
     )
     assert (workspace / "out" / "instance_0.json").exists()
@@ -102,11 +124,16 @@ def test_generate_instances_writes_json(workspace: Path) -> None:
 # ---- solve_instance.py ------------------------------------------------------
 
 
-def test_solve_instance_dummy_runs(workspace: Path, instance_file: Path) -> None:
+def test_solve_instance_dummy_runs(
+    workspace: Path, instance_file: Path
+) -> None:
     """solve_instance.py runs end-to-end with the dummy solver, no Gantt."""
     _run(
         str(EXAMPLES / "solve_instance.py"),
-        "-i", str(instance_file), "-s", "dummy",
+        "-i",
+        str(instance_file),
+        "-s",
+        "dummy",
         cwd=workspace,
     )
 
@@ -118,7 +145,13 @@ def test_solve_instance_renders_gantt(
     """``-g`` produces a Gantt PNG in either theme."""
     _run(
         str(EXAMPLES / "solve_instance.py"),
-        "-i", str(instance_file), "-s", "dummy", "-g", "-t", theme,
+        "-i",
+        str(instance_file),
+        "-s",
+        "dummy",
+        "-g",
+        "-t",
+        theme,
         cwd=workspace,
     )
     assert (workspace / "data" / "gantt_chart.png").exists()
@@ -131,7 +164,13 @@ def test_solve_instance_idle_modes(
     """All three ``--idle`` modes produce a chart without errors."""
     _run(
         str(EXAMPLES / "solve_instance.py"),
-        "-i", str(instance_file), "-s", "dummy", "-g", "--idle", idle,
+        "-i",
+        str(instance_file),
+        "-s",
+        "dummy",
+        "-g",
+        "--idle",
+        idle,
         cwd=workspace,
     )
     assert (workspace / "data" / "gantt_chart.png").exists()
@@ -143,9 +182,15 @@ def test_solve_instance_annotations_and_flags(
     """``--annotation`` and ``--no-utilization`` are accepted and applied."""
     _run(
         str(EXAMPLES / "solve_instance.py"),
-        "-i", str(instance_file), "-s", "dummy", "-g",
-        "--annotation", "30:start",
-        "--annotation", "120:review:#9B59B6",
+        "-i",
+        str(instance_file),
+        "-s",
+        "dummy",
+        "-g",
+        "--annotation",
+        "30:start",
+        "--annotation",
+        "120:review:#9B59B6",
         "--no-utilization",
         cwd=workspace,
     )
@@ -161,7 +206,8 @@ def test_visualize_instance_emits_dot(
     """visualize_instance.py prints a DOT graph when no output path is given."""
     result = _run(
         str(EXAMPLES / "visualize_instance.py"),
-        "-i", str(instance_file),
+        "-i",
+        str(instance_file),
         cwd=workspace,
     )
     assert "digraph" in result.stdout
@@ -174,7 +220,10 @@ def test_visualize_instance_writes_dot_file(
     out = workspace / "instance.dot"
     _run(
         str(EXAMPLES / "visualize_instance.py"),
-        "-i", str(instance_file), "-o", str(out),
+        "-i",
+        str(instance_file),
+        "-o",
+        str(out),
         cwd=workspace,
     )
     assert out.exists()
@@ -189,7 +238,8 @@ def test_overrun_demo_saves_image(workspace: Path) -> None:
     out = workspace / "overrun.png"
     _run(
         str(EXAMPLES / "overrun_demo.py"),
-        "--save", str(out),
+        "--save",
+        str(out),
         cwd=workspace,
     )
     assert out.exists()
@@ -226,4 +276,5 @@ def test_live_update_starts_without_construction_errors(
     try:
         _run(str(EXAMPLES / "live_update.py"), cwd=workspace, timeout=8)
     except subprocess.TimeoutExpired:
-        pass  # expected; the sim doesn't self-terminate quickly
+        # expected; the sim doesn't self-terminate quickly
+        contextlib.suppress(subprocess.TimeoutExpired)

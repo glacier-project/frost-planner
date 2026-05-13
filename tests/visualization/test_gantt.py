@@ -22,7 +22,9 @@ def _task_patches(ax: Axes) -> list:
 
 
 def _overrun_patches(ax: Axes) -> list:
-    return [p for p in ax.patches if getattr(p, "frost_kind", None) == "overrun"]
+    return [
+        p for p in ax.patches if getattr(p, "frost_kind", None) == "overrun"
+    ]
 
 
 def _bar_x_ranges(patches: list) -> list[tuple[float, float]]:
@@ -115,6 +117,7 @@ def test_draw_schedule_on_axes_dark_theme_sets_dark_background() -> None:
 
     # Hex compare via to_hex normalises matplotlib's internal RGBA repr.
     import matplotlib.colors as mcolors
+
     assert mcolors.to_hex(ax.get_facecolor()) == "#161b22"
     assert mcolors.to_hex(fig.get_facecolor()) == "#0f1419"
     plt.close(fig)
@@ -361,7 +364,9 @@ def test_idle_compress_reports_count_in_subtitle() -> None:
 
     labels = [t.get_text() for t in ax.get_yticklabels()]
     assert labels == ["M0", "M2"]
-    subtitles = [t for t in ax.texts if getattr(t, "frost_kind", None) == "subtitle"]
+    subtitles = [
+        t for t in ax.texts if getattr(t, "frost_kind", None) == "subtitle"
+    ]
     assert len(subtitles) == 1
     assert "+1 idle" in subtitles[0].get_text()
     plt.close(fig)
@@ -391,14 +396,24 @@ def test_annotation_renders_line_and_pill() -> None:
     fig, ax = plt.subplots()
 
     _draw_schedule_on_axes(
-        ax, schedule, {},
+        ax,
+        schedule,
+        {},
         annotations=[Annotation(time=2, label="deploy")],
     )
 
-    lines = [ln for ln in ax.lines if getattr(ln, "frost_kind", None) == "annotation_line"]
+    lines = [
+        ln
+        for ln in ax.lines
+        if getattr(ln, "frost_kind", None) == "annotation_line"
+    ]
     assert len(lines) == 1
     assert lines[0].get_xdata()[0] == 2
-    pills = [a for a in ax.texts if getattr(a, "frost_kind", None) == "annotation_pill"]
+    pills = [
+        a
+        for a in ax.texts
+        if getattr(a, "frost_kind", None) == "annotation_pill"
+    ]
     assert len(pills) == 1
     assert pills[0].get_text() == "deploy"
     plt.close(fig)
@@ -410,13 +425,23 @@ def test_annotation_accepts_plain_tuples() -> None:
     fig, ax = plt.subplots()
 
     _draw_schedule_on_axes(
-        ax, schedule, {},
+        ax,
+        schedule,
+        {},
         annotations=[(1, "start"), (4, "review", "#FF00FF")],
     )
 
-    lines = [ln for ln in ax.lines if getattr(ln, "frost_kind", None) == "annotation_line"]
+    lines = [
+        ln
+        for ln in ax.lines
+        if getattr(ln, "frost_kind", None) == "annotation_line"
+    ]
     assert len(lines) == 2
-    pills = [a for a in ax.texts if getattr(a, "frost_kind", None) == "annotation_pill"]
+    pills = [
+        a
+        for a in ax.texts
+        if getattr(a, "frost_kind", None) == "annotation_pill"
+    ]
     labels = sorted(p.get_text() for p in pills)
     assert labels == ["review", "start"]
     plt.close(fig)
@@ -428,7 +453,9 @@ def test_annotation_rejects_malformed_entries() -> None:
 
     with pytest.raises(TypeError):
         _draw_schedule_on_axes(
-            ax, schedule, {},
+            ax,
+            schedule,
+            {},
             annotations=[(1,)],
         )
     plt.close(fig)
@@ -488,7 +515,9 @@ def test_late_task_renders_corner_flag() -> None:
 
     _draw_schedule_on_axes(ax, schedule, {}, jobs=[job])
 
-    flags = [p for p in ax.patches if getattr(p, "frost_kind", None) == "late_flag"]
+    flags = [
+        p for p in ax.patches if getattr(p, "frost_kind", None) == "late_flag"
+    ]
     assert len(flags) == 1
     plt.close(fig)
 
@@ -505,7 +534,9 @@ def test_on_time_task_has_no_late_flag() -> None:
 
     _draw_schedule_on_axes(ax, schedule, {}, jobs=[job])
 
-    flags = [p for p in ax.patches if getattr(p, "frost_kind", None) == "late_flag"]
+    flags = [
+        p for p in ax.patches if getattr(p, "frost_kind", None) == "late_flag"
+    ]
     assert flags == []
     plt.close(fig)
 
