@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
     from frost_planner.core.schedule import Schedule
 
+ColorType = str | tuple[float, float, float] | tuple[float, float, float, float]
+
 ThemeName = Literal["light", "dark"]
 IdleMode = Literal["hide", "compress", "show"]
 
@@ -188,7 +190,7 @@ def _lighten(
 
 
 def _running_accent(
-    color: tuple[float, ...], theme: _Theme
+    color: ColorType, theme: _Theme
 ) -> tuple[float, float, float]:
     rgb = mcolors.to_rgb(color)
     if theme is _DARK:
@@ -196,7 +198,7 @@ def _running_accent(
     return _darken(rgb, 0.40)
 
 
-def _text_on(color: tuple[float, ...], theme: _Theme) -> str:
+def _text_on(color: ColorType, theme: _Theme) -> str:
     r, g, b = mcolors.to_rgb(color)
     luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
     if luminance > 0.58:
@@ -407,7 +409,7 @@ def _draw_schedule_on_axes(
     if has_annots:
         y_top = (n_machines - 1) * _Y_DELTA + _Y_START + _Y_DELTA / 2
         for a in annots_pre:
-            color = a.color or th.annotation_line
+            color: ColorType = a.color or th.annotation_line
             line = ax.axvline(
                 x=a.time,
                 color=color,
@@ -489,6 +491,7 @@ def _draw_schedule_on_axes(
                 any_late = True
 
             # Status styling
+            edge: ColorType
             if t.task.status == TaskStatus.IN_PROGRESS:
                 fill: tuple = color
                 edge = _running_accent(color, th)

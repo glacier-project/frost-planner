@@ -408,7 +408,7 @@ def test_annotation_renders_line_and_pill() -> None:
         if getattr(ln, "frost_kind", None) == "annotation_line"
     ]
     assert len(lines) == 1
-    assert lines[0].get_xdata()[0] == 2
+    assert lines[0].get_xdata()[0] == 2  # type: ignore[index]
     pills = [
         a
         for a in ax.texts
