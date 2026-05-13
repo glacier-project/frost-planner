@@ -192,7 +192,8 @@ class Job(BaseModel):
         return self
 
     @field_validator("tasks", mode="after")
-    def _validate_tasks(self, tasks: list[Task]) -> list[Task]:
+    @classmethod
+    def _validate_tasks(cls, tasks: list[Task]) -> list[Task]:
         """Validates the tasks in the job.
 
         Args:
