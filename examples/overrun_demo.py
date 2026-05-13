@@ -48,7 +48,12 @@ def _build_overlapping_in_progress_schedule(current_time: int) -> tuple[
         ScheduledTask(start_time=0, end_time=4, task=a, machine=m0)
     )
     schedule.add_scheduled_task(
-        ScheduledTask(start_time=current_time, end_time=current_time + b.processing_time, task=b, machine=m0)
+        ScheduledTask(
+            start_time=current_time,
+            end_time=current_time + b.processing_time,
+            task=b,
+            machine=m0
+        )
     )
     return instance, schedule
 
