@@ -39,6 +39,8 @@ class Task(BaseModel):
             The priority of the task. Lower values indicate higher priority.
         status (TaskStatus):
             The current status of the task.
+        allow_breaks (bool):
+            Whether the task can be interrupted by machine unavailable periods.
         job_id (str | None):
             Job ID of the parent job.
 
@@ -75,6 +77,13 @@ class Task(BaseModel):
         default=TaskStatus.WAITING,
         description="The current status of the task.",
     )
+    allow_breaks: bool = Field(
+        default=False,
+        description=(
+            "Whether the task can be interrupted by machine unavailable "
+            "periods and resume afterwards."
+        ),
+    )
     job_id: str | None = Field(
         default=None,
         description="Job ID of this task",
@@ -93,7 +102,8 @@ class Task(BaseModel):
             f"dependencies={self.dependencies}, "
             f"requires={self.requires}, "
             f"priority={self.priority}, "
-            f"status={self.status})"
+            f"status={self.status}, "
+            f"allow_breaks={self.allow_breaks})"
         )
 
     def __repr__(self) -> str:
@@ -111,6 +121,7 @@ class Task(BaseModel):
                 tuple(self.requires),
                 self.priority,
                 self.status,
+                self.allow_breaks,
             )
         )
 
@@ -126,6 +137,7 @@ class Task(BaseModel):
             and self.requires == other.requires
             and self.priority == other.priority
             and self.status == other.status
+            and self.allow_breaks == other.allow_breaks
         )
 
 
