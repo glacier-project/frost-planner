@@ -16,7 +16,7 @@
 - [3fd8c36] chore(changelog): support git-cliff regeneration
 - [fcc6377] style: apply ruff Google-style auto-fixes
 - [a5ba907] docs(changelog): record uv migration and docs work under Unreleased
-- [9c79728] fix(core): restore @classmethod on Job._validate_tasks
+- [9c79728] fix(core): restore `@classmethod` on Job._validate_tasks
 - [fcf50f8] feat(gantt): render IN_PROGRESS overruns past their planned end
 - [40fef3d] style: apply ruff formatting
 - [2067fc5] refactor(factory): change SolverType to use StrEnum and enforce abstract base class instantiation
