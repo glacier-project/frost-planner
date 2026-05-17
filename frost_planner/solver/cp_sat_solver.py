@@ -733,53 +733,67 @@ class CpSatSolver(BaseSolver):
                 for job_completion in job_completion_vars.values()
             )
 
-        tardiness_vars = []
-        for job in self.instance.jobs:
-            if job.due_date is None:
-                continue
+        needs_per_job_term = bool(
+            objective.num_tardy_jobs
+            or objective.total_tardiness
+            or objective.total_earliness
+            or objective.max_tardiness
+        )
+        tardiness_vars: list[Any] = []
+        if needs_per_job_term:
+            for job in self.instance.jobs:
+                if job.due_date is None:
+                    continue
 
-            job_name = _safe_name(job.id)
-            completion = job_completion_vars[job.id]
-            lateness = model.NewIntVar(
-                -job.due_date,
-                horizon,
-                f"lateness_{job_name}",
-            )
-            model.Add(lateness == completion - job.due_date)
+                job_name = _safe_name(job.id)
+                completion = job_completion_vars[job.id]
 
-            tardiness = model.NewIntVar(0, horizon, f"tardiness_{job_name}")
-            model.AddMaxEquality(
-                tardiness,
-                [lateness, model.NewConstant(0)],
-            )
-            tardiness_vars.append(tardiness)
+                if objective.total_tardiness or objective.max_tardiness:
+                    lateness = model.NewIntVar(
+                        -job.due_date,
+                        horizon,
+                        f"lateness_{job_name}",
+                    )
+                    model.Add(lateness == completion - job.due_date)
+                    tardiness = model.NewIntVar(
+                        0,
+                        horizon,
+                        f"tardiness_{job_name}",
+                    )
+                    model.AddMaxEquality(
+                        tardiness,
+                        [lateness, model.NewConstant(0)],
+                    )
+                    tardiness_vars.append(tardiness)
+                    if objective.total_tardiness:
+                        terms.append(objective.total_tardiness * tardiness)
 
-            if objective.num_tardy_jobs:
-                tardy = model.NewBoolVar(f"tardy_{job_name}")
-                model.Add(completion >= job.due_date + 1).OnlyEnforceIf(tardy)
-                model.Add(completion <= job.due_date).OnlyEnforceIf(
-                    tardy.Not()
-                )
-                terms.append(objective.num_tardy_jobs * tardy)
-            if objective.total_tardiness:
-                terms.append(objective.total_tardiness * tardiness)
-            if objective.total_earliness:
-                earliness_delta = model.NewIntVar(
-                    -horizon,
-                    job.due_date,
-                    f"earliness_delta_{job_name}",
-                )
-                model.Add(earliness_delta == job.due_date - completion)
-                earliness = model.NewIntVar(
-                    0,
-                    job.due_date,
-                    f"earliness_{job_name}",
-                )
-                model.AddMaxEquality(
-                    earliness,
-                    [earliness_delta, model.NewConstant(0)],
-                )
-                terms.append(objective.total_earliness * earliness)
+                if objective.num_tardy_jobs:
+                    tardy = model.NewBoolVar(f"tardy_{job_name}")
+                    model.Add(completion >= job.due_date + 1).OnlyEnforceIf(
+                        tardy
+                    )
+                    model.Add(completion <= job.due_date).OnlyEnforceIf(
+                        tardy.Not()
+                    )
+                    terms.append(objective.num_tardy_jobs * tardy)
+                if objective.total_earliness:
+                    earliness_delta = model.NewIntVar(
+                        -horizon,
+                        job.due_date,
+                        f"earliness_delta_{job_name}",
+                    )
+                    model.Add(earliness_delta == job.due_date - completion)
+                    earliness = model.NewIntVar(
+                        0,
+                        job.due_date,
+                        f"earliness_{job_name}",
+                    )
+                    model.AddMaxEquality(
+                        earliness,
+                        [earliness_delta, model.NewConstant(0)],
+                    )
+                    terms.append(objective.total_earliness * earliness)
 
         if objective.max_tardiness:
             max_tardiness = model.NewIntVar(0, horizon, "max_tardiness")
@@ -1459,10 +1473,14 @@ class CpSatSolver(BaseSolver):
             for terms in machine_load_terms.values():
                 if terms:
                     model.Add(makespan >= start_time + sum(terms))
-        job_completion_vars = self._job_completion_variables(
-            model,
-            task_variables,
-            effective_horizon,
+        job_completion_vars: dict[str, Any] = (
+            self._job_completion_variables(
+                model,
+                task_variables,
+                effective_horizon,
+            )
+            if self.objective.needs_job_completion
+            else {}
         )
         if heuristic_hint is not None:
             self._add_heuristic_hint(

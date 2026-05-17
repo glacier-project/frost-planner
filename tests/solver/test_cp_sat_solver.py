@@ -670,6 +670,56 @@ def test_cp_sat_solver_mixes_single_and_multi_alternative_tasks() -> None:
     assert validate_schedule(schedule, instance)
 
 
+def test_cp_sat_solver_minimizes_max_tardiness_only() -> None:
+    urgent = Task(id="T1", name="Urgent", processing_time=3)
+    relaxed = Task(id="T2", name="Relaxed", processing_time=3)
+    machine = Machine(id="M1", name="Machine 1")
+    instance = SchedulingInstance(
+        jobs=[
+            Job(id="J1", name="Urgent Job", tasks=[urgent], due_date=4),
+            Job(id="J2", name="Relaxed Job", tasks=[relaxed], due_date=20),
+        ],
+        machines=[machine],
+    )
+
+    schedule = CpSatSolver(
+        instance=instance,
+        horizon=20,
+        objective=ObjectiveWeights(makespan=0, max_tardiness=1),
+    ).schedule()
+
+    urgent_scheduled = schedule.get_task_mapping(urgent)
+    assert urgent_scheduled is not None
+    assert urgent_scheduled.end_time <= 4
+    assert validate_schedule(schedule, instance)
+
+
+def test_cp_sat_solver_minimizes_total_flow_time_only() -> None:
+    short = Task(id="T1", name="Short", processing_time=2)
+    long = Task(id="T2", name="Long", processing_time=5)
+    machine = Machine(id="M1", name="Machine 1")
+    instance = SchedulingInstance(
+        jobs=[
+            Job(id="J1", name="Short Job", tasks=[short]),
+            Job(id="J2", name="Long Job", tasks=[long]),
+        ],
+        machines=[machine],
+    )
+
+    schedule = CpSatSolver(
+        instance=instance,
+        horizon=20,
+        objective=ObjectiveWeights(makespan=0, total_flow_time=1),
+    ).schedule()
+
+    short_scheduled = schedule.get_task_mapping(short)
+    long_scheduled = schedule.get_task_mapping(long)
+    assert short_scheduled is not None
+    assert long_scheduled is not None
+    assert short_scheduled.end_time < long_scheduled.end_time
+    assert validate_schedule(schedule, instance)
+
+
 def test_cp_sat_solver_locked_pred_single_machine_successor() -> None:
     task_1 = Task(
         id="T1",

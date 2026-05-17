@@ -48,6 +48,22 @@ class ObjectiveWeights:
         """Return whether the objective is only makespan minimization."""
         return self == ObjectiveWeights()
 
+    @property
+    def needs_job_completion(self) -> bool:
+        """Return whether any term needs per-job completion variables."""
+        return bool(
+            self.total_flow_time
+            or self.num_tardy_jobs
+            or self.total_tardiness
+            or self.total_earliness
+            or self.max_tardiness
+        )
+
+    @property
+    def needs_tardiness_var(self) -> bool:
+        """Return whether any term needs per-job tardiness variables."""
+        return bool(self.total_tardiness or self.max_tardiness)
+
 
 def calculate_objective_value(
     schedule: Schedule,
