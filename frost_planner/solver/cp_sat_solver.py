@@ -169,8 +169,10 @@ class CpSatSolver(BaseSolver):
             for current_machine in current_machines
         )
 
-    def _earliest_start_bounds(self, start_time: int) -> dict[str, int]:
-        """Compute conservative dependency-based task start lower bounds."""
+    def _earliest_bounds(
+        self, start_time: int
+    ) -> tuple[dict[str, int], dict[str, int]]:
+        """Compute critical-path-style earliest start and end per task."""
         tasks = self._all_tasks()
         task_by_id = {task.id: task for task in tasks}
         earliest_start = {task.id: start_time for task in tasks}
@@ -221,7 +223,7 @@ class CpSatSolver(BaseSolver):
             if not made_progress:
                 break
 
-        return earliest_start
+        return earliest_start, earliest_end
 
     def _effective_horizon(
         self,
@@ -1185,8 +1187,11 @@ class CpSatSolver(BaseSolver):
                     min(effective_horizon, heuristic_makespan),
                 )
 
+        critical_path_starts, critical_path_ends = self._earliest_bounds(
+            start_time
+        )
         earliest_start_bounds = (
-            self._earliest_start_bounds(start_time)
+            critical_path_starts
             if self.use_dependency_bounds
             else {task.id: start_time for task in tasks}
         )
@@ -1600,6 +1605,16 @@ class CpSatSolver(BaseSolver):
             for terms in machine_load_terms.values():
                 if terms:
                     model.Add(makespan >= start_time + sum(terms))
+        critical_path_makespan_lb = max(
+            (
+                critical_path_ends[task.id]
+                for task in tasks
+                if task.id in critical_path_ends
+            ),
+            default=start_time,
+        )
+        if critical_path_makespan_lb > start_time:
+            model.Add(makespan >= critical_path_makespan_lb)
         job_completion_vars: dict[str, Any] = (
             self._job_completion_variables(
                 model,
@@ -1609,6 +1624,21 @@ class CpSatSolver(BaseSolver):
             if self.objective.needs_job_completion
             else {}
         )
+        for job in self.instance.jobs:
+            if job.id not in job_completion_vars:
+                continue
+            job_critical_path_lb = max(
+                (
+                    critical_path_ends[task.id]
+                    for task in job.tasks
+                    if task.id in critical_path_ends
+                ),
+                default=start_time,
+            )
+            if job_critical_path_lb > start_time:
+                model.Add(
+                    job_completion_vars[job.id] >= job_critical_path_lb
+                )
         if heuristic_hint is not None:
             self._add_heuristic_hint(
                 model,
