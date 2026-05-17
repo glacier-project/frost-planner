@@ -169,6 +169,56 @@ class CpSatSolver(BaseSolver):
             for current_machine in current_machines
         )
 
+    def _maximum_travel_time(self, dependency: Task, task: Task) -> int:
+        """Return an upper bound on travel time between two tasks."""
+        dependency_machines = self._possible_machines_for_task(dependency)
+        current_machines = self._possible_machines_for_task(task)
+        if not dependency_machines or not current_machines:
+            return 0
+        return max(
+            self.instance.get_travel_time(
+                dependency_machine,
+                current_machine,
+            )
+            for dependency_machine in dependency_machines
+            for current_machine in current_machines
+        )
+
+    def _reduced_dependencies(self) -> dict[str, list[str]]:
+        """Drop dependency edges implied by another chain through a sibling."""
+        tasks = self._all_tasks()
+        task_by_id = {task.id: task for task in tasks}
+        reduced: dict[str, list[str]] = {}
+        for current in tasks:
+            kept: list[str] = []
+            for dependency_id in current.dependencies:
+                dependency = task_by_id.get(dependency_id)
+                if dependency is None:
+                    kept.append(dependency_id)
+                    continue
+                redundant = False
+                max_direct = self._maximum_travel_time(dependency, current)
+                for other_id in current.dependencies:
+                    if other_id == dependency_id:
+                        continue
+                    other = task_by_id.get(other_id)
+                    if other is None:
+                        continue
+                    if dependency_id not in other.dependencies:
+                        continue
+                    min_chain = (
+                        self._minimum_travel_time(dependency, other)
+                        + self._min_processing_time(other)
+                        + self._minimum_travel_time(other, current)
+                    )
+                    if min_chain >= max_direct:
+                        redundant = True
+                        break
+                if not redundant:
+                    kept.append(dependency_id)
+            reduced[current.id] = kept
+        return reduced
+
     def _earliest_bounds(
         self, start_time: int
     ) -> tuple[dict[str, int], dict[str, int]]:
@@ -1119,11 +1169,14 @@ class CpSatSolver(BaseSolver):
         model: Any,
         task_variables: dict[str, _TaskVariables],
         machine_indices: dict[str, int] | None,
+        reduced_dependencies: dict[str, list[str]],
     ) -> None:
         """Add dependencies with the configured travel formulation."""
         for task in self._all_tasks():
             current_variables = task_variables[task.id]
-            for dependency_id in task.dependencies:
+            for dependency_id in reduced_dependencies.get(
+                task.id, list(task.dependencies)
+            ):
                 if dependency_id not in task_variables:
                     raise ValueError(
                         f"Task {task.id} depends on unknown task "
@@ -1670,10 +1723,12 @@ class CpSatSolver(BaseSolver):
             for index in range(len(counts) - 1):
                 model.Add(counts[index] >= counts[index + 1])
 
+        reduced_dependencies = self._reduced_dependencies()
         self._add_dependency_constraints(
             model,
             task_variables,
             machine_indices,
+            reduced_dependencies,
         )
 
         makespan = model.NewIntVar(0, effective_horizon, "makespan")
