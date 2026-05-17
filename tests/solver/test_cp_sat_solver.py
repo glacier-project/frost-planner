@@ -670,6 +670,27 @@ def test_cp_sat_solver_mixes_single_and_multi_alternative_tasks() -> None:
     assert validate_schedule(schedule, instance)
 
 
+def test_cp_sat_solver_non_breakable_start_pruning_skips_short() -> None:
+    task = Task(id="T1", name="Task 1", processing_time=4)
+    machine = Machine(id="M1", name="Machine 1")
+    instance = SchedulingInstance(
+        jobs=[Job(id="J1", name="Job 1", tasks=[task])],
+        machines=[machine],
+    )
+
+    schedule = CpSatSolver(
+        instance=instance,
+        horizon=20,
+        machine_intervals={"M1": [(0, 2), (5, 7), (10, 20)]},
+    ).schedule()
+
+    scheduled_task = schedule.get_task_mapping(task)
+    assert scheduled_task is not None
+    assert scheduled_task.start_time == 10
+    assert scheduled_task.end_time == 14
+    assert validate_schedule(schedule, instance)
+
+
 def test_cp_sat_solver_minimizes_max_tardiness_only() -> None:
     urgent = Task(id="T1", name="Urgent", processing_time=3)
     relaxed = Task(id="T2", name="Relaxed", processing_time=3)

@@ -427,6 +427,42 @@ class CpSatSolver(BaseSolver):
 
         return task_ids
 
+    def _bind_non_breakable_start_to_window(
+        self,
+        model: Any,
+        cp_model: Any,
+        value: Any,
+        presence: Any | None,
+        free_windows: list[_TimeWindow],
+        processing_time: int,
+        *,
+        lower_bound: int,
+        upper_bound: int,
+    ) -> None:
+        """Restrict a non-breakable start so the duration fits in a window."""
+        domain_intervals = []
+        for window in free_windows:
+            if window.end - window.start < processing_time:
+                continue
+            domain_start = max(window.start, lower_bound)
+            domain_end = min(window.end - processing_time, upper_bound)
+            if domain_start <= domain_end:
+                domain_intervals.append((domain_start, domain_end))
+        if not domain_intervals:
+            if presence is None:
+                raise ValueError(
+                    "Mandatory non-breakable alternative cannot fit within "
+                    "available windows during model build."
+                )
+            model.Add(presence == 0)
+            return
+        constraint = model.AddLinearExpressionInDomain(
+            value,
+            cp_model.Domain.FromIntervals(domain_intervals),
+        )
+        if presence is not None:
+            constraint.OnlyEnforceIf(presence)
+
     def _bind_point_to_free_window(
         self,
         model: Any,
@@ -1412,6 +1448,17 @@ class CpSatSolver(BaseSolver):
                         non_breakable_availability_intervals[
                             machine.id
                         ].append(interval)
+                    if not task.allow_breaks:
+                        self._bind_non_breakable_start_to_window(
+                            model,
+                            cp_model,
+                            task_start,
+                            presence,
+                            free_windows,
+                            processing_time,
+                            lower_bound=task_start_lower_bound,
+                            upper_bound=task_start_upper_bound,
+                        )
 
                 alternatives[machine.id] = _AlternativeVariables(
                     machine=machine,
