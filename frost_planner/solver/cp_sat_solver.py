@@ -7,8 +7,11 @@ from dataclasses import dataclass
 from typing import Any, override
 
 from frost_planner.core.base import Machine, SchedulingInstance, Task
-from frost_planner.core.objective import ObjectiveWeights
-from frost_planner.core.schedule import ScheduledTask
+from frost_planner.core.objective import (
+    ObjectiveWeights,
+    calculate_objective_value,
+)
+from frost_planner.core.schedule import Schedule, ScheduledTask
 from frost_planner.core.validate import validate_schedule
 from frost_planner.solver import _create_schedule, _schedule_by_order
 from frost_planner.solver.base_solver import BaseSolver
@@ -639,7 +642,7 @@ class CpSatSolver(BaseSolver):
         machine_intervals: dict[str, list[tuple[int, int]]],
         effective_horizon: int,
         start_time: int,
-    ) -> dict[str, ScheduledTask] | None:
+    ) -> tuple[dict[str, ScheduledTask], Schedule] | None:
         """Create a greedy feasible schedule to warm-start CP-SAT."""
         locked_tasks_map = {
             scheduled_task.task.id: scheduled_task
@@ -667,10 +670,11 @@ class CpSatSolver(BaseSolver):
         except (KeyError, ValueError):
             return None
 
-        return {
+        hint_map = {
             scheduled_task.task.id: scheduled_task
             for scheduled_task in scheduled_tasks
         }
+        return hint_map, schedule
 
     def _add_heuristic_hint(
         self,
@@ -692,8 +696,6 @@ class CpSatSolver(BaseSolver):
         heuristic_makespan = max(
             scheduled_task.end_time for scheduled_task in hinted_tasks
         )
-        if self.objective.is_pure_makespan:
-            model.Add(makespan <= heuristic_makespan)
         model.AddHint(makespan, heuristic_makespan)
 
         for task_id, scheduled_task in heuristic_hint.items():
@@ -1094,7 +1096,7 @@ class CpSatSolver(BaseSolver):
         if not tasks:
             return []
 
-        heuristic_hint = (
+        heuristic_result = (
             self._create_heuristic_hint(
                 machine_intervals,
                 effective_horizon,
@@ -1103,15 +1105,24 @@ class CpSatSolver(BaseSolver):
             if self.use_heuristic_hints
             else None
         )
-        if heuristic_hint is not None and self.objective.is_pure_makespan:
-            heuristic_makespan = max(
-                scheduled_task.end_time
-                for scheduled_task in heuristic_hint.values()
+        heuristic_hint: dict[str, ScheduledTask] | None = None
+        heuristic_objective_value: int | None = None
+        if heuristic_result is not None:
+            heuristic_hint, heuristic_schedule = heuristic_result
+            heuristic_objective_value = int(
+                calculate_objective_value(
+                    heuristic_schedule, self.instance, self.objective
+                )
             )
-            effective_horizon = max(
-                start_time,
-                min(effective_horizon, heuristic_makespan),
-            )
+            if self.objective.is_pure_makespan:
+                heuristic_makespan = max(
+                    scheduled_task.end_time
+                    for scheduled_task in heuristic_hint.values()
+                )
+                effective_horizon = max(
+                    start_time,
+                    min(effective_horizon, heuristic_makespan),
+                )
 
         earliest_start_bounds = (
             self._earliest_start_bounds(start_time)
@@ -1545,14 +1556,15 @@ class CpSatSolver(BaseSolver):
                 heuristic_hint,
                 machine_indices,
             )
-        model.Minimize(
-            self._objective_expression(
-                model,
-                makespan,
-                job_completion_vars,
-                effective_horizon,
-            )
+        objective_expr = self._objective_expression(
+            model,
+            makespan,
+            job_completion_vars,
+            effective_horizon,
         )
+        if heuristic_objective_value is not None:
+            model.Add(objective_expr <= heuristic_objective_value)
+        model.Minimize(objective_expr)
 
         solver = cp_model.CpSolver()
         self._configure_solver(solver)
