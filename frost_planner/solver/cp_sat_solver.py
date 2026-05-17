@@ -1,12 +1,13 @@
 # SPDX-FileCopyrightText: 2024 the Glacier project contributors
 # SPDX-License-Identifier: BSD-2-Clause
 
+import random
 import sys
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, override
 
-from frost_planner.core.base import Machine, SchedulingInstance, Task
+from frost_planner.core.base import Job, Machine, SchedulingInstance, Task
 from frost_planner.core.objective import (
     ObjectiveWeights,
     calculate_objective_value,
@@ -637,44 +638,104 @@ class CpSatSolver(BaseSolver):
                 )
         return unavailable_intervals
 
+    def _job_workload(self, job: Job) -> int:
+        """Sum of shortest-machine processing times across a job's tasks."""
+        return sum(self._min_processing_time(task) for task in job.tasks)
+
+    def _candidate_job_orderings(self) -> list[list[Job]]:
+        """Return candidate job orderings for the heuristic incumbent."""
+        jobs = list(self.instance.jobs)
+        far_future = max(
+            (job.due_date for job in jobs if job.due_date is not None),
+            default=0,
+        ) + sum(self._job_workload(job) for job in jobs) + 1
+        candidates: list[list[Job]] = [list(jobs)]
+        candidates.append(
+            sorted(jobs, key=lambda job: self._job_workload(job))
+        )
+        candidates.append(
+            sorted(jobs, key=lambda job: -self._job_workload(job))
+        )
+        candidates.append(
+            sorted(
+                jobs,
+                key=lambda job: (
+                    job.due_date if job.due_date is not None else far_future
+                ),
+            )
+        )
+        candidates.append(
+            sorted(
+                jobs,
+                key=lambda job: (
+                    (
+                        job.due_date
+                        if job.due_date is not None
+                        else far_future
+                    )
+                    - self._job_workload(job)
+                ),
+            )
+        )
+        for seed in (42, 1337, 271):
+            rng = random.Random(seed)
+            shuffled = list(jobs)
+            rng.shuffle(shuffled)
+            candidates.append(shuffled)
+        return candidates
+
     def _create_heuristic_hint(
         self,
         machine_intervals: dict[str, list[tuple[int, int]]],
         effective_horizon: int,
         start_time: int,
     ) -> tuple[dict[str, ScheduledTask], Schedule] | None:
-        """Create a greedy feasible schedule to warm-start CP-SAT."""
+        """Pick the best greedy schedule across several job orderings."""
         locked_tasks_map = {
             scheduled_task.task.id: scheduled_task
             for scheduled_task in self.locked_tasks.values()
         }
-        try:
-            scheduled_tasks = _schedule_by_order(
-                self.instance,
-                self.instance.jobs,
-                self.instance.machines,
-                deepcopy(machine_intervals),
-                effective_horizon,
-                self.instance.travel_times,
-                self.machine_id_map,
-                self.suitable_machines_map,
-                initial_scheduled_tasks=locked_tasks_map,
-                min_time=start_time,
-            )
-            schedule = _create_schedule(
-                scheduled_tasks=scheduled_tasks,
-                machines=self.instance.machines,
-            )
-            if not validate_schedule(schedule, self.instance):
-                return None
-        except (KeyError, ValueError):
-            return None
 
-        hint_map = {
-            scheduled_task.task.id: scheduled_task
-            for scheduled_task in scheduled_tasks
-        }
-        return hint_map, schedule
+        best_objective: float | None = None
+        best_result: tuple[dict[str, ScheduledTask], Schedule] | None = None
+        for ordering in self._candidate_job_orderings():
+            try:
+                scheduled_tasks = _schedule_by_order(
+                    self.instance,
+                    ordering,
+                    self.instance.machines,
+                    deepcopy(machine_intervals),
+                    effective_horizon,
+                    self.instance.travel_times,
+                    self.machine_id_map,
+                    self.suitable_machines_map,
+                    initial_scheduled_tasks=locked_tasks_map,
+                    min_time=start_time,
+                )
+                schedule = _create_schedule(
+                    scheduled_tasks=scheduled_tasks,
+                    machines=self.instance.machines,
+                )
+                if not validate_schedule(schedule, self.instance):
+                    continue
+            except (KeyError, ValueError):
+                continue
+            candidate_objective = calculate_objective_value(
+                schedule, self.instance, self.objective
+            )
+            if (
+                best_objective is None
+                or candidate_objective < best_objective
+            ):
+                best_objective = candidate_objective
+                best_result = (
+                    {
+                        scheduled_task.task.id: scheduled_task
+                        for scheduled_task in scheduled_tasks
+                    },
+                    schedule,
+                )
+        return best_result
 
     def _add_heuristic_hint(
         self,
