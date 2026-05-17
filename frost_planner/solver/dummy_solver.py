@@ -5,6 +5,7 @@ import sys
 from typing import override
 
 from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.core.schedule import ScheduledTask
 from frost_planner.solver import _schedule_by_order
 from frost_planner.solver.base_solver import BaseSolver
@@ -22,8 +23,9 @@ class DummySolver(BaseSolver):
         instance: SchedulingInstance,
         horizon: int = sys.maxsize,
         machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
+        objective: ObjectiveWeights | None = None,
     ) -> None:
-        super().__init__(instance, horizon, machine_intervals)
+        super().__init__(instance, horizon, machine_intervals, objective)
 
     @override
     def _allocate_tasks(

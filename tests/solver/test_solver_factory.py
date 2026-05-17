@@ -7,6 +7,7 @@ from collections.abc import Callable
 import pytest
 
 from frost_planner.core.base import Job, Machine, SchedulingInstance, Task
+from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.solver.cp_sat_solver import CpSatSolver
 from frost_planner.solver.dummy_solver import DummySolver
 from frost_planner.solver.factory import (
@@ -76,6 +77,7 @@ def test_create_solver_from_configuration(
     sc = configuration(instance)
     sc.horizon = 100
     sc.machine_intervals = {"M1": [(5, sys.maxsize)]}
+    sc.objective = ObjectiveWeights(makespan=0, total_flow_time=1)
 
     solver = create_solver(sc)
 
@@ -83,6 +85,7 @@ def test_create_solver_from_configuration(
     assert solver.instance == instance
     assert solver.horizon == 100
     assert solver.initial_machine_intervals == sc.machine_intervals
+    assert solver.objective == sc.objective
 
 
 def test_create_stochastic_solver_with_ad_hoc_parameters(
@@ -139,6 +142,13 @@ def test_create_cp_sat_solver_with_ad_hoc_parameters(
             num_workers=2,
             relative_gap=0.01,
             log_search_progress=True,
+            use_travel_table=False,
+            travel_model="hybrid",
+            hybrid_travel_threshold=4,
+            use_dependency_bounds=True,
+            use_machine_load_bounds=True,
+            prune_infeasible_alternatives=False,
+            use_heuristic_hints=False,
         )
     )
 
@@ -147,6 +157,39 @@ def test_create_cp_sat_solver_with_ad_hoc_parameters(
     assert solver.num_workers == 2
     assert solver.relative_gap == 0.01
     assert solver.log_search_progress is True
+    assert solver.travel_model == "hybrid"
+    assert solver.use_travel_table is False
+    assert solver.hybrid_travel_threshold == 4
+    assert solver.use_dependency_bounds is True
+    assert solver.use_machine_load_bounds is True
+    assert solver.prune_infeasible_alternatives is False
+    assert solver.use_heuristic_hints is False
+
+
+def test_create_cp_sat_solver_defaults_to_pairwise_travel(
+    instance: SchedulingInstance,
+) -> None:
+    solver = create_solver(CpSatSolverConfiguration(instance=instance))
+
+    assert isinstance(solver, CpSatSolver)
+    assert solver.num_workers == 16
+    assert solver.travel_model == "pairwise"
+    assert solver.use_travel_table is False
+
+
+def test_create_cp_sat_solver_supports_legacy_table_flag(
+    instance: SchedulingInstance,
+) -> None:
+    solver = create_solver(
+        CpSatSolverConfiguration(
+            instance=instance,
+            use_travel_table=True,
+        )
+    )
+
+    assert isinstance(solver, CpSatSolver)
+    assert solver.travel_model == "table"
+    assert solver.use_travel_table is True
 
 
 def test_create_solver_uses_default_specific_parameters_for_base_configuration(

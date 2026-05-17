@@ -39,6 +39,7 @@ docs = [
 ]
 ortools = [
     "ortools>=9.15,<10",
+    "pyjobshop>=0.0.9",
 ]
 
 [build-system]

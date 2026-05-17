@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.solver.base_solver import BaseSolver
 from frost_planner.solver.dummy_solver import DummySolver
 from frost_planner.solver.genetic_solver import GeneticAlgorithmSolver
@@ -34,6 +35,7 @@ class SolverConfiguration(ABC):
     solver_type: SolverType | str = SolverType.DUMMY
     horizon: int = sys.maxsize
     machine_intervals: dict[str, list[tuple[int, int]]] | None = None
+    objective: ObjectiveWeights | None = None
 
     def __post_init__(self) -> None:
         """Reject direct instantiation of the abstract base class."""
@@ -84,9 +86,16 @@ class CpSatSolverConfiguration(SolverConfiguration):
 
     solver_type: SolverType | str = SolverType.CP_SAT
     time_limit_seconds: float | None = None
-    num_workers: int | None = None
+    num_workers: int | None = 16
     relative_gap: float = 0.0
     log_search_progress: bool = False
+    use_travel_table: bool | None = None
+    travel_model: str | None = None
+    hybrid_travel_threshold: int = 16
+    use_dependency_bounds: bool = False
+    use_machine_load_bounds: bool = False
+    prune_infeasible_alternatives: bool = True
+    use_heuristic_hints: bool = True
 
 
 def create_solver(configuration: SolverConfiguration) -> BaseSolver:
@@ -108,6 +117,7 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             instance=configuration.instance,
             horizon=configuration.horizon,
             machine_intervals=configuration.machine_intervals,
+            objective=configuration.objective,
         )
 
     if solver_type is SolverType.STOCHASTIC:
@@ -119,6 +129,7 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             instance=configuration.instance,
             horizon=configuration.horizon,
             machine_intervals=configuration.machine_intervals,
+            objective=configuration.objective,
             T=configuration.T,
             B=configuration.B,
             R=configuration.R,
@@ -140,6 +151,16 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             num_workers=configuration.num_workers,
             relative_gap=configuration.relative_gap,
             log_search_progress=configuration.log_search_progress,
+            use_travel_table=configuration.use_travel_table,
+            travel_model=configuration.travel_model,
+            hybrid_travel_threshold=configuration.hybrid_travel_threshold,
+            use_dependency_bounds=configuration.use_dependency_bounds,
+            use_machine_load_bounds=configuration.use_machine_load_bounds,
+            prune_infeasible_alternatives=(
+                configuration.prune_infeasible_alternatives
+            ),
+            use_heuristic_hints=configuration.use_heuristic_hints,
+            objective=configuration.objective,
         )
 
     assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (
@@ -149,6 +170,7 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
         instance=configuration.instance,
         horizon=configuration.horizon,
         machine_intervals=configuration.machine_intervals,
+        objective=configuration.objective,
         population_size=configuration.population_size,
         generations=configuration.generations,
         mutation_rate=configuration.mutation_rate,

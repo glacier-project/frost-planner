@@ -7,8 +7,12 @@ from copy import deepcopy
 from typing import override
 
 from frost_planner.core.base import Job, SchedulingInstance
+from frost_planner.core.objective import (
+    ObjectiveWeights,
+    calculate_objective_value,
+)
 from frost_planner.core.schedule import ScheduledTask
-from frost_planner.solver import _schedule_by_order
+from frost_planner.solver import _create_schedule, _schedule_by_order
 from frost_planner.solver.base_solver import BaseSolver
 
 
@@ -29,8 +33,9 @@ class GeneticAlgorithmSolver(BaseSolver):
         crossover_rate: float = 0.9,
         elitism_count: int = 5,
         machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
+        objective: ObjectiveWeights | None = None,
     ) -> None:
-        super().__init__(instance, horizon, machine_intervals)
+        super().__init__(instance, horizon, machine_intervals, objective)
         self.population_size = population_size
         self.generations = generations
         self.mutation_rate = mutation_rate
@@ -58,8 +63,8 @@ class GeneticAlgorithmSolver(BaseSolver):
     ) -> tuple[list[ScheduledTask], float]:
         """Evaluates the fitness of a job permutation.
 
-        Fitness is based on the makespan (lower makespan = higher fitness).
-        Returns the scheduled tasks and the makespan.
+        Fitness is based on the configured objective value.
+        Returns the scheduled tasks and the objective value.
         """
         # Deepcopy machine_intervals to ensure each evaluation starts fresh
         temp_machine_intervals = deepcopy(machine_intervals)
@@ -76,19 +81,22 @@ class GeneticAlgorithmSolver(BaseSolver):
             initial_scheduled_tasks=locked_tasks_map,
             min_time=start_time,
         )
-        makespan = (
-            max(st.end_time for st in scheduled_tasks)
-            if scheduled_tasks
-            else 0.0
+        schedule = _create_schedule(
+            scheduled_tasks=scheduled_tasks,
+            machines=self.instance.machines,
         )
-        return scheduled_tasks, makespan
+        return scheduled_tasks, calculate_objective_value(
+            schedule,
+            self.instance,
+            self.objective,
+        )
 
     def _select_parents(
         self, population: list[list[Job]], fitnesses: list[float]
     ) -> list[list[Job]]:
         """Selects parents for the next gen using tournament selection."""
         selected_parents = []
-        # Assuming lower makespan is better, so we want to select individuals
+        # Lower objective values are better, so select individuals
         # with lower fitness values.
         # For tournament selection, pick a few individuals randomly and select
         # the best among them.
@@ -97,7 +105,7 @@ class GeneticAlgorithmSolver(BaseSolver):
             tournament_contenders = random.sample(
                 list(zip(population, fitnesses, strict=False)), tournament_size
             )
-            # Select the individual with the minimum makespan (best fitness)
+            # Select the individual with the minimum objective (best fitness)
             winner = min(tournament_contenders, key=lambda x: x[1])[0]
             selected_parents.append(winner)
         return selected_parents
@@ -173,7 +181,7 @@ class GeneticAlgorithmSolver(BaseSolver):
         start_time: int = 0,
     ) -> list[ScheduledTask]:
         best_solution_tasks: list[ScheduledTask] = []
-        best_makespan: float = float("inf")
+        best_score: float = float("inf")
 
         population: list[list[Job]] = self._initialize_population()
 
@@ -184,23 +192,23 @@ class GeneticAlgorithmSolver(BaseSolver):
             ] = []
             for individual in population:
                 scheduled_tasks: list[ScheduledTask]
-                makespan: float
-                scheduled_tasks, makespan = self._evaluate_fitness(
+                score: float
+                scheduled_tasks, score = self._evaluate_fitness(
                     individual, machine_intervals, start_time=start_time
                 )
                 evaluated_population.append(
-                    (individual, scheduled_tasks, makespan)
+                    (individual, scheduled_tasks, score)
                 )
 
-            # Sort by makespan (ascending, as lower is better)
+            # Sort by objective value (ascending, as lower is better)
             evaluated_population.sort(key=lambda x: x[2])
 
             # Update best solution found so far
             current_bt: list[ScheduledTask]
-            current_bm: float
-            _, current_bt, current_bm = evaluated_population[0]
-            if current_bm < best_makespan:
-                best_makespan = current_bm
+            current_score: float
+            _, current_bt, current_score = evaluated_population[0]
+            if current_score < best_score:
+                best_score = current_score
                 best_solution_tasks = current_bt
 
             # Create next generation

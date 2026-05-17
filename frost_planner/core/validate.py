@@ -27,7 +27,8 @@ def _validate_scheduled_task_times(scheduled_task: ScheduledTask) -> bool:
         )
         valid = False
     expected_duration = (
-        scheduled_task.task.processing_time + scheduled_task.break_time
+        scheduled_task.task.processing_time_on(scheduled_task.machine)
+        + scheduled_task.break_time
     )
     if scheduled_task.end_time - scheduled_task.start_time != expected_duration:
         cerror(

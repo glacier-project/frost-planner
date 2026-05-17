@@ -37,6 +37,7 @@ class InstanceConfiguration:
 
     min_processing_time: int = 60
     max_processing_time: int = 180
+    machine_processing_time_variation: float = 0.0
     min_task_without_dependencies: int = 1
     max_task_without_dependencies: int = 2
     min_task_dependencies: int = 1
@@ -46,6 +47,8 @@ class InstanceConfiguration:
     max_task_capabilities: int = 1
     min_task_priority: int = 1
     max_task_priority: int = 5
+    breakable_task_ratio: float = 0.0
+    breakable_task_min_processing_time: int = 0
 
     min_travel_time: int = 1
     max_travel_time: int = 10
@@ -88,12 +91,24 @@ class InstanceGenerator:
                 The generated scheduling instance.
 
         """
+        if not 0 <= configuration.breakable_task_ratio <= 1:
+            raise ValueError("breakable_task_ratio must be between 0 and 1.")
+        if configuration.breakable_task_min_processing_time < 0:
+            raise ValueError(
+                "breakable_task_min_processing_time must be non-negative."
+            )
+        if not 0 <= configuration.machine_processing_time_variation <= 1:
+            raise ValueError(
+                "machine_processing_time_variation must be between 0 and 1."
+            )
+
         jobs, required_capability_combinations, all_capabilities = (
             self._generate_jobs_and_tasks(configuration)
         )
         machines = self._generate_machines(
             configuration, required_capability_combinations, all_capabilities
         )
+        self._assign_machine_processing_times(configuration, jobs, machines)
         travel_times = self._generate_travel_times(configuration, machines)
 
         return SchedulingInstance(
@@ -124,6 +139,8 @@ class InstanceGenerator:
         required_capability_combinations: set[tuple[str, ...]] = set()
 
         jobs: list[Job] = []
+        breakable_candidates: list[Task] = []
+        breakable_tasks: list[Task] = []
         all_capabilities = [
             f"capability_{k}"
             for k in range(configuration.num_machine_capabilities)
@@ -181,19 +198,26 @@ class InstanceGenerator:
                 # Update all required capabilities.
                 all_required_capabilities.update(task_caps)
                 # Add the task to the list.
-                tasks.append(
-                    Task(
-                        id=str(uuid.uuid4()),
-                        name=f"T_{i}_{j}",
-                        processing_time=processing_time,
-                        dependencies=dependencies,
-                        requires=task_caps,
-                        priority=random.randint(
-                            configuration.min_task_priority,
-                            configuration.max_task_priority,
-                        ),
-                    )
+                task = Task(
+                    id=str(uuid.uuid4()),
+                    name=f"T_{i}_{j}",
+                    processing_time=processing_time,
+                    dependencies=dependencies,
+                    requires=task_caps,
+                    priority=random.randint(
+                        configuration.min_task_priority,
+                        configuration.max_task_priority,
+                    ),
                 )
+                if (
+                    processing_time
+                    >= configuration.breakable_task_min_processing_time
+                ):
+                    breakable_candidates.append(task)
+                    if random.random() < configuration.breakable_task_ratio:
+                        task.allow_breaks = True
+                        breakable_tasks.append(task)
+                tasks.append(task)
             # Perform topological sort.
             tasks = _sort_tasks(tasks)
             # Compute job processing time.
@@ -214,7 +238,47 @@ class InstanceGenerator:
                     ),
                 )
             )
+        if (
+            configuration.breakable_task_ratio > 0
+            and breakable_candidates
+            and not breakable_tasks
+        ):
+            random.choice(breakable_candidates).allow_breaks = True
         return jobs, required_capability_combinations, all_capabilities
+
+    def _assign_machine_processing_times(
+        self,
+        configuration: InstanceConfiguration,
+        jobs: list[Job],
+        machines: list[Machine],
+    ) -> None:
+        """Assign optional machine-specific task processing times."""
+        variation = configuration.machine_processing_time_variation
+        if variation <= 0:
+            return
+
+        for job in jobs:
+            for task in job.tasks:
+                suitable_machines = [
+                    machine
+                    for machine in machines
+                    if all(req in machine.capabilities for req in task.requires)
+                ]
+                machine_processing_times = {}
+                lower_bound = max(
+                    2,
+                    round(task.processing_time * (1 - variation)),
+                )
+                upper_bound = max(
+                    lower_bound,
+                    round(task.processing_time * (1 + variation)),
+                )
+                for machine in suitable_machines:
+                    machine_processing_times[machine.id] = random.randint(
+                        lower_bound,
+                        upper_bound,
+                    )
+                task.machine_processing_times = machine_processing_times
 
     def _generate_machines(
         self,
@@ -411,7 +475,8 @@ def dump_configuration(config: InstanceConfiguration) -> None:
     )
     cprint(
         f"  Processing Time: "
-        f"[{config.min_processing_time}-{config.max_processing_time}]",
+        f"[{config.min_processing_time}-{config.max_processing_time}], "
+        f"machine_variation={config.machine_processing_time_variation}",
         style="magenta",
     )
     cprint(
@@ -430,6 +495,11 @@ def dump_configuration(config: InstanceConfiguration) -> None:
     cprint(
         f"  Task Priority: [{config.min_task_priority}-"
         f"{config.max_task_priority}]",
+        style="magenta",
+    )
+    cprint(
+        f"  Breakable Tasks: ratio={config.breakable_task_ratio}, "
+        f"min_processing_time={config.breakable_task_min_processing_time}",
         style="magenta",
     )
     cprint(

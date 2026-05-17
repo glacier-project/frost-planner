@@ -68,10 +68,14 @@ class ScheduledTask(BaseModel):
                 f"greater than or equal to start_time ({self.start_time})"
             )
         elapsed_duration = self.end_time - self.start_time
-        expected_duration = self.task.processing_time + self.break_time
+        expected_duration = (
+            self.task.processing_time_on(self.machine) + self.break_time
+        )
         if elapsed_duration != expected_duration:
             raise ValueError(
-                f"Task processing_time is {self.task.processing_time}, "
+                "Task processing_time on "
+                f"{self.machine.id} is "
+                f"{self.task.processing_time_on(self.machine)}, "
                 f"break_time is {self.break_time}, but scheduled duration "
                 f"is {elapsed_duration}"
             )

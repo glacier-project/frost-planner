@@ -7,8 +7,12 @@ from copy import deepcopy
 from typing import override
 
 from frost_planner.core.base import Job, SchedulingInstance, _sort_tasks
+from frost_planner.core.objective import (
+    ObjectiveWeights,
+    calculate_objective_value,
+)
 from frost_planner.core.schedule import ScheduledTask
-from frost_planner.solver import _schedule_by_order
+from frost_planner.solver import _create_schedule, _schedule_by_order
 from frost_planner.solver.base_solver import BaseSolver
 
 
@@ -46,8 +50,9 @@ class StochasticSolver(BaseSolver):
         alpha: float = 0.4,
         t_idle: int = 10,
         machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
+        objective: ObjectiveWeights | None = None,
     ) -> None:
-        super().__init__(instance, horizon, machine_intervals)
+        super().__init__(instance, horizon, machine_intervals, objective)
         self.T = T
         self.B = B
         self.R = R
@@ -136,8 +141,8 @@ class StochasticSolver(BaseSolver):
         jobs: list[Job],
         machine_intervals: dict[str, list[tuple[int, int]]],
         start_time: int = 0,
-    ) -> tuple[list[ScheduledTask], int]:
-        """Evaluate the quality of a solution based on the makespan.
+    ) -> tuple[list[ScheduledTask], float]:
+        """Evaluate the quality of a solution using configured objectives.
 
         Args:
             jobs (list[Job]):
@@ -148,8 +153,8 @@ class StochasticSolver(BaseSolver):
                 The global lower bound for task start times.
 
         Returns:
-            tuple[list[ScheduledTask], int]:
-                A tuple containing the scheduled tasks and the makespan.
+            tuple[list[ScheduledTask], float]:
+                A tuple containing the scheduled tasks and objective value.
 
         """
         machine_intervals = deepcopy(machine_intervals)
@@ -167,10 +172,14 @@ class StochasticSolver(BaseSolver):
             min_time=start_time,
         )
 
-        return scheduled_tasks, (
-            max(task.end_time for task in scheduled_tasks)
-            if scheduled_tasks
-            else 0
+        schedule = _create_schedule(
+            scheduled_tasks=scheduled_tasks,
+            machines=self.instance.machines,
+        )
+        return scheduled_tasks, calculate_objective_value(
+            schedule,
+            self.instance,
+            self.objective,
         )
 
     @override
@@ -185,7 +194,7 @@ class StochasticSolver(BaseSolver):
         R = self.R  # noqa: N806 — math convention (remote neighbors)
         local_iterations = round(((1 - alpha) * B) / R)
         jobs = self._sort_jobs_random(list(self.instance.jobs))
-        solution, makespan = self._evaluate_solution(
+        solution, best_score = self._evaluate_solution(
             jobs, machine_intervals, start_time=start_time
         )
         idle_iterations = 0
@@ -196,17 +205,17 @@ class StochasticSolver(BaseSolver):
 
             local_jobs = jobs
             local_solution = solution
-            current_makespan = sys.maxsize
+            current_score = float("inf")
 
             # alpha*B local explorations
             for _ in range(int(self.alpha * B)):
                 local_neighbor = self._get_local_neighbor(local_jobs.copy())
-                local_solution, local_makespan = self._evaluate_solution(
+                local_solution, local_score = self._evaluate_solution(
                     local_neighbor, machine_intervals, start_time=start_time
                 )
-                if local_makespan < current_makespan:
+                if local_score < current_score:
                     local_jobs = local_neighbor
-                    current_makespan = local_makespan
+                    current_score = local_score
 
             for _ in range(R):
                 remote_neighbor = self._get_random_neighbor(local_jobs.copy())
@@ -215,17 +224,17 @@ class StochasticSolver(BaseSolver):
                     local_neighbor = self._get_local_neighbor(
                         remote_neighbor.copy()
                     )
-                    local_solution, local_makespan = self._evaluate_solution(
+                    local_solution, local_score = self._evaluate_solution(
                         local_neighbor, machine_intervals, start_time=start_time
                     )
-                    if local_makespan < current_makespan:
+                    if local_score < current_score:
                         local_jobs = local_neighbor
-                        current_makespan = local_makespan
+                        current_score = local_score
 
-            if current_makespan < makespan:
+            if current_score < best_score:
                 jobs = local_jobs
                 solution = local_solution
-                makespan = current_makespan
+                best_score = current_score
                 idle_iterations = 0
             else:
                 # number of idle iterations

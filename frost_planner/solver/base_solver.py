@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 
 from frost_planner.core.base import Machine, SchedulingInstance, Task
+from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.core.schedule import Schedule, ScheduledTask
 from frost_planner.solver import (
     _create_schedule,
@@ -29,10 +30,12 @@ class BaseSolver(ABC):
         instance: SchedulingInstance,
         horizon: int = sys.maxsize,
         machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
+        objective: ObjectiveWeights | None = None,
     ) -> None:
         self.instance: SchedulingInstance = instance
         self.horizon: int = horizon
         self.initial_machine_intervals = machine_intervals
+        self.objective = objective or ObjectiveWeights()
         self._update_maps()
         self.locked_tasks: dict[str, ScheduledTask] = {}
 

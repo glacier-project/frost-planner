@@ -63,6 +63,14 @@ def calculate_total_flow_time(schedule: Schedule) -> float:
     return total_flow_time
 
 
+def calculate_total_job_flow_time(
+    schedule: Schedule,
+    instance: SchedulingInstance,
+) -> float:
+    """Calculates total job flow time as the sum of job completion times."""
+    return sum(schedule.get_job_end_time(job) for job in instance.jobs)
+
+
 def calculate_lateness(
     schedule: Schedule,
     instance: SchedulingInstance,
@@ -111,6 +119,43 @@ def calculate_tardiness(
     for job_name, lateness in lateness_by_job.items():
         tardiness_by_job[job_name] = float(max(0.0, lateness))
     return tardiness_by_job
+
+
+def calculate_total_tardiness(
+    schedule: Schedule,
+    instance: SchedulingInstance,
+) -> float:
+    """Calculates the sum of job tardiness values."""
+    return sum(calculate_tardiness(schedule, instance).values())
+
+
+def calculate_earliness(
+    schedule: Schedule,
+    instance: SchedulingInstance,
+) -> dict[str, float]:
+    """Calculates the earliness for each job in the schedule."""
+    earliness_by_job = {}
+    lateness_by_job = calculate_lateness(schedule, instance)
+    for job_name, lateness in lateness_by_job.items():
+        earliness_by_job[job_name] = float(max(0.0, -lateness))
+    return earliness_by_job
+
+
+def calculate_total_earliness(
+    schedule: Schedule,
+    instance: SchedulingInstance,
+) -> float:
+    """Calculates the sum of job earliness values."""
+    return sum(calculate_earliness(schedule, instance).values())
+
+
+def calculate_max_tardiness(
+    schedule: Schedule,
+    instance: SchedulingInstance,
+) -> float:
+    """Calculates the maximum tardiness across all jobs."""
+    tardiness_values = calculate_tardiness(schedule, instance).values()
+    return max(tardiness_values, default=0.0)
 
 
 def calculate_num_tardy_jobs(

@@ -66,8 +66,9 @@ def _get_machine_intervals_for_task(
             # latest end time
             end = min(end, task_end_time)
 
-            # check if the task can fit in the interval
-            if task.processing_time > (end - start):
+            # Check if the task can fit in the interval.
+            processing_time = task.processing_time_on(machine_id)
+            if processing_time > (end - start):
                 continue
 
             ms_intervals.append((start, end))
@@ -103,7 +104,8 @@ def _perform_task_interval_allocation(
     start: int = 0
     end: int = 0
     for start, end in machine_intervals[machine.id]:
-        if start <= start_time and end >= start_time + task.processing_time:
+        processing_time = task.processing_time_on(machine)
+        if start <= start_time and end >= start_time + processing_time:
             interval_idx = machine_intervals[machine.id].index((start, end))
             break
 
@@ -114,11 +116,12 @@ def _perform_task_interval_allocation(
     if interval_idx == -1:
         raise ValueError(
             f"Cannot place task {task.id} on machine {machine.id} at "
-            f"{start_time} for duration {task.processing_time}. No suitable "
+            f"{start_time} for duration {task.processing_time_on(machine)}. "
+            "No suitable "
             "interval found.",
         )
 
-    end_time = start_time + task.processing_time
+    end_time = start_time + task.processing_time_on(machine)
     if start == start_time and end == end_time:
         machine_intervals[machine.id].pop(interval_idx)
     elif start == start_time:
@@ -158,7 +161,7 @@ def _allocate_task(
     )
     return ScheduledTask(
         start_time=start_time,
-        end_time=start_time + task.processing_time,
+        end_time=start_time + task.processing_time_on(machine),
         task=task,
         machine=machine,
     )
@@ -325,7 +328,8 @@ def _schedule_by_order(
 
                 # Check if the task, with its adjusted start time, still fits
                 # within the current interval.
-                if adjusted_start_time + task.processing_time <= end_interval:
+                duration = task.processing_time_on(machine_id)
+                if adjusted_start_time + duration <= end_interval:
                     # If it fits, this is a potential candidate.
                     if (
                         not selected_machine
