@@ -1342,6 +1342,17 @@ class CpSatSolver(BaseSolver):
                     )
 
                 if relevant_unavailable_windows:
+                    max_elapsed_duration = (
+                        processing_time
+                        + sum(
+                            window.end - window.start
+                            for window in relevant_unavailable_windows
+                        )
+                    )
+                    local_end_upper_bound = min(
+                        effective_horizon,
+                        task_start_upper_bound + max_elapsed_duration,
+                    )
                     if single_alternative:
                         local_start = task_start
                         local_end = task_end
@@ -1353,7 +1364,7 @@ class CpSatSolver(BaseSolver):
                         )
                         local_end = model.NewIntVar(
                             task_end_lower_bound,
-                            effective_horizon,
+                            local_end_upper_bound,
                             f"local_end_{alternative_name}",
                         )
                     break_time = self._create_break_time_var(
@@ -1366,16 +1377,13 @@ class CpSatSolver(BaseSolver):
                         task_start_lower_bound,
                         effective_horizon,
                     )
-                    max_elapsed_duration = (
-                        processing_time
-                        + sum(
-                            window.end - window.start
-                            for window in relevant_unavailable_windows
-                        )
+                    elapsed_duration_upper_bound = min(
+                        max_elapsed_duration,
+                        local_end_upper_bound - task_start_lower_bound,
                     )
                     elapsed_duration = model.NewIntVar(
                         processing_time,
-                        max_elapsed_duration,
+                        elapsed_duration_upper_bound,
                         f"duration_{alternative_name}",
                     )
                     model.Add(
