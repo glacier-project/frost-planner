@@ -390,6 +390,73 @@ class CpSatSolver(BaseSolver):
 
         return feasible_machines_by_task
 
+    def _identical_machine_groups(
+        self,
+        free_windows_by_machine: dict[str, list[_TimeWindow]],
+    ) -> list[list[Machine]]:
+        """Group machines that are mutually interchangeable for scheduling."""
+        tasks = self._all_tasks()
+        machines = self.instance.machines
+        sorted_other_ids: dict[str, list[str]] = {
+            machine.id: sorted(
+                other.id for other in machines if other.id != machine.id
+            )
+            for machine in machines
+        }
+        signatures: dict[tuple[Any, ...], list[Machine]] = {}
+        for machine in machines:
+            cap = tuple(sorted(machine.capabilities))
+            windows = tuple(free_windows_by_machine[machine.id])
+            processing_signature = tuple(
+                (task.id, self._processing_time_on(task, machine))
+                for task in tasks
+                if machine
+                in self.suitable_machines_map.get(task.id, [])
+            )
+            travel_out = tuple(
+                (other_id, self.instance.travel_times[machine.id].get(other_id))
+                for other_id in sorted_other_ids[machine.id]
+                if machine.id in self.instance.travel_times
+            )
+            travel_in = tuple(
+                (
+                    other_id,
+                    self.instance.travel_times.get(other_id, {}).get(
+                        machine.id
+                    ),
+                )
+                for other_id in sorted_other_ids[machine.id]
+            )
+            signatures.setdefault(
+                (cap, windows, processing_signature, travel_out, travel_in),
+                [],
+            ).append(machine)
+        groups: list[list[Machine]] = []
+        for group in signatures.values():
+            if len(group) < 2:
+                continue
+            zero_within_group = True
+            for index_a, machine_a in enumerate(group):
+                for machine_b in group[index_a + 1:]:
+                    try:
+                        forward = self.instance.get_travel_time(
+                            machine_a, machine_b
+                        )
+                        backward = self.instance.get_travel_time(
+                            machine_b, machine_a
+                        )
+                    except ValueError:
+                        zero_within_group = False
+                        break
+                    if forward != 0 or backward != 0:
+                        zero_within_group = False
+                        break
+                if not zero_within_group:
+                    break
+            if zero_within_group:
+                groups.append(sorted(group, key=lambda m: m.id))
+        return groups
+
     def _table_machine_task_ids(
         self,
         tasks: list[Task],
@@ -1589,6 +1656,19 @@ class CpSatSolver(BaseSolver):
         for intervals in non_breakable_availability_intervals.values():
             if intervals:
                 model.AddNoOverlap(intervals)
+
+        for group in self._identical_machine_groups(free_windows_by_machine):
+            counts: list[Any] = []
+            for machine in group:
+                presence_terms = []
+                for variables in task_variables.values():
+                    alternative = variables.alternatives.get(machine.id)
+                    if alternative is None or alternative.presence is None:
+                        continue
+                    presence_terms.append(alternative.presence)
+                counts.append(sum(presence_terms) if presence_terms else 0)
+            for index in range(len(counts) - 1):
+                model.Add(counts[index] >= counts[index + 1])
 
         self._add_dependency_constraints(
             model,
