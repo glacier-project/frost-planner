@@ -184,6 +184,35 @@ class CpSatSolver(BaseSolver):
             for current_machine in current_machines
         )
 
+    def _capability_bottleneck_lower_bounds(
+        self, start_time: int
+    ) -> list[int]:
+        """Per-capability ceiling: total required work / machines with cap."""
+        tasks = self._all_tasks()
+        capabilities: set[str] = set()
+        for task in tasks:
+            capabilities.update(task.requires)
+        bounds: list[int] = []
+        for capability in capabilities:
+            machines_with_capability = [
+                machine
+                for machine in self.instance.machines
+                if capability in machine.capabilities
+            ]
+            if not machines_with_capability:
+                continue
+            mandatory_work = sum(
+                self._min_processing_time(task)
+                for task in tasks
+                if capability in task.requires
+            )
+            if mandatory_work <= 0:
+                continue
+            count = len(machines_with_capability)
+            ceiling = -(-mandatory_work // count)
+            bounds.append(start_time + ceiling)
+        return bounds
+
     def _reduced_dependencies(self) -> dict[str, list[str]]:
         """Drop dependency edges implied by another chain through a sibling."""
         tasks = self._all_tasks()
@@ -1759,6 +1788,11 @@ class CpSatSolver(BaseSolver):
         )
         if critical_path_makespan_lb > start_time:
             model.Add(makespan >= critical_path_makespan_lb)
+        for bottleneck_lb in self._capability_bottleneck_lower_bounds(
+            start_time
+        ):
+            if bottleneck_lb > start_time:
+                model.Add(makespan >= bottleneck_lb)
         job_completion_vars: dict[str, Any] = (
             self._job_completion_variables(
                 model,
