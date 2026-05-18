@@ -972,6 +972,45 @@ class CpSatSolver(BaseSolver):
             candidates.append(shuffled)
         return candidates
 
+    def _evaluate_ordering(
+        self,
+        ordering: list[Job],
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        effective_horizon: int,
+        start_time: int,
+        locked_tasks_map: dict[str, ScheduledTask],
+    ) -> tuple[float, dict[str, ScheduledTask], Schedule] | None:
+        """Greedy-schedule one ordering and return its objective value."""
+        try:
+            scheduled_tasks = _schedule_by_order(
+                self.instance,
+                ordering,
+                self.instance.machines,
+                deepcopy(machine_intervals),
+                effective_horizon,
+                self.instance.travel_times,
+                self.machine_id_map,
+                self.suitable_machines_map,
+                initial_scheduled_tasks=locked_tasks_map,
+                min_time=start_time,
+            )
+            schedule = _create_schedule(
+                scheduled_tasks=scheduled_tasks,
+                machines=self.instance.machines,
+            )
+            if not validate_schedule(schedule, self.instance):
+                return None
+        except (KeyError, ValueError):
+            return None
+        objective_value = calculate_objective_value(
+            schedule, self.instance, self.objective
+        )
+        hint_map = {
+            scheduled_task.task.id: scheduled_task
+            for scheduled_task in scheduled_tasks
+        }
+        return objective_value, hint_map, schedule
+
     def _create_heuristic_hint(
         self,
         machine_intervals: dict[str, list[tuple[int, int]]],
@@ -985,44 +1024,54 @@ class CpSatSolver(BaseSolver):
         }
 
         best_objective: float | None = None
+        best_ordering: list[Job] | None = None
         best_result: tuple[dict[str, ScheduledTask], Schedule] | None = None
         for ordering in self._candidate_job_orderings():
-            try:
-                scheduled_tasks = _schedule_by_order(
-                    self.instance,
-                    ordering,
-                    self.instance.machines,
-                    deepcopy(machine_intervals),
-                    effective_horizon,
-                    self.instance.travel_times,
-                    self.machine_id_map,
-                    self.suitable_machines_map,
-                    initial_scheduled_tasks=locked_tasks_map,
-                    min_time=start_time,
-                )
-                schedule = _create_schedule(
-                    scheduled_tasks=scheduled_tasks,
-                    machines=self.instance.machines,
-                )
-                if not validate_schedule(schedule, self.instance):
-                    continue
-            except (KeyError, ValueError):
-                continue
-            candidate_objective = calculate_objective_value(
-                schedule, self.instance, self.objective
+            evaluation = self._evaluate_ordering(
+                ordering,
+                machine_intervals,
+                effective_horizon,
+                start_time,
+                locked_tasks_map,
             )
+            if evaluation is None:
+                continue
+            candidate_objective, hint_map, schedule = evaluation
             if (
                 best_objective is None
                 or candidate_objective < best_objective
             ):
                 best_objective = candidate_objective
-                best_result = (
-                    {
-                        scheduled_task.task.id: scheduled_task
-                        for scheduled_task in scheduled_tasks
-                    },
-                    schedule,
-                )
+                best_ordering = ordering
+                best_result = (hint_map, schedule)
+        if best_ordering is None or best_result is None:
+            return best_result
+
+        current = list(best_ordering)
+        current_objective = best_objective
+        for index in range(len(current) - 1):
+            swapped = list(current)
+            swapped[index], swapped[index + 1] = (
+                swapped[index + 1],
+                swapped[index],
+            )
+            evaluation = self._evaluate_ordering(
+                swapped,
+                machine_intervals,
+                effective_horizon,
+                start_time,
+                locked_tasks_map,
+            )
+            if evaluation is None:
+                continue
+            candidate_objective, hint_map, schedule = evaluation
+            if (
+                current_objective is not None
+                and candidate_objective < current_objective
+            ):
+                current_objective = candidate_objective
+                current = swapped
+                best_result = (hint_map, schedule)
         return best_result
 
     def _add_heuristic_hint(
