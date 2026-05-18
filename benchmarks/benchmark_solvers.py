@@ -113,6 +113,21 @@ PROFILES = {
         min_travel_time=0,
         max_travel_time=12,
     ),
+    "huge": InstanceConfiguration(
+        num_jobs=30,
+        min_tasks_per_job=8,
+        max_tasks_per_job=12,
+        num_machine_capabilities=8,
+        num_machines=32,
+        min_processing_time=5,
+        max_processing_time=40,
+        min_job_due_date_offset=80,
+        max_job_due_date_offset=300,
+        min_task_dependencies=2,
+        max_task_dependencies=4,
+        min_travel_time=0,
+        max_travel_time=15,
+    ),
 }
 
 
