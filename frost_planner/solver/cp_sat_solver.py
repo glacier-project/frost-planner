@@ -150,6 +150,7 @@ class CpSatSolver(BaseSolver):
         self.last_objective_value: float | None = None
         self.last_best_bound: float | None = None
         self.last_wall_time_seconds: float | None = None
+        self._last_scheduled_tasks: list[ScheduledTask] | None = None
         self._reset_lookup_caches()
 
     def _all_tasks(self) -> list[Task]:
@@ -1089,6 +1090,28 @@ class CpSatSolver(BaseSolver):
         best_objective: float | None = None
         best_ordering: list[Job] | None = None
         best_result: tuple[dict[str, ScheduledTask], Schedule] | None = None
+
+        if self._last_scheduled_tasks is not None:
+            try:
+                warm_schedule = _create_schedule(
+                    scheduled_tasks=self._last_scheduled_tasks,
+                    machines=self.instance.machines,
+                )
+                if validate_schedule(warm_schedule, self.instance):
+                    warm_obj = calculate_objective_value(
+                        warm_schedule, self.instance, self.objective
+                    )
+                    best_objective = warm_obj
+                    best_result = (
+                        {
+                            scheduled_task.task.id: scheduled_task
+                            for scheduled_task in self._last_scheduled_tasks
+                        },
+                        warm_schedule,
+                    )
+            except (KeyError, ValueError):
+                self._last_scheduled_tasks = None
+
         for ordering in self._candidate_job_orderings():
             evaluation = self._evaluate_ordering(
                 ordering,
@@ -2202,4 +2225,11 @@ class CpSatSolver(BaseSolver):
                 )
             )
 
+        # Cache full schedule (including locked tasks) for warm-starts.
+        locked_scheduled = [
+            scheduled_task
+            for scheduled_task in self.locked_tasks.values()
+            if scheduled_task.task.id in self.task_id_map
+        ]
+        self._last_scheduled_tasks = locked_scheduled + scheduled_tasks
         return scheduled_tasks

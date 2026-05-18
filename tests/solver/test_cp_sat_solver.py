@@ -741,6 +741,33 @@ def test_cp_sat_solver_minimizes_total_flow_time_only() -> None:
     assert validate_schedule(schedule, instance)
 
 
+def test_cp_sat_solver_warm_start_reuses_previous_schedule() -> None:
+    task_1 = Task(id="T1", name="Task 1", processing_time=3)
+    task_2 = Task(
+        id="T2", name="Task 2", processing_time=2, dependencies=["T1"]
+    )
+    machine = Machine(id="M1", name="Machine 1")
+    instance = SchedulingInstance(
+        jobs=[Job(id="J1", name="Job 1", tasks=[task_1, task_2])],
+        machines=[machine],
+    )
+    solver = CpSatSolver(instance=instance, horizon=20)
+
+    first = solver.schedule()
+    cached = solver._last_scheduled_tasks
+    assert cached is not None
+    assert len(cached) == 2
+    assert validate_schedule(first, instance)
+
+    second = solver.schedule()
+    assert validate_schedule(second, instance)
+    first_task_2 = first.get_task_mapping(task_2)
+    second_task_2 = second.get_task_mapping(task_2)
+    assert first_task_2 is not None
+    assert second_task_2 is not None
+    assert first_task_2.end_time == second_task_2.end_time
+
+
 def test_cp_sat_solver_locked_pred_single_machine_successor() -> None:
     task_1 = Task(
         id="T1",
