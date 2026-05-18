@@ -307,6 +307,39 @@ def parse_args() -> argparse.Namespace:
         help="Disable CP-SAT greedy schedule hints.",
     )
     parser.add_argument(
+        "--cp-sat-random-seed",
+        type=int,
+        default=None,
+        help="CP-SAT random seed for reproducibility.",
+    )
+    parser.add_argument(
+        "--cp-sat-max-deterministic-time",
+        type=float,
+        default=None,
+        help=(
+            "CP-SAT deterministic-time limit (parallel-safe alternative "
+            "to wall-clock --cp-sat-time-limit)."
+        ),
+    )
+    parser.add_argument(
+        "--cp-sat-search-branching",
+        choices=["automatic", "fixed", "portfolio", "lp", "pseudo_cost"],
+        default=None,
+        help="Override CP-SAT search branching strategy.",
+    )
+    parser.add_argument(
+        "--cp-sat-linearization-level",
+        type=int,
+        choices=[0, 1, 2],
+        default=None,
+        help="Override CP-SAT linearization level (0/1/2).",
+    )
+    parser.add_argument(
+        "--cp-sat-disable-presolve",
+        action="store_true",
+        help="Disable CP-SAT presolve.",
+    )
+    parser.add_argument(
         "--horizon",
         type=int,
         default=None,
@@ -622,6 +655,13 @@ def build_configuration(
                 not args.disable_cp_sat_alternative_pruning
             ),
             use_heuristic_hints=not args.disable_cp_sat_heuristic_hints,
+            random_seed=args.cp_sat_random_seed,
+            max_deterministic_time=args.cp_sat_max_deterministic_time,
+            search_branching=args.cp_sat_search_branching,
+            linearization_level=args.cp_sat_linearization_level,
+            cp_model_presolve=(
+                False if args.cp_sat_disable_presolve else None
+            ),
         )
     raise ValueError(f"Unsupported solver {solver_name!r}.")
 

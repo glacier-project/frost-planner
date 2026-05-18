@@ -96,6 +96,11 @@ class CpSatSolverConfiguration(SolverConfiguration):
     use_machine_load_bounds: bool = False
     prune_infeasible_alternatives: bool = True
     use_heuristic_hints: bool = True
+    random_seed: int | None = None
+    max_deterministic_time: float | None = None
+    search_branching: str | None = None
+    linearization_level: int | None = None
+    cp_model_presolve: bool | None = None
 
 
 def create_solver(configuration: SolverConfiguration) -> BaseSolver:
@@ -161,6 +166,11 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             ),
             use_heuristic_hints=configuration.use_heuristic_hints,
             objective=configuration.objective,
+            random_seed=configuration.random_seed,
+            max_deterministic_time=configuration.max_deterministic_time,
+            search_branching=configuration.search_branching,
+            linearization_level=configuration.linearization_level,
+            cp_model_presolve=configuration.cp_model_presolve,
         )
 
     assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (

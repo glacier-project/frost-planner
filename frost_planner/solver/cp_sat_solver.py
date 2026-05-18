@@ -90,6 +90,11 @@ class CpSatSolver(BaseSolver):
         prune_infeasible_alternatives: bool = True,
         use_heuristic_hints: bool = True,
         objective: ObjectiveWeights | None = None,
+        random_seed: int | None = None,
+        max_deterministic_time: float | None = None,
+        search_branching: str | None = None,
+        linearization_level: int | None = None,
+        cp_model_presolve: bool | None = None,
     ) -> None:
         super().__init__(instance, horizon, machine_intervals, objective)
         if num_workers is not None and num_workers < 1:
@@ -104,6 +109,24 @@ class CpSatSolver(BaseSolver):
             raise ValueError(
                 "travel_model must be 'table', 'pairwise', or 'hybrid'."
             )
+        if linearization_level is not None and linearization_level not in (
+            0, 1, 2,
+        ):
+            raise ValueError("linearization_level must be 0, 1, or 2.")
+        valid_branching = {
+            "automatic",
+            "fixed",
+            "portfolio",
+            "lp",
+            "pseudo_cost",
+        }
+        if (
+            search_branching is not None
+            and search_branching not in valid_branching
+        ):
+            raise ValueError(
+                f"search_branching must be one of {sorted(valid_branching)}."
+            )
 
         self.time_limit_seconds = time_limit_seconds
         self.num_workers = num_workers
@@ -116,6 +139,11 @@ class CpSatSolver(BaseSolver):
         self.use_machine_load_bounds = use_machine_load_bounds
         self.prune_infeasible_alternatives = prune_infeasible_alternatives
         self.use_heuristic_hints = use_heuristic_hints
+        self.random_seed = random_seed
+        self.max_deterministic_time = max_deterministic_time
+        self.search_branching = search_branching
+        self.linearization_level = linearization_level
+        self.cp_model_presolve = cp_model_presolve
         self.last_status: str | None = None
         self.last_objective_value: float | None = None
         self.last_best_bound: float | None = None
@@ -1364,6 +1392,28 @@ class CpSatSolver(BaseSolver):
         self._set_num_workers(solver)
         solver.parameters.relative_gap_limit = self.relative_gap
         solver.parameters.log_search_progress = self.log_search_progress
+        if self.random_seed is not None:
+            solver.parameters.random_seed = self.random_seed
+        if self.max_deterministic_time is not None:
+            solver.parameters.max_deterministic_time = (
+                self.max_deterministic_time
+            )
+        if self.linearization_level is not None:
+            solver.parameters.linearization_level = self.linearization_level
+        if self.cp_model_presolve is not None:
+            solver.parameters.cp_model_presolve = self.cp_model_presolve
+        if self.search_branching is not None:
+            cp_model = _load_cp_model()
+            branching_map = {
+                "automatic": cp_model.AUTOMATIC_SEARCH,
+                "fixed": cp_model.FIXED_SEARCH,
+                "portfolio": cp_model.PORTFOLIO_SEARCH,
+                "lp": cp_model.LP_SEARCH,
+                "pseudo_cost": cp_model.PSEUDO_COST_SEARCH,
+            }
+            solver.parameters.search_branching = branching_map[
+                self.search_branching
+            ]
 
     @override
     def _allocate_tasks(
