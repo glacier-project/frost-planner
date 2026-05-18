@@ -148,32 +148,59 @@ class CpSatSolver(BaseSolver):
         self.last_objective_value: float | None = None
         self.last_best_bound: float | None = None
         self.last_wall_time_seconds: float | None = None
+        self._reset_lookup_caches()
 
     def _all_tasks(self) -> list[Task]:
         """Return all tasks in instance order."""
         return [task for job in self.instance.jobs for task in job.tasks]
 
+    def _reset_lookup_caches(self) -> None:
+        """Clear per-solve memoisation caches."""
+        self._processing_time_cache: dict[tuple[str, str], int] = {}
+        self._min_processing_cache: dict[str, int] = {}
+        self._max_processing_cache: dict[str, int] = {}
+        self._min_travel_cache: dict[tuple[str, str], int] = {}
+        self._max_travel_cache: dict[tuple[str, str], int] = {}
+
     def _processing_time_on(self, task: Task, machine: Machine) -> int:
         """Return the task processing time on a machine."""
-        return task.processing_time_on(machine)
+        key = (task.id, machine.id)
+        cached = self._processing_time_cache.get(key)
+        if cached is not None:
+            return cached
+        value = task.processing_time_on(machine)
+        self._processing_time_cache[key] = value
+        return value
 
     def _min_processing_time(self, task: Task) -> int:
         """Return the shortest possible processing time for a task."""
+        cached = self._min_processing_cache.get(task.id)
+        if cached is not None:
+            return cached
         machines = self._possible_machines_for_task(task)
         if not machines:
-            return task.processing_time
-        return min(
-            self._processing_time_on(task, machine) for machine in machines
-        )
+            value = task.processing_time
+        else:
+            value = min(
+                self._processing_time_on(task, machine) for machine in machines
+            )
+        self._min_processing_cache[task.id] = value
+        return value
 
     def _max_processing_time(self, task: Task) -> int:
         """Return the longest possible processing time for a task."""
+        cached = self._max_processing_cache.get(task.id)
+        if cached is not None:
+            return cached
         machines = self._possible_machines_for_task(task)
         if not machines:
-            return task.processing_time
-        return max(
-            self._processing_time_on(task, machine) for machine in machines
-        )
+            value = task.processing_time
+        else:
+            value = max(
+                self._processing_time_on(task, machine) for machine in machines
+            )
+        self._max_processing_cache[task.id] = value
+        return value
 
     def _possible_machines_for_task(self, task: Task) -> list[Machine]:
         """Return machines that can process a task in the CP-SAT model."""
@@ -184,33 +211,47 @@ class CpSatSolver(BaseSolver):
 
     def _minimum_travel_time(self, dependency: Task, task: Task) -> int:
         """Return a lower bound on travel time between two tasks."""
+        key = (dependency.id, task.id)
+        cached = self._min_travel_cache.get(key)
+        if cached is not None:
+            return cached
         dependency_machines = self._possible_machines_for_task(dependency)
         current_machines = self._possible_machines_for_task(task)
         if not dependency_machines or not current_machines:
-            return 0
-        return min(
-            self.instance.get_travel_time(
-                dependency_machine,
-                current_machine,
+            value = 0
+        else:
+            value = min(
+                self.instance.get_travel_time(
+                    dependency_machine,
+                    current_machine,
+                )
+                for dependency_machine in dependency_machines
+                for current_machine in current_machines
             )
-            for dependency_machine in dependency_machines
-            for current_machine in current_machines
-        )
+        self._min_travel_cache[key] = value
+        return value
 
     def _maximum_travel_time(self, dependency: Task, task: Task) -> int:
         """Return an upper bound on travel time between two tasks."""
+        key = (dependency.id, task.id)
+        cached = self._max_travel_cache.get(key)
+        if cached is not None:
+            return cached
         dependency_machines = self._possible_machines_for_task(dependency)
         current_machines = self._possible_machines_for_task(task)
         if not dependency_machines or not current_machines:
-            return 0
-        return max(
-            self.instance.get_travel_time(
-                dependency_machine,
-                current_machine,
+            value = 0
+        else:
+            value = max(
+                self.instance.get_travel_time(
+                    dependency_machine,
+                    current_machine,
+                )
+                for dependency_machine in dependency_machines
+                for current_machine in current_machines
             )
-            for dependency_machine in dependency_machines
-            for current_machine in current_machines
-        )
+        self._max_travel_cache[key] = value
+        return value
 
     def _latest_bounds(
         self,
@@ -1421,6 +1462,7 @@ class CpSatSolver(BaseSolver):
         machine_intervals: dict[str, list[tuple[int, int]]],
         start_time: int = 0,
     ) -> list[ScheduledTask]:
+        self._reset_lookup_caches()
         cp_model = _load_cp_model()
         model = cp_model.CpModel()
         effective_horizon = self._effective_horizon(
