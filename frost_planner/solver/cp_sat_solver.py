@@ -95,6 +95,7 @@ class CpSatSolver(BaseSolver):
         search_branching: str | None = None,
         linearization_level: int | None = None,
         cp_model_presolve: bool | None = None,
+        use_search_strategy: bool = False,
     ) -> None:
         super().__init__(instance, horizon, machine_intervals, objective)
         if num_workers is not None and num_workers < 1:
@@ -144,6 +145,7 @@ class CpSatSolver(BaseSolver):
         self.search_branching = search_branching
         self.linearization_level = linearization_level
         self.cp_model_presolve = cp_model_presolve
+        self.use_search_strategy = use_search_strategy
         self.last_status: str | None = None
         self.last_objective_value: float | None = None
         self.last_best_bound: float | None = None
@@ -2060,6 +2062,30 @@ class CpSatSolver(BaseSolver):
         if heuristic_objective_value is not None:
             model.Add(objective_expr <= heuristic_objective_value)
         model.Minimize(objective_expr)
+
+        if self.use_search_strategy:
+            presence_vars = [
+                alternative.presence
+                for task_variables_entry in task_variables.values()
+                for alternative in task_variables_entry.alternatives.values()
+                if alternative.presence is not None
+            ]
+            if presence_vars:
+                model.AddDecisionStrategy(
+                    presence_vars,
+                    cp_model.CHOOSE_FIRST,
+                    cp_model.SELECT_MAX_VALUE,
+                )
+            start_vars = [
+                task_variables_entry.start
+                for task_variables_entry in task_variables.values()
+            ]
+            if start_vars:
+                model.AddDecisionStrategy(
+                    start_vars,
+                    cp_model.CHOOSE_FIRST,
+                    cp_model.SELECT_MIN_VALUE,
+                )
 
         solver = cp_model.CpSolver()
         self._configure_solver(solver)

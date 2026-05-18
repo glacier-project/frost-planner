@@ -101,6 +101,7 @@ class CpSatSolverConfiguration(SolverConfiguration):
     search_branching: str | None = None
     linearization_level: int | None = None
     cp_model_presolve: bool | None = None
+    use_search_strategy: bool = False
 
 
 def create_solver(configuration: SolverConfiguration) -> BaseSolver:
@@ -171,6 +172,7 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             search_branching=configuration.search_branching,
             linearization_level=configuration.linearization_level,
             cp_model_presolve=configuration.cp_model_presolve,
+            use_search_strategy=configuration.use_search_strategy,
         )
 
     assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (

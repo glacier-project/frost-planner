@@ -364,6 +364,11 @@ def parse_args() -> argparse.Namespace:
         help="Disable CP-SAT presolve.",
     )
     parser.add_argument(
+        "--enable-cp-sat-search-strategy",
+        action="store_true",
+        help="Add explicit AddDecisionStrategy on presences then starts.",
+    )
+    parser.add_argument(
         "--horizon",
         type=int,
         default=None,
@@ -714,6 +719,7 @@ def build_configuration(
             cp_model_presolve=(
                 False if args.cp_sat_disable_presolve else None
             ),
+            use_search_strategy=args.enable_cp_sat_search_strategy,
         )
     raise ValueError(f"Unsupported solver {solver_name!r}.")
 
