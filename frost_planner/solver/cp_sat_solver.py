@@ -1228,6 +1228,9 @@ class CpSatSolver(BaseSolver):
             if not job_task_ends:
                 job_completion_vars[job.id] = model.NewConstant(0)
                 continue
+            if len(job_task_ends) == 1:
+                job_completion_vars[job.id] = job_task_ends[0]
+                continue
 
             job_completion = model.NewIntVar(
                 0,
