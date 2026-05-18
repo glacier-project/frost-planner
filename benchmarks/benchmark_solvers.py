@@ -128,6 +128,63 @@ PROFILES = {
         min_travel_time=0,
         max_travel_time=15,
     ),
+    # Stress profiles target structural features the random generator does
+    # not naturally surface. Fixed instances live under
+    # ``benchmarks/results/fixed_instances_stress/`` and are produced by
+    # ``benchmarks/generate_stress_instances.py``; the configurations below
+    # are fallback shapes used only when the fixed file is missing.
+    "stress_capability_bottleneck": InstanceConfiguration(
+        num_jobs=20,
+        min_tasks_per_job=3,
+        max_tasks_per_job=3,
+        num_machine_capabilities=2,
+        num_machines=10,
+        min_processing_time=3,
+        max_processing_time=4,
+        min_job_due_date_offset=40,
+        max_job_due_date_offset=60,
+        min_travel_time=2,
+        max_travel_time=2,
+    ),
+    "stress_identical_jobs": InstanceConfiguration(
+        num_jobs=12,
+        min_tasks_per_job=2,
+        max_tasks_per_job=2,
+        num_machine_capabilities=2,
+        num_machines=4,
+        min_processing_time=5,
+        max_processing_time=7,
+        min_job_due_date_offset=100,
+        max_job_due_date_offset=120,
+        min_travel_time=3,
+        max_travel_time=3,
+    ),
+    "stress_identical_machines": InstanceConfiguration(
+        num_jobs=18,
+        min_tasks_per_job=2,
+        max_tasks_per_job=2,
+        num_machine_capabilities=3,
+        num_machines=6,
+        min_processing_time=5,
+        max_processing_time=6,
+        min_job_due_date_offset=60,
+        max_job_due_date_offset=80,
+        min_travel_time=0,
+        max_travel_time=4,
+    ),
+    "stress_single_task_jobs": InstanceConfiguration(
+        num_jobs=10,
+        min_tasks_per_job=1,
+        max_tasks_per_job=1,
+        num_machine_capabilities=3,
+        num_machines=5,
+        min_processing_time=3,
+        max_processing_time=9,
+        min_job_due_date_offset=6,
+        max_job_due_date_offset=22,
+        min_travel_time=2,
+        max_travel_time=2,
+    ),
 }
 
 
