@@ -962,7 +962,7 @@ class CpSatSolver(BaseSolver):
     def _add_heuristic_hint(
         self,
         model: Any,
-        makespan: Any,
+        makespan: Any | None,
         task_variables: dict[str, _TaskVariables],
         heuristic_hint: dict[str, ScheduledTask],
         machine_indices: dict[str, int] | None,
@@ -976,10 +976,11 @@ class CpSatSolver(BaseSolver):
         if not hinted_tasks:
             return
 
-        heuristic_makespan = max(
-            scheduled_task.end_time for scheduled_task in hinted_tasks
-        )
-        model.AddHint(makespan, heuristic_makespan)
+        if makespan is not None:
+            heuristic_makespan = max(
+                scheduled_task.end_time for scheduled_task in hinted_tasks
+            )
+            model.AddHint(makespan, heuristic_makespan)
 
         for task_id, scheduled_task in heuristic_hint.items():
             if task_id not in task_variables:
@@ -1039,14 +1040,14 @@ class CpSatSolver(BaseSolver):
     def _objective_expression(
         self,
         model: Any,
-        makespan: Any,
+        makespan: Any | None,
         job_completion_vars: dict[str, Any],
         horizon: int,
     ) -> Any:
         """Build the configured CP-SAT objective expression."""
         terms = []
         objective = self.objective
-        if objective.makespan:
+        if objective.makespan and makespan is not None:
             terms.append(objective.makespan * makespan)
         if objective.total_flow_time:
             terms.extend(
@@ -1848,30 +1849,38 @@ class CpSatSolver(BaseSolver):
             reduced_dependencies,
         )
 
-        makespan = model.NewIntVar(0, effective_horizon, "makespan")
-        model.AddMaxEquality(
-            makespan,
-            [task_variable.end for task_variable in task_variables.values()],
+        needs_makespan_var = bool(
+            self.objective.makespan or self.use_machine_load_bounds
         )
-        if machine_load_terms is not None:
-            for terms in machine_load_terms.values():
-                if terms:
-                    model.Add(makespan >= start_time + sum(terms))
-        critical_path_makespan_lb = max(
-            (
-                critical_path_ends[task.id]
-                for task in tasks
-                if task.id in critical_path_ends
-            ),
-            default=start_time,
-        )
-        if critical_path_makespan_lb > start_time:
-            model.Add(makespan >= critical_path_makespan_lb)
-        for bottleneck_lb in self._capability_bottleneck_lower_bounds(
-            start_time
-        ):
-            if bottleneck_lb > start_time:
-                model.Add(makespan >= bottleneck_lb)
+        makespan: Any | None = None
+        if needs_makespan_var:
+            makespan = model.NewIntVar(0, effective_horizon, "makespan")
+            model.AddMaxEquality(
+                makespan,
+                [
+                    task_variable.end
+                    for task_variable in task_variables.values()
+                ],
+            )
+            if machine_load_terms is not None:
+                for terms in machine_load_terms.values():
+                    if terms:
+                        model.Add(makespan >= start_time + sum(terms))
+            critical_path_makespan_lb = max(
+                (
+                    critical_path_ends[task.id]
+                    for task in tasks
+                    if task.id in critical_path_ends
+                ),
+                default=start_time,
+            )
+            if critical_path_makespan_lb > start_time:
+                model.Add(makespan >= critical_path_makespan_lb)
+            for bottleneck_lb in self._capability_bottleneck_lower_bounds(
+                start_time
+            ):
+                if bottleneck_lb > start_time:
+                    model.Add(makespan >= bottleneck_lb)
         job_completion_vars: dict[str, Any] = (
             self._job_completion_variables(
                 model,
