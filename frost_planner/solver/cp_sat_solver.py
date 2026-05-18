@@ -327,29 +327,34 @@ class CpSatSolver(BaseSolver):
     def _capability_bottleneck_lower_bounds(
         self, start_time: int
     ) -> list[int]:
-        """Per-capability ceiling: total required work / machines with cap."""
+        """Per-capability and per-capability-pair workload ceilings."""
         tasks = self._all_tasks()
         capabilities: set[str] = set()
         for task in tasks:
             capabilities.update(task.requires)
         bounds: list[int] = []
-        for capability in capabilities:
-            machines_with_capability = [
+        sorted_caps = sorted(capabilities)
+        cap_pairs: list[tuple[str, ...]] = [(cap,) for cap in sorted_caps]
+        for index, cap_a in enumerate(sorted_caps):
+            for cap_b in sorted_caps[index + 1:]:
+                cap_pairs.append((cap_a, cap_b))
+        for cap_subset in cap_pairs:
+            cap_set = frozenset(cap_subset)
+            machines_with_all = [
                 machine
                 for machine in self.instance.machines
-                if capability in machine.capabilities
+                if cap_set.issubset(machine.capabilities)
             ]
-            if not machines_with_capability:
+            if not machines_with_all:
                 continue
             mandatory_work = sum(
                 self._min_processing_time(task)
                 for task in tasks
-                if capability in task.requires
+                if cap_set.issubset(task.requires)
             )
             if mandatory_work <= 0:
                 continue
-            count = len(machines_with_capability)
-            ceiling = -(-mandatory_work // count)
+            ceiling = -(-mandatory_work // len(machines_with_all))
             bounds.append(start_time + ceiling)
         return bounds
 
