@@ -1221,6 +1221,7 @@ class CpSatSolver(BaseSolver):
         model: Any,
         task_variables: dict[str, _TaskVariables],
         horizon: int,
+        heuristic_hint: dict[str, ScheduledTask] | None = None,
     ) -> dict[str, Any]:
         """Create job completion variables from task end variables."""
         job_completion_vars = {}
@@ -1243,8 +1244,30 @@ class CpSatSolver(BaseSolver):
                 f"job_end_{_safe_name(job.id)}",
             )
             model.AddMaxEquality(job_completion, job_task_ends)
+            if heuristic_hint is not None:
+                hint_value = self._heuristic_job_completion(
+                    job, task_variables, heuristic_hint
+                )
+                if hint_value is not None:
+                    model.AddHint(job_completion, hint_value)
             job_completion_vars[job.id] = job_completion
         return job_completion_vars
+
+    def _heuristic_job_completion(
+        self,
+        job: Job,
+        task_variables: dict[str, _TaskVariables],
+        heuristic_hint: dict[str, ScheduledTask],
+    ) -> int | None:
+        """Return the heuristic job-completion value for AddHint, or None."""
+        end_times = [
+            heuristic_hint[task.id].end_time
+            for task in job.tasks
+            if task.id in task_variables and task.id in heuristic_hint
+        ]
+        if not end_times:
+            return None
+        return max(end_times)
 
     def _objective_expression(
         self,
@@ -1252,6 +1275,8 @@ class CpSatSolver(BaseSolver):
         makespan: Any | None,
         job_completion_vars: dict[str, Any],
         horizon: int,
+        task_variables: dict[str, _TaskVariables] | None = None,
+        heuristic_hint: dict[str, ScheduledTask] | None = None,
     ) -> Any:
         """Build the configured CP-SAT objective expression."""
         terms = []
@@ -1271,6 +1296,7 @@ class CpSatSolver(BaseSolver):
             or objective.max_tardiness
         )
         tardiness_vars: list[Any] = []
+        per_job_tardiness_hints: list[int] = []
         if needs_per_job_term:
             for job in self.instance.jobs:
                 if job.due_date is None:
@@ -1278,6 +1304,11 @@ class CpSatSolver(BaseSolver):
 
                 job_name = _safe_name(job.id)
                 completion = job_completion_vars[job.id]
+                heuristic_completion: int | None = None
+                if heuristic_hint is not None and task_variables is not None:
+                    heuristic_completion = self._heuristic_job_completion(
+                        job, task_variables, heuristic_hint
+                    )
 
                 if objective.total_tardiness or objective.max_tardiness:
                     lateness = model.NewIntVar(
@@ -1296,6 +1327,14 @@ class CpSatSolver(BaseSolver):
                         [lateness, model.NewConstant(0)],
                     )
                     tardiness_vars.append(tardiness)
+                    if heuristic_completion is not None:
+                        lateness_hint = (
+                            heuristic_completion - job.due_date
+                        )
+                        tardiness_hint = max(0, lateness_hint)
+                        model.AddHint(lateness, lateness_hint)
+                        model.AddHint(tardiness, tardiness_hint)
+                        per_job_tardiness_hints.append(tardiness_hint)
                     if objective.total_tardiness:
                         terms.append(objective.total_tardiness * tardiness)
 
@@ -1307,6 +1346,11 @@ class CpSatSolver(BaseSolver):
                     model.Add(completion <= job.due_date).OnlyEnforceIf(
                         tardy.Not()
                     )
+                    if heuristic_completion is not None:
+                        model.AddHint(
+                            tardy,
+                            int(heuristic_completion > job.due_date),
+                        )
                     terms.append(objective.num_tardy_jobs * tardy)
                 if objective.total_earliness:
                     earliness_delta = model.NewIntVar(
@@ -1324,12 +1368,20 @@ class CpSatSolver(BaseSolver):
                         earliness,
                         [earliness_delta, model.NewConstant(0)],
                     )
+                    if heuristic_completion is not None:
+                        delta_hint = job.due_date - heuristic_completion
+                        model.AddHint(earliness_delta, delta_hint)
+                        model.AddHint(earliness, max(0, delta_hint))
                     terms.append(objective.total_earliness * earliness)
 
         if objective.max_tardiness:
             max_tardiness = model.NewIntVar(0, horizon, "max_tardiness")
             if tardiness_vars:
                 model.AddMaxEquality(max_tardiness, tardiness_vars)
+                if per_job_tardiness_hints:
+                    model.AddHint(
+                        max_tardiness, max(per_job_tardiness_hints)
+                    )
             else:
                 model.Add(max_tardiness == 0)
             terms.append(objective.max_tardiness * max_tardiness)
@@ -2112,6 +2164,7 @@ class CpSatSolver(BaseSolver):
                 model,
                 task_variables,
                 effective_horizon,
+                heuristic_hint,
             )
             if self.objective.needs_job_completion
             else {}
@@ -2144,6 +2197,8 @@ class CpSatSolver(BaseSolver):
             makespan,
             job_completion_vars,
             effective_horizon,
+            task_variables=task_variables,
+            heuristic_hint=heuristic_hint,
         )
         if heuristic_objective_value is not None:
             model.Add(objective_expr <= heuristic_objective_value)

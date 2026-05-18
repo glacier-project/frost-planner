@@ -857,3 +857,35 @@ def test_cp_sat_solver_pruned_machines_tighten_processing_bounds() -> None:
     # And _min_processing_time consults the pruned set.
     assert solver._min_processing_time(task) == 5
     assert validate_schedule(schedule, instance)
+
+
+def test_cp_sat_solver_objective_hint_path_keeps_correctness() -> None:
+    """Non-makespan objective hints should not regress correctness."""
+    urgent = Task(id="T1", name="Urgent", processing_time=3)
+    relaxed = Task(id="T2", name="Relaxed", processing_time=3)
+    on_time = Task(id="T3", name="On Time", processing_time=3)
+    machine = Machine(id="M1", name="Machine 1")
+    instance = SchedulingInstance(
+        jobs=[
+            Job(id="J1", name="Urgent Job", tasks=[urgent], due_date=4),
+            Job(id="J2", name="Relaxed Job", tasks=[relaxed], due_date=15),
+            Job(id="J3", name="On-time Job", tasks=[on_time], due_date=9),
+        ],
+        machines=[machine],
+    )
+    schedule = CpSatSolver(
+        instance=instance,
+        horizon=30,
+        objective=ObjectiveWeights(
+            makespan=1,
+            total_tardiness=2,
+            max_tardiness=5,
+            total_earliness=1,
+            num_tardy_jobs=3,
+        ),
+    ).schedule()
+    assert validate_schedule(schedule, instance)
+    urgent_scheduled = schedule.get_task_mapping(urgent)
+    assert urgent_scheduled is not None
+    # Urgent job must finish on or before its due date (4).
+    assert urgent_scheduled.end_time <= 4
