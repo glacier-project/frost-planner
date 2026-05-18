@@ -83,7 +83,7 @@ PROFILES = {
         min_travel_time=0,
         max_travel_time=8,
     ),
-    "hard": InstanceConfiguration(
+    "large": InstanceConfiguration(
         num_jobs=14,
         min_tasks_per_job=4,
         max_tasks_per_job=6,
@@ -98,7 +98,7 @@ PROFILES = {
         min_travel_time=0,
         max_travel_time=10,
     ),
-    "big": InstanceConfiguration(
+    "xlarge": InstanceConfiguration(
         num_jobs=18,
         min_tasks_per_job=5,
         max_tasks_per_job=7,
@@ -255,6 +255,15 @@ def parse_args() -> argparse.Namespace:
         choices=["table", "pairwise", "hybrid"],
         default="pairwise",
         help="Travel-time formulation to use for CP-SAT.",
+    )
+    parser.add_argument(
+        "--scenario",
+        choices=sorted(SCENARIO_OBJECTIVES),
+        default=None,
+        help=(
+            "Named feature-mix scenario that overrides --objective-* "
+            "weights. Pairs with size profiles to form a benchmark matrix."
+        ),
     )
     parser.add_argument(
         "--objective-makespan-weight",
@@ -477,8 +486,36 @@ def validate_generation_args(args: argparse.Namespace) -> None:
     build_objective(args)
 
 
+SCENARIO_OBJECTIVES: dict[str, ObjectiveWeights] = {
+    "pure-makespan": ObjectiveWeights(
+        makespan=1,
+    ),
+    "tardiness-mix": ObjectiveWeights(
+        makespan=1,
+        total_tardiness=2,
+        num_tardy_jobs=5,
+    ),
+    "due-date-deviation": ObjectiveWeights(
+        makespan=0,
+        total_tardiness=1,
+        total_earliness=1,
+    ),
+    "max-tardiness-focus": ObjectiveWeights(
+        makespan=1,
+        max_tardiness=10,
+    ),
+    "flow-time-mix": ObjectiveWeights(
+        makespan=1,
+        total_flow_time=2,
+    ),
+}
+
+
 def build_objective(args: argparse.Namespace) -> ObjectiveWeights:
-    """Build objective weights from CLI arguments."""
+    """Build objective weights from CLI arguments or scenario."""
+    scenario = getattr(args, "scenario", None)
+    if scenario is not None:
+        return SCENARIO_OBJECTIVES[scenario]
     return ObjectiveWeights(
         makespan=args.objective_makespan_weight,
         total_flow_time=args.objective_total_flow_time_weight,
