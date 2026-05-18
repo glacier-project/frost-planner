@@ -562,7 +562,10 @@ def test_cp_sat_solver_raises_when_horizon_is_infeasible() -> None:
         machines=[machine],
     )
 
-    with pytest.raises(ValueError, match="No feasible machine alternative"):
+    with pytest.raises(
+        ValueError,
+        match=r"(No feasible machine alternative|infeasible)",
+    ):
         CpSatSolver(instance=instance, horizon=3).schedule()
 
 

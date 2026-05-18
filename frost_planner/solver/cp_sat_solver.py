@@ -1648,6 +1648,24 @@ class CpSatSolver(BaseSolver):
         latest_starts, latest_ends = self._latest_bounds(
             start_time, effective_horizon
         )
+        for task in tasks:
+            if task.id in self.locked_tasks:
+                continue
+            if latest_starts[task.id] < critical_path_starts[task.id]:
+                raise ValueError(
+                    f"Task {task.id} is infeasible: latest_start "
+                    f"{latest_starts[task.id]} < earliest_start "
+                    f"{critical_path_starts[task.id]}."
+                )
+            cp_end = critical_path_ends.get(task.id)
+            if (
+                cp_end is not None
+                and latest_ends[task.id] < cp_end
+            ):
+                raise ValueError(
+                    f"Task {task.id} is infeasible: latest_end "
+                    f"{latest_ends[task.id]} < earliest_end {cp_end}."
+                )
         earliest_start_bounds = (
             critical_path_starts
             if self.use_dependency_bounds
