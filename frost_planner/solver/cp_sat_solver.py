@@ -184,6 +184,75 @@ class CpSatSolver(BaseSolver):
             for current_machine in current_machines
         )
 
+    def _latest_bounds(
+        self,
+        start_time: int,
+        effective_horizon: int,
+    ) -> tuple[dict[str, int], dict[str, int]]:
+        """Backward critical-path: latest start/end per task."""
+        tasks = self._all_tasks()
+        task_by_id = {task.id: task for task in tasks}
+        successors_by_id: dict[str, list[str]] = {
+            task.id: [] for task in tasks
+        }
+        for task in tasks:
+            for dependency_id in task.dependencies:
+                if dependency_id in task_by_id:
+                    successors_by_id[dependency_id].append(task.id)
+
+        latest_end: dict[str, int] = {
+            task.id: effective_horizon for task in tasks
+        }
+        latest_start: dict[str, int] = {
+            task.id: max(
+                start_time,
+                effective_horizon - self._min_processing_time(task),
+            )
+            for task in tasks
+        }
+        for scheduled_task in self.locked_tasks.values():
+            task_id = scheduled_task.task.id
+            if task_id not in latest_end:
+                continue
+            latest_end[task_id] = min(
+                latest_end[task_id], scheduled_task.end_time
+            )
+            latest_start[task_id] = min(
+                latest_start[task_id], scheduled_task.start_time
+            )
+
+        pending = {
+            task.id for task in tasks if task.id not in self.locked_tasks
+        }
+        while pending:
+            progress = False
+            for task in tasks:
+                if task.id not in pending:
+                    continue
+                successors = successors_by_id[task.id]
+                if any(
+                    successor_id in pending
+                    for successor_id in successors
+                ):
+                    continue
+                for successor_id in successors:
+                    successor = task_by_id[successor_id]
+                    travel = self._minimum_travel_time(task, successor)
+                    latest_end[task.id] = min(
+                        latest_end[task.id],
+                        latest_start[successor_id] - travel,
+                    )
+                latest_start[task.id] = max(
+                    start_time,
+                    latest_end[task.id] - self._min_processing_time(task),
+                )
+                pending.remove(task.id)
+                progress = True
+            if not progress:
+                break
+
+        return latest_start, latest_end
+
     def _capability_bottleneck_lower_bounds(
         self, start_time: int
     ) -> list[int]:
@@ -1348,6 +1417,9 @@ class CpSatSolver(BaseSolver):
         critical_path_starts, critical_path_ends = self._earliest_bounds(
             start_time
         )
+        latest_starts, latest_ends = self._latest_bounds(
+            start_time, effective_horizon
+        )
         earliest_start_bounds = (
             critical_path_starts
             if self.use_dependency_bounds
@@ -1486,11 +1558,18 @@ class CpSatSolver(BaseSolver):
             )
             task_start_upper_bound = max(
                 task_start_lower_bound,
-                effective_horizon - min_processing_time,
+                min(
+                    effective_horizon - min_processing_time,
+                    latest_starts[task.id],
+                ),
             )
             task_end_lower_bound = min(
                 task_start_lower_bound + min_processing_time,
                 effective_horizon,
+            )
+            task_end_upper_bound = max(
+                task_end_lower_bound,
+                min(effective_horizon, latest_ends[task.id]),
             )
             task_start = model.NewIntVar(
                 task_start_lower_bound,
@@ -1499,7 +1578,7 @@ class CpSatSolver(BaseSolver):
             )
             task_end = model.NewIntVar(
                 task_end_lower_bound,
-                effective_horizon,
+                task_end_upper_bound,
                 f"end_{task_name}",
             )
             if feasible_machines_by_task is not None:
@@ -1585,7 +1664,7 @@ class CpSatSolver(BaseSolver):
                         )
                     )
                     local_end_upper_bound = min(
-                        effective_horizon,
+                        task_end_upper_bound,
                         task_start_upper_bound + max_elapsed_duration,
                     )
                     if single_alternative:
