@@ -830,11 +830,6 @@ class CpSatSolver(BaseSolver):
         for idx, window in enumerate(unavailable_windows):
             min_end = model.NewIntVar(0, horizon, f"{name}_min_end_{idx}")
             max_start = model.NewIntVar(0, horizon, f"{name}_max_start_{idx}")
-            difference = model.NewIntVar(
-                -horizon,
-                horizon,
-                f"{name}_diff_{idx}",
-            )
             overlap = model.NewIntVar(
                 0,
                 window.end - window.start,
@@ -848,8 +843,10 @@ class CpSatSolver(BaseSolver):
                 max_start,
                 [start, model.NewConstant(window.start)],
             )
-            model.Add(difference == min_end - max_start)
-            model.AddMaxEquality(overlap, [difference, zero])
+            model.AddMaxEquality(
+                overlap,
+                [min_end - max_start, zero],
+            )
             overlaps.append(overlap)
 
         model.Add(break_time == sum(overlaps))
