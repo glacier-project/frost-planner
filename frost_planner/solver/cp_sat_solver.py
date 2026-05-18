@@ -164,6 +164,7 @@ class CpSatSolver(BaseSolver):
         self._max_processing_cache: dict[str, int] = {}
         self._min_travel_cache: dict[tuple[str, str], int] = {}
         self._max_travel_cache: dict[tuple[str, str], int] = {}
+        self._feasible_machines_cache: dict[str, list[Machine]] | None = None
 
     def _processing_time_on(self, task: Task, machine: Machine) -> int:
         """Return the task processing time on a machine."""
@@ -210,6 +211,10 @@ class CpSatSolver(BaseSolver):
         locked_task = self.locked_tasks.get(task.id)
         if locked_task is not None:
             return [locked_task.machine]
+        if self._feasible_machines_cache is not None:
+            cached = self._feasible_machines_cache.get(task.id)
+            if cached is not None:
+                return cached
         return self.suitable_machines_map.get(task.id, [])
 
     def _minimum_travel_time(self, dependency: Task, task: Task) -> int:
@@ -1642,6 +1647,27 @@ class CpSatSolver(BaseSolver):
                     min(effective_horizon, heuristic_makespan),
                 )
 
+        free_windows_by_machine = {
+            machine.id: self._normalise_windows(
+                machine_intervals.get(machine.id, []),
+                start_time,
+                effective_horizon,
+            )
+            for machine in self.instance.machines
+        }
+        feasible_machines_by_task = self._feasible_machines_by_task(
+            tasks,
+            free_windows_by_machine,
+        )
+        self._feasible_machines_cache = feasible_machines_by_task
+        # The heuristic phase may have memoised min/max processing and
+        # travel values against the unpruned suitable machines. Reset
+        # those caches so subsequent calls see the tighter pruned set.
+        self._min_processing_cache = {}
+        self._max_processing_cache = {}
+        self._min_travel_cache = {}
+        self._max_travel_cache = {}
+
         critical_path_starts, critical_path_ends = self._earliest_bounds(
             start_time
         )
@@ -1679,14 +1705,6 @@ class CpSatSolver(BaseSolver):
             if self.travel_model in {"table", "hybrid"}
             else None
         )
-        free_windows_by_machine = {
-            machine.id: self._normalise_windows(
-                machine_intervals.get(machine.id, []),
-                start_time,
-                effective_horizon,
-            )
-            for machine in self.instance.machines
-        }
         unavailable_windows_by_machine = {
             machine.id: self._unavailable_windows(
                 free_windows_by_machine[machine.id],
@@ -1695,13 +1713,8 @@ class CpSatSolver(BaseSolver):
             )
             for machine in self.instance.machines
         }
-        feasible_machines_by_task: dict[str, list[Machine]] | None = None
         task_ids_requiring_machine_variables: set[str] = set()
         if machine_indices is not None:
-            feasible_machines_by_task = self._feasible_machines_by_task(
-                tasks,
-                free_windows_by_machine,
-            )
             if self.travel_model == "hybrid":
                 task_ids_requiring_machine_variables = {
                     task.id for task in tasks
@@ -1726,21 +1739,7 @@ class CpSatSolver(BaseSolver):
         for task in tasks:
             if task.id in self.locked_tasks or not task.allow_breaks:
                 continue
-            if feasible_machines_by_task is not None:
-                feasible_machines = feasible_machines_by_task[task.id]
-            else:
-                feasible_machines = []
-                for machine in self.suitable_machines_map[task.id]:
-                    if (
-                        not self.prune_infeasible_alternatives
-                        or self._machine_can_process_task(
-                            task,
-                            machine,
-                            free_windows_by_machine[machine.id],
-                        )
-                    ):
-                        feasible_machines.append(machine)
-            for machine in feasible_machines:
+            for machine in feasible_machines_by_task[task.id]:
                 machines_with_breakable_alternatives.add(machine.id)
         machines_requiring_separate_availability = (
             machines_with_future_locked_tasks
@@ -1827,34 +1826,7 @@ class CpSatSolver(BaseSolver):
                 task_end_upper_bound,
                 f"end_{task_name}",
             )
-            if feasible_machines_by_task is not None:
-                feasible_machines = feasible_machines_by_task[task.id]
-            else:
-                suitable_machines = self.suitable_machines_map[task.id]
-                if not suitable_machines:
-                    raise ValueError(
-                        f"No suitable machine found for task: {task.id}"
-                    )
-                feasible_machines = []
-                for machine in suitable_machines:
-                    free_windows = free_windows_by_machine[machine.id]
-                    if (
-                        self.prune_infeasible_alternatives
-                        and not self._machine_can_process_task(
-                            task,
-                            machine,
-                            free_windows,
-                        )
-                    ):
-                        continue
-                    feasible_machines.append(machine)
-
-                if not feasible_machines:
-                    raise ValueError(
-                        "No feasible machine alternative found for task "
-                        f"{task.id} within the current availability windows."
-                    )
-
+            feasible_machines = feasible_machines_by_task[task.id]
             single_alternative = len(feasible_machines) == 1
 
             task_machine = None

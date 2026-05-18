@@ -816,4 +816,44 @@ def test_cp_sat_solver_locked_pred_single_machine_successor() -> None:
     assert scheduled_task_2.machine == welding
     assert scheduled_task_2.start_time == 4
     assert scheduled_task_2.end_time == 7
+
+
+def test_cp_sat_solver_pruned_machines_tighten_processing_bounds() -> None:
+    """When pruning is on, min processing time reflects only feasible machines.
+
+    Fast machine has only a 1-time-unit window — too short for the task's
+    fast-machine duration (2). With pruning the fast machine is removed, so
+    _min_processing_time falls back to the slow machine's duration (5).
+    """
+    task = Task(
+        id="T1",
+        name="Task 1",
+        processing_time=5,
+        machine_processing_times={"M_FAST": 2, "M_SLOW": 5},
+    )
+    fast_machine = Machine(id="M_FAST", name="Fast")
+    slow_machine = Machine(id="M_SLOW", name="Slow")
+    instance = SchedulingInstance(
+        jobs=[Job(id="J1", name="Job 1", tasks=[task])],
+        machines=[fast_machine, slow_machine],
+    )
+
+    solver = CpSatSolver(
+        instance=instance,
+        horizon=20,
+        machine_intervals={"M_FAST": [(0, 1)], "M_SLOW": [(0, 20)]},
+        prune_infeasible_alternatives=True,
+    )
+    schedule = solver.schedule()
+
+    scheduled_task = schedule.get_task_mapping(task)
+    assert scheduled_task is not None
+    assert scheduled_task.machine == slow_machine
+    assert scheduled_task.end_time - scheduled_task.start_time == 5
+    assert validate_schedule(schedule, instance)
+    # After solve, the cache must reflect only the slow machine.
+    assert solver._feasible_machines_cache is not None
+    assert solver._feasible_machines_cache["T1"] == [slow_machine]
+    # And _min_processing_time consults the pruned set.
+    assert solver._min_processing_time(task) == 5
     assert validate_schedule(schedule, instance)
