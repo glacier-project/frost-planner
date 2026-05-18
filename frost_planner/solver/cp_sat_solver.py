@@ -540,9 +540,14 @@ class CpSatSolver(BaseSolver):
 
                 use_table = self.travel_model == "table"
                 if self.travel_model == "hybrid":
+                    min_travel = min(travel_times)
+                    extra_pair_count = sum(
+                        1
+                        for travel_time in travel_times
+                        if travel_time > min_travel
+                    )
                     use_table = (
-                        len(dependency_machines) * len(current_machines)
-                        > self.hybrid_travel_threshold
+                        extra_pair_count > self.hybrid_travel_threshold
                     )
                 if use_table:
                     task_ids.add(dependency_id)
@@ -1210,9 +1215,13 @@ class CpSatSolver(BaseSolver):
 
                 use_table = self.travel_model == "table"
                 if self.travel_model == "hybrid":
+                    extra_pair_count = sum(
+                        1
+                        for travel_time in travel_times
+                        if travel_time > min_travel_time
+                    )
                     use_table = (
-                        len(dependency_choices) * len(current_choices)
-                        > self.hybrid_travel_threshold
+                        extra_pair_count > self.hybrid_travel_threshold
                     )
 
                 if use_table:
