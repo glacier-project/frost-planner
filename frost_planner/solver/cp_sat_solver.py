@@ -609,6 +609,62 @@ class CpSatSolver(BaseSolver):
 
         return feasible_machines_by_task
 
+    def _identical_job_groups(self) -> list[list[Job]]:
+        """Group jobs that share an identical task-sequence signature."""
+        jobs = list(self.instance.jobs)
+        all_task_ids = {
+            task.id for job in jobs for task in job.tasks
+        }
+        locked_task_ids = set(self.locked_tasks)
+        signatures: dict[Any, list[Job]] = {}
+        for job in jobs:
+            within_ids = {task.id for task in job.tasks}
+            position = {task.id: idx for idx, task in enumerate(job.tasks)}
+            cross_job_dep = False
+            has_locked_task = False
+            for task in job.tasks:
+                if task.id in locked_task_ids:
+                    has_locked_task = True
+                    break
+                for dependency_id in task.dependencies:
+                    if (
+                        dependency_id not in within_ids
+                        and dependency_id in all_task_ids
+                    ):
+                        cross_job_dep = True
+                        break
+                if cross_job_dep:
+                    break
+            if cross_job_dep or has_locked_task:
+                continue
+            task_signatures: list[tuple[Any, ...]] = []
+            for task in job.tasks:
+                within_dep_positions = tuple(
+                    sorted(
+                        position[dependency_id]
+                        for dependency_id in task.dependencies
+                        if dependency_id in within_ids
+                    )
+                )
+                task_signatures.append(
+                    (
+                        tuple(sorted(task.requires)),
+                        task.processing_time,
+                        tuple(
+                            sorted(task.machine_processing_times.items())
+                        ),
+                        task.allow_breaks,
+                        within_dep_positions,
+                    )
+                )
+            job_sig = (job.due_date, tuple(task_signatures))
+            signatures.setdefault(job_sig, []).append(job)
+        return [
+            sorted(group, key=lambda job: job.id)
+            for group in signatures.values()
+            if len(group) >= 2
+        ]
+
     def _identical_machine_groups(
         self,
         free_windows_by_machine: dict[str, list[_TimeWindow]],
@@ -1980,6 +2036,15 @@ class CpSatSolver(BaseSolver):
                 counts.append(sum(presence_terms) if presence_terms else 0)
             for index in range(len(counts) - 1):
                 model.Add(counts[index] >= counts[index + 1])
+
+        for job_group in self._identical_job_groups():
+            entry_starts = [
+                task_variables[job.tasks[0].id].start
+                for job in job_group
+                if job.tasks and job.tasks[0].id in task_variables
+            ]
+            for index in range(len(entry_starts) - 1):
+                model.Add(entry_starts[index] <= entry_starts[index + 1])
 
         reduced_dependencies = self._reduced_dependencies()
         self._add_dependency_constraints(
