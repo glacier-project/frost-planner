@@ -7,8 +7,8 @@ from typing import override
 from frost_planner.core.base import SchedulingInstance
 from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.core.schedule import ScheduledTask
-from frost_planner.solver import _schedule_by_order
 from frost_planner.solver.base_solver import BaseSolver
+from frost_planner.solver.greedy import _schedule_by_order
 
 
 class DummySolver(BaseSolver):

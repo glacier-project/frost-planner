@@ -8,7 +8,7 @@ from copy import deepcopy
 from frost_planner.core.base import Machine, SchedulingInstance, Task
 from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.core.schedule import Schedule, ScheduledTask
-from frost_planner.solver import (
+from frost_planner.solver.greedy import (
     _create_schedule,
     _perform_task_interval_allocation,
 )

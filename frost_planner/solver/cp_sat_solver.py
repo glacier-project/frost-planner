@@ -14,8 +14,8 @@ from frost_planner.core.objective import (
 )
 from frost_planner.core.schedule import Schedule, ScheduledTask
 from frost_planner.core.validate import validate_schedule
-from frost_planner.solver import _create_schedule, _schedule_by_order
 from frost_planner.solver.base_solver import BaseSolver
+from frost_planner.solver.greedy import _create_schedule, _schedule_by_order
 
 
 @dataclass(frozen=True)
