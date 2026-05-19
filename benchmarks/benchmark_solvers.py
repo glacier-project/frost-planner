@@ -444,6 +444,24 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--cp-sat-optimize-with-lb-tree-search",
+        choices=["on", "off"],
+        default=None,
+        help=(
+            "Toggle CP-SAT's optimize_with_lb_tree_search parameter "
+            "explicitly (default leaves CP-SAT's choice intact)."
+        ),
+    )
+    parser.add_argument(
+        "--cp-sat-use-objective-lb-search",
+        choices=["on", "off"],
+        default=None,
+        help=(
+            "Toggle CP-SAT's use_objective_lb_search parameter "
+            "explicitly (default leaves CP-SAT's choice intact)."
+        ),
+    )
+    parser.add_argument(
         "--horizon",
         type=int,
         default=None,
@@ -799,6 +817,16 @@ def build_configuration(
                 args.enable_cp_sat_capability_cumulative
             ),
             repair_hint=args.enable_cp_sat_repair_hint,
+            optimize_with_lb_tree_search=(
+                None
+                if args.cp_sat_optimize_with_lb_tree_search is None
+                else args.cp_sat_optimize_with_lb_tree_search == "on"
+            ),
+            use_objective_lb_search=(
+                None
+                if args.cp_sat_use_objective_lb_search is None
+                else args.cp_sat_use_objective_lb_search == "on"
+            ),
         )
     raise ValueError(f"Unsupported solver {solver_name!r}.")
 

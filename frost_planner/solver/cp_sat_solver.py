@@ -98,6 +98,8 @@ class CpSatSolver(BaseSolver):
         use_search_strategy: bool = False,
         use_capability_cumulative: bool = False,
         repair_hint: bool = False,
+        optimize_with_lb_tree_search: bool | None = None,
+        use_objective_lb_search: bool | None = None,
     ) -> None:
         super().__init__(instance, horizon, machine_intervals, objective)
         if num_workers is not None and num_workers < 1:
@@ -150,6 +152,8 @@ class CpSatSolver(BaseSolver):
         self.use_search_strategy = use_search_strategy
         self.use_capability_cumulative = use_capability_cumulative
         self.repair_hint = repair_hint
+        self.optimize_with_lb_tree_search = optimize_with_lb_tree_search
+        self.use_objective_lb_search = use_objective_lb_search
         self.last_status: str | None = None
         self.last_objective_value: float | None = None
         self.last_best_bound: float | None = None
@@ -1728,6 +1732,14 @@ class CpSatSolver(BaseSolver):
             solver.parameters.cp_model_presolve = self.cp_model_presolve
         if self.repair_hint:
             solver.parameters.repair_hint = True
+        if self.optimize_with_lb_tree_search is not None:
+            solver.parameters.optimize_with_lb_tree_search = (
+                self.optimize_with_lb_tree_search
+            )
+        if self.use_objective_lb_search is not None:
+            solver.parameters.use_objective_lb_search = (
+                self.use_objective_lb_search
+            )
         if self.search_branching is not None:
             cp_model = _load_cp_model()
             branching_map = {

@@ -104,6 +104,8 @@ class CpSatSolverConfiguration(SolverConfiguration):
     use_search_strategy: bool = False
     use_capability_cumulative: bool = False
     repair_hint: bool = False
+    optimize_with_lb_tree_search: bool | None = None
+    use_objective_lb_search: bool | None = None
 
 
 def create_solver(configuration: SolverConfiguration) -> BaseSolver:
@@ -179,6 +181,10 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
                 configuration.use_capability_cumulative
             ),
             repair_hint=configuration.repair_hint,
+            optimize_with_lb_tree_search=(
+                configuration.optimize_with_lb_tree_search
+            ),
+            use_objective_lb_search=configuration.use_objective_lb_search,
         )
 
     assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (
