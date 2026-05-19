@@ -931,6 +931,43 @@ def test_cp_sat_solver_capability_cumulative_packs_bottleneck() -> None:
     assert max(end_times) >= 8
 
 
+def test_cp_sat_solver_table_travel_element_encoding_works() -> None:
+    """The AddElement-based table-travel encoding picks the right travel."""
+    task_1 = Task(
+        id="T1",
+        name="Task 1",
+        processing_time=2,
+        requires=["src"],
+    )
+    task_2 = Task(
+        id="T2",
+        name="Task 2",
+        processing_time=2,
+        dependencies=["T1"],
+        requires=["dst"],
+    )
+    src = Machine(id="M1", name="Src", capabilities=["src"])
+    fast_dst = Machine(id="M2", name="Fast Dst", capabilities=["dst"])
+    slow_dst = Machine(id="M3", name="Slow Dst", capabilities=["dst"])
+    instance = SchedulingInstance(
+        jobs=[Job(id="J1", name="Job 1", tasks=[task_1, task_2])],
+        machines=[src, fast_dst, slow_dst],
+        travel_times={"M1": {"M2": 1, "M3": 7}},
+    )
+    schedule = CpSatSolver(
+        instance=instance,
+        horizon=15,
+        travel_model="table",
+    ).schedule()
+    t1 = schedule.get_task_mapping(task_1)
+    t2 = schedule.get_task_mapping(task_2)
+    assert t1 is not None
+    assert t2 is not None
+    assert t2.machine == fast_dst
+    assert t2.start_time >= t1.end_time + 1
+    assert validate_schedule(schedule, instance)
+
+
 def test_cp_sat_solver_band_pruning_excludes_unreachable_windows() -> None:
     """A breakable task whose reachable band excludes a wide free window
     on a candidate machine should not see that machine as feasible.
