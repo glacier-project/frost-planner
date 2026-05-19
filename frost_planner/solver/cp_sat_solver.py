@@ -2044,11 +2044,18 @@ class CpSatSolver(BaseSolver):
 
                 relevant_unavailable_windows = []
                 if task.allow_breaks:
+                    # The task's actual occupancy is bounded above by
+                    # task_end_upper_bound (= min(effective_horizon,
+                    # latest_end[task])), so windows starting at or
+                    # after that bound cannot overlap. Restricting the
+                    # filter to that interval tightens max_break_time
+                    # / max_elapsed_duration / local_end_upper_bound
+                    # without changing semantics.
                     relevant_unavailable_windows = (
                         self._relevant_unavailable_windows(
                             unavailable_windows_by_machine[machine.id],
                             task_start_lower_bound,
-                            effective_horizon,
+                            task_end_upper_bound,
                         )
                     )
 
@@ -2086,7 +2093,7 @@ class CpSatSolver(BaseSolver):
                         effective_horizon,
                         alternative_name,
                         task_start_lower_bound,
-                        effective_horizon,
+                        task_end_upper_bound,
                     )
                     elapsed_duration_upper_bound = min(
                         max_elapsed_duration,
