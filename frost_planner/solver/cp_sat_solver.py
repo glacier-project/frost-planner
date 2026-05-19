@@ -100,6 +100,8 @@ class CpSatSolver(BaseSolver):
         repair_hint: bool = False,
         optimize_with_lb_tree_search: bool | None = None,
         use_objective_lb_search: bool | None = None,
+        cp_model_probing_level: int | None = None,
+        symmetry_level: int | None = None,
     ) -> None:
         super().__init__(instance, horizon, machine_intervals, objective)
         if num_workers is not None and num_workers < 1:
@@ -114,6 +116,18 @@ class CpSatSolver(BaseSolver):
             raise ValueError(
                 "travel_model must be 'table', 'pairwise', or 'hybrid'."
             )
+        if (
+            cp_model_probing_level is not None
+            and cp_model_probing_level not in (0, 1, 2, 3)
+        ):
+            raise ValueError(
+                "cp_model_probing_level must be 0, 1, 2, or 3."
+            )
+        if (
+            symmetry_level is not None
+            and symmetry_level not in (0, 1, 2, 3)
+        ):
+            raise ValueError("symmetry_level must be 0, 1, 2, or 3.")
         if linearization_level is not None and linearization_level not in (
             0, 1, 2,
         ):
@@ -154,6 +168,8 @@ class CpSatSolver(BaseSolver):
         self.repair_hint = repair_hint
         self.optimize_with_lb_tree_search = optimize_with_lb_tree_search
         self.use_objective_lb_search = use_objective_lb_search
+        self.cp_model_probing_level = cp_model_probing_level
+        self.symmetry_level = symmetry_level
         self.last_status: str | None = None
         self.last_objective_value: float | None = None
         self.last_best_bound: float | None = None
@@ -1740,6 +1756,12 @@ class CpSatSolver(BaseSolver):
             solver.parameters.use_objective_lb_search = (
                 self.use_objective_lb_search
             )
+        if self.cp_model_probing_level is not None:
+            solver.parameters.cp_model_probing_level = (
+                self.cp_model_probing_level
+            )
+        if self.symmetry_level is not None:
+            solver.parameters.symmetry_level = self.symmetry_level
         if self.search_branching is not None:
             cp_model = _load_cp_model()
             branching_map = {

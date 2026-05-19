@@ -106,6 +106,8 @@ class CpSatSolverConfiguration(SolverConfiguration):
     repair_hint: bool = False
     optimize_with_lb_tree_search: bool | None = None
     use_objective_lb_search: bool | None = None
+    cp_model_probing_level: int | None = None
+    symmetry_level: int | None = None
 
 
 def create_solver(configuration: SolverConfiguration) -> BaseSolver:
@@ -185,6 +187,8 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
                 configuration.optimize_with_lb_tree_search
             ),
             use_objective_lb_search=configuration.use_objective_lb_search,
+            cp_model_probing_level=configuration.cp_model_probing_level,
+            symmetry_level=configuration.symmetry_level,
         )
 
     assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (

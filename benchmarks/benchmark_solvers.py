@@ -462,6 +462,26 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--cp-sat-probing-level",
+        type=int,
+        choices=(0, 1, 2, 3),
+        default=None,
+        help=(
+            "Set CP-SAT's cp_model_probing_level (0=none .. 3=aggressive). "
+            "Default leaves CP-SAT's choice intact."
+        ),
+    )
+    parser.add_argument(
+        "--cp-sat-symmetry-level",
+        type=int,
+        choices=(0, 1, 2, 3),
+        default=None,
+        help=(
+            "Set CP-SAT's internal symmetry_level (0..3). Default leaves "
+            "CP-SAT's choice intact."
+        ),
+    )
+    parser.add_argument(
         "--horizon",
         type=int,
         default=None,
@@ -827,6 +847,8 @@ def build_configuration(
                 if args.cp_sat_use_objective_lb_search is None
                 else args.cp_sat_use_objective_lb_search == "on"
             ),
+            cp_model_probing_level=args.cp_sat_probing_level,
+            symmetry_level=args.cp_sat_symmetry_level,
         )
     raise ValueError(f"Unsupported solver {solver_name!r}.")
 
