@@ -435,6 +435,15 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--enable-cp-sat-repair-hint",
+        action="store_true",
+        help=(
+            "Set solver.parameters.repair_hint = True so CP-SAT can fix "
+            "small inconsistencies in the warm-start hint instead of "
+            "dropping it whole."
+        ),
+    )
+    parser.add_argument(
         "--horizon",
         type=int,
         default=None,
@@ -789,6 +798,7 @@ def build_configuration(
             use_capability_cumulative=(
                 args.enable_cp_sat_capability_cumulative
             ),
+            repair_hint=args.enable_cp_sat_repair_hint,
         )
     raise ValueError(f"Unsupported solver {solver_name!r}.")
 

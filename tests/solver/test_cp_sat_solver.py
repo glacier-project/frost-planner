@@ -929,3 +929,31 @@ def test_cp_sat_solver_capability_cumulative_packs_bottleneck() -> None:
             if scheduled is not None:
                 end_times.append(scheduled.end_time)
     assert max(end_times) >= 8
+
+
+def test_cp_sat_solver_repair_hint_flag_produces_valid_schedule() -> None:
+    """The repair_hint flag plumbs through and does not break correctness."""
+    task_1 = Task(id="T1", name="Task 1", processing_time=3)
+    task_2 = Task(
+        id="T2", name="Task 2", processing_time=2, dependencies=["T1"]
+    )
+    machine = Machine(id="M1", name="Machine 1")
+    instance = SchedulingInstance(
+        jobs=[Job(id="J1", name="Job 1", tasks=[task_1, task_2])],
+        machines=[machine],
+    )
+    solver = CpSatSolver(
+        instance=instance,
+        horizon=30,
+        repair_hint=True,
+    )
+    schedule = solver.schedule()
+    assert validate_schedule(schedule, instance)
+    scheduled_t1 = schedule.get_task_mapping(task_1)
+    scheduled_t2 = schedule.get_task_mapping(task_2)
+    assert scheduled_t1 is not None
+    assert scheduled_t2 is not None
+    assert scheduled_t2.start_time >= scheduled_t1.end_time
+    # Re-solving should also succeed with the flag on (warm-start path).
+    second = solver.schedule()
+    assert validate_schedule(second, instance)

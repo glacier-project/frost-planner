@@ -103,6 +103,7 @@ class CpSatSolverConfiguration(SolverConfiguration):
     cp_model_presolve: bool | None = None
     use_search_strategy: bool = False
     use_capability_cumulative: bool = False
+    repair_hint: bool = False
 
 
 def create_solver(configuration: SolverConfiguration) -> BaseSolver:
@@ -177,6 +178,7 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             use_capability_cumulative=(
                 configuration.use_capability_cumulative
             ),
+            repair_hint=configuration.repair_hint,
         )
 
     assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (
