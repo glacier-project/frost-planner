@@ -196,6 +196,12 @@ class CpSatSolver(BaseSolver):
         self._min_travel_cache: dict[tuple[str, str], int] = {}
         self._max_travel_cache: dict[tuple[str, str], int] = {}
         self._feasible_machines_cache: dict[str, list[Machine]] | None = None
+        self._machine_can_process_cache: dict[
+            tuple[str, str, int | None, int | None], bool
+        ] = {}
+        self._relevant_unavailable_cache: dict[
+            tuple[str, int, int], list[_TimeWindow]
+        ] = {}
 
     def _processing_time_on(self, task: Task, machine: Machine) -> int:
         """Return the task processing time on a machine."""
@@ -582,8 +588,22 @@ class CpSatSolver(BaseSolver):
         unavailable_windows: list[_TimeWindow],
         start_lower_bound: int,
         end_upper_bound: int,
+        machine_id: str | None = None,
     ) -> list[_TimeWindow]:
         """Return unavailable windows that can overlap an interval."""
+        if machine_id is not None:
+            key = (machine_id, start_lower_bound, end_upper_bound)
+            cached = self._relevant_unavailable_cache.get(key)
+            if cached is not None:
+                return cached
+            result = [
+                window
+                for window in unavailable_windows
+                if window.end > start_lower_bound
+                and window.start < end_upper_bound
+            ]
+            self._relevant_unavailable_cache[key] = result
+            return result
         return [
             window
             for window in unavailable_windows
@@ -604,6 +624,10 @@ class CpSatSolver(BaseSolver):
         feasibility check is restricted to the portion of each free
         window that intersects ``[earliest_start, latest_end]``.
         """
+        cache_key = (task.id, machine.id, earliest_start, latest_end)
+        cached = self._machine_can_process_cache.get(cache_key)
+        if cached is not None:
+            return cached
         processing_time = self._processing_time_on(task, machine)
         intersections: list[int] = []
         for window in free_windows:
@@ -621,10 +645,15 @@ class CpSatSolver(BaseSolver):
             if length > 0:
                 intersections.append(length)
         if not intersections:
-            return False
-        if task.allow_breaks:
-            return sum(intersections) >= processing_time
-        return any(length >= processing_time for length in intersections)
+            result = False
+        elif task.allow_breaks:
+            result = sum(intersections) >= processing_time
+        else:
+            result = any(
+                length >= processing_time for length in intersections
+            )
+        self._machine_can_process_cache[cache_key] = result
+        return result
 
     def _feasible_machines_by_task(
         self,
@@ -2133,6 +2162,7 @@ class CpSatSolver(BaseSolver):
                             unavailable_windows_by_machine[machine.id],
                             task_start_lower_bound,
                             task_end_upper_bound,
+                            machine_id=machine.id,
                         )
                     )
 
