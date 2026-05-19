@@ -1694,26 +1694,8 @@ class CpSatSolver(BaseSolver):
         max_travel_time: int,
         machine_indices: dict[str, int],
     ) -> None:
-        """Add a table-based travel constraint for one dependency edge.
-
-        The (dep_machine, cur_machine, travel_time) tuples are encoded
-        as a flat N*N array (N=number of machines); entries for invalid
-        (dep, cur) pairs get a sentinel (min_travel_time - 1) below
-        ``travel_var``'s domain, so an `AddElement` over
-        `flat_index = dep * N + cur` forbids those combinations without
-        an explicit AddAllowedAssignments table.
-        """
-        if (
-            dependency_variables.machine is None
-            or current_variables.machine is None
-        ):
-            raise ValueError(
-                "Table-based travel constraints require machine variables."
-            )
-
-        num_machines = len(machine_indices)
-        sentinel = min_travel_time - 1
-        flat_travel = [sentinel] * (num_machines * num_machines)
+        """Add a table-based travel constraint for one dependency edge."""
+        travel_tuples = set()
         for (
             dependency_machine,
             _dependency_presence,
@@ -1721,31 +1703,34 @@ class CpSatSolver(BaseSolver):
             _current_presence,
             travel_time,
         ) in travel_options:
-            dep_idx = machine_indices[dependency_machine.id]
-            cur_idx = machine_indices[current_machine.id]
-            flat_travel[dep_idx * num_machines + cur_idx] = travel_time
+            travel_tuples.add(
+                (
+                    machine_indices[dependency_machine.id],
+                    machine_indices[current_machine.id],
+                    travel_time,
+                )
+            )
 
         travel_var = model.NewIntVar(
             min_travel_time,
             max_travel_time,
             f"travel_{_safe_name(dependency_id)}_{_safe_name(task_id)}",
         )
-        flat_index_var = model.NewIntVar(
-            0,
-            num_machines * num_machines - 1,
-            (
-                f"travel_idx_{_safe_name(dependency_id)}_"
-                f"{_safe_name(task_id)}"
-            ),
-        )
-        model.Add(
-            flat_index_var
-            == (
-                dependency_variables.machine * num_machines
-                + current_variables.machine
+        if (
+            dependency_variables.machine is None
+            or current_variables.machine is None
+        ):
+            raise ValueError(
+                "Table-based travel constraints require machine variables."
             )
+        model.AddAllowedAssignments(
+            [
+                dependency_variables.machine,
+                current_variables.machine,
+                travel_var,
+            ],
+            sorted(travel_tuples),
         )
-        model.AddElement(flat_index_var, flat_travel, travel_var)
         model.Add(
             current_variables.start >= dependency_variables.end + travel_var
         )
