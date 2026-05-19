@@ -18,18 +18,17 @@ from frost_planner.solver.cp_sat_solver._model_helpers import (
     _ModelHelpersMixin,
 )
 from frost_planner.solver.cp_sat_solver._objective import _ObjectiveMixin
+from frost_planner.solver.cp_sat_solver._task_build import _TaskBuildMixin
 from frost_planner.solver.cp_sat_solver._types import (
     CpSatOptions,
-    _AlternativeVariables,
     _load_cp_model,
-    _safe_name,
-    _TaskVariables,
 )
 
 
 class CpSatSolver(
     BaseSolver,
     _ModelHelpersMixin,
+    _TaskBuildMixin,
     _HeuristicMixin,
     _ObjectiveMixin,
 ):
@@ -375,260 +374,32 @@ class CpSatSolver(
         for task in tasks:
             if task.id in task_variables:
                 continue
-
-            task_name = _safe_name(task.id)
-            min_processing_time = self.analysis.min_processing_time(task)
-            task_start_lower_bound = min(
-                max(start_time, earliest_start_bounds[task.id]),
-                effective_horizon,
-            )
-            task_start_upper_bound = max(
-                task_start_lower_bound,
-                min(
-                    effective_horizon - min_processing_time,
-                    latest_starts[task.id],
+            task_variables[task.id] = self._build_task_variables(
+                task,
+                model=model,
+                cp_model=cp_model,
+                start_time=start_time,
+                effective_horizon=effective_horizon,
+                feasible_machines=feasible_machines_by_task[task.id],
+                earliest_start=earliest_start_bounds[task.id],
+                latest_start=latest_starts[task.id],
+                latest_end=latest_ends[task.id],
+                free_windows_by_machine=free_windows_by_machine,
+                unavailable_windows_by_machine=(
+                    unavailable_windows_by_machine
                 ),
-            )
-            task_end_lower_bound = min(
-                task_start_lower_bound + min_processing_time,
-                effective_horizon,
-            )
-            task_end_upper_bound = max(
-                task_end_lower_bound,
-                min(effective_horizon, latest_ends[task.id]),
-            )
-            task_start = model.NewIntVar(
-                task_start_lower_bound,
-                task_start_upper_bound,
-                f"start_{task_name}",
-            )
-            task_end = model.NewIntVar(
-                task_end_lower_bound,
-                task_end_upper_bound,
-                f"end_{task_name}",
-            )
-            feasible_machines = feasible_machines_by_task[task.id]
-            single_alternative = len(feasible_machines) == 1
-
-            task_machine = None
-            if task.id in task_ids_requiring_machine_variables:
-                if machine_indices is None:
-                    raise ValueError(
-                        "Missing machine indices for table travel model."
-                    )
-                if single_alternative:
-                    task_machine = model.NewConstant(
-                        machine_indices[feasible_machines[0].id]
-                    )
-                else:
-                    machine_values = sorted(
-                        machine_indices[machine.id]
-                        for machine in feasible_machines
-                    )
-                    task_machine = model.NewIntVarFromDomain(
-                        cp_model.Domain.FromValues(machine_values),
-                        f"machine_{task_name}",
-                    )
-
-            alternatives: dict[str, _AlternativeVariables] = {}
-            presences = []
-            for machine in feasible_machines:
-                free_windows = free_windows_by_machine[machine.id]
-                processing_time = self.analysis.processing_time_on(
-                    task, machine
-                )
-
-                machine_name = _safe_name(machine.id)
-                alternative_name = f"{task_name}_{machine_name}"
-                presence: Any | None = (
-                    None
-                    if single_alternative
-                    else model.NewBoolVar(
-                        f"presence_{alternative_name}"
-                    )
-                )
-
-                relevant_unavailable_windows = []
-                if task.allow_breaks:
-                    # The task's actual occupancy is bounded above by
-                    # task_end_upper_bound (= min(effective_horizon,
-                    # latest_end[task])), so windows starting at or
-                    # after that bound cannot overlap. Restricting the
-                    # filter to that interval tightens max_break_time
-                    # / max_elapsed_duration / local_end_upper_bound
-                    # without changing semantics.
-                    relevant_unavailable_windows = (
-                        self.analysis.relevant_unavailable_windows(
-                            unavailable_windows_by_machine[machine.id],
-                            task_start_lower_bound,
-                            task_end_upper_bound,
-                            machine_id=machine.id,
-                        )
-                    )
-
-                if relevant_unavailable_windows:
-                    max_elapsed_duration = (
-                        processing_time
-                        + sum(
-                            window.end - window.start
-                            for window in relevant_unavailable_windows
-                        )
-                    )
-                    local_end_upper_bound = min(
-                        task_end_upper_bound,
-                        task_start_upper_bound + max_elapsed_duration,
-                    )
-                    if single_alternative:
-                        local_start = task_start
-                        local_end = task_end
-                    else:
-                        local_start = model.NewIntVar(
-                            task_start_lower_bound,
-                            task_start_upper_bound,
-                            f"local_start_{alternative_name}",
-                        )
-                        local_end = model.NewIntVar(
-                            task_end_lower_bound,
-                            local_end_upper_bound,
-                            f"local_end_{alternative_name}",
-                        )
-                    break_time = self._create_break_time_var(
-                        model,
-                        local_start,
-                        local_end,
-                        relevant_unavailable_windows,
-                        effective_horizon,
-                        alternative_name,
-                        task_start_lower_bound,
-                        task_end_upper_bound,
-                    )
-                    elapsed_duration_upper_bound = min(
-                        max_elapsed_duration,
-                        local_end_upper_bound - task_start_lower_bound,
-                    )
-                    elapsed_duration = model.NewIntVar(
-                        processing_time,
-                        elapsed_duration_upper_bound,
-                        f"duration_{alternative_name}",
-                    )
-                    model.Add(
-                        elapsed_duration == processing_time + break_time
-                    )
-                    if presence is None:
-                        interval = model.NewIntervalVar(
-                            local_start,
-                            elapsed_duration,
-                            local_end,
-                            f"interval_{alternative_name}",
-                        )
-                    else:
-                        interval = model.NewOptionalIntervalVar(
-                            local_start,
-                            elapsed_duration,
-                            local_end,
-                            presence,
-                            f"interval_{alternative_name}",
-                        )
-                    self._bind_point_to_free_window(
-                        model,
-                        cp_model,
-                        local_start,
-                        presence,
-                        free_windows,
-                        is_start=True,
-                        lower_bound=task_start_lower_bound,
-                        upper_bound=task_start_upper_bound,
-                    )
-                    self._bind_point_to_free_window(
-                        model,
-                        cp_model,
-                        local_end,
-                        presence,
-                        free_windows,
-                        is_start=False,
-                        lower_bound=task_end_lower_bound,
-                        upper_bound=effective_horizon,
-                    )
-                    if presence is not None:
-                        model.Add(
-                            task_start == local_start
-                        ).OnlyEnforceIf(presence)
-                        model.Add(
-                            task_end == local_end
-                        ).OnlyEnforceIf(presence)
-                else:
-                    break_time = model.NewConstant(0)
-                    if presence is None:
-                        interval = model.NewIntervalVar(
-                            task_start,
-                            processing_time,
-                            task_end,
-                            f"interval_{alternative_name}",
-                        )
-                    else:
-                        interval = model.NewOptionalIntervalVar(
-                            task_start,
-                            processing_time,
-                            task_end,
-                            presence,
-                            f"interval_{alternative_name}",
-                        )
-                    if (
-                        not task.allow_breaks
-                        and machine.id
-                        in machines_requiring_separate_availability
-                    ):
-                        non_breakable_availability_intervals[
-                            machine.id
-                        ].append(interval)
-                    if not task.allow_breaks:
-                        self._bind_non_breakable_start_to_window(
-                            model,
-                            cp_model,
-                            task_start,
-                            presence,
-                            free_windows,
-                            processing_time,
-                            lower_bound=task_start_lower_bound,
-                            upper_bound=task_start_upper_bound,
-                        )
-
-                alternatives[machine.id] = _AlternativeVariables(
-                    machine=machine,
-                    processing_time=processing_time,
-                    presence=presence,
-                    interval=interval,
-                    break_time=break_time,
-                )
-                if (
-                    task_machine is not None
-                    and machine_indices is not None
-                    and presence is not None
-                ):
-                    model.Add(
-                        task_machine == machine_indices[machine.id]
-                    ).OnlyEnforceIf(presence)
-                if presence is not None:
-                    presences.append(presence)
-                no_overlap_intervals[machine.id].append(interval)
-                if machine_load_terms is not None:
-                    if presence is None:
-                        machine_load_terms[machine.id].append(
-                            processing_time
-                        )
-                    else:
-                        machine_load_terms[machine.id].append(
-                            processing_time * presence
-                        )
-
-            if presences:
-                model.AddExactlyOne(presences)
-            task_variables[task.id] = _TaskVariables(
-                task=task,
-                start=task_start,
-                end=task_end,
-                machine=task_machine,
-                alternatives=alternatives,
+                machine_indices=machine_indices,
+                task_ids_requiring_machine_variables=(
+                    task_ids_requiring_machine_variables
+                ),
+                machines_requiring_separate_availability=(
+                    machines_requiring_separate_availability
+                ),
+                non_breakable_availability_intervals=(
+                    non_breakable_availability_intervals
+                ),
+                no_overlap_intervals=no_overlap_intervals,
+                machine_load_terms=machine_load_terms,
             )
 
         for intervals in no_overlap_intervals.values():
