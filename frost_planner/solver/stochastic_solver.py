@@ -3,17 +3,12 @@
 
 import random
 import sys
-from copy import deepcopy
 from typing import override
 
 from frost_planner.core.base import Job, SchedulingInstance, _sort_tasks
-from frost_planner.core.objective import (
-    ObjectiveWeights,
-    calculate_objective_value,
-)
+from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.core.schedule import ScheduledTask
 from frost_planner.solver.base_solver import BaseSolver
-from frost_planner.solver.greedy import _create_schedule, _schedule_by_order
 
 
 class StochasticSolver(BaseSolver):
@@ -142,43 +137,13 @@ class StochasticSolver(BaseSolver):
         machine_intervals: dict[str, list[tuple[int, int]]],
         start_time: int = 0,
     ) -> tuple[list[ScheduledTask], float]:
-        """Evaluate the quality of a solution using configured objectives.
-
-        Args:
-            jobs (list[Job]):
-                List of jobs to evaluate.
-            machine_intervals (dict[str, list[tuple[int, int]]]):
-                The availability intervals for each machine.
-            start_time (int):
-                The global lower bound for task start times.
-
-        Returns:
-            tuple[list[ScheduledTask], float]:
-                A tuple containing the scheduled tasks and objective value.
-
-        """
-        machine_intervals = deepcopy(machine_intervals)
-        locked_tasks_map = {st.task.id: st for st in self.locked_tasks.values()}
-        scheduled_tasks = _schedule_by_order(
-            self.instance,
+        """Evaluate the quality of a solution using configured objectives."""
+        result = self._greedy_evaluate(
             jobs,
             machine_intervals,
-            horizon=self.horizon,
-            initial_scheduled_tasks=locked_tasks_map,
-            min_time=start_time,
-            machine_id_map=self.machine_id_map,
-            suitable_machines_map=self.suitable_machines_map,
+            start_time=start_time,
         )
-
-        schedule = _create_schedule(
-            scheduled_tasks=scheduled_tasks,
-            machines=self.instance.machines,
-        )
-        return scheduled_tasks, calculate_objective_value(
-            schedule,
-            self.instance,
-            self.objective,
-        )
+        return result.scheduled_tasks, result.objective
 
     @override
     def _allocate_tasks(

@@ -4,14 +4,28 @@
 import sys
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from dataclasses import dataclass
 
-from frost_planner.core.base import Machine, SchedulingInstance, Task
-from frost_planner.core.objective import ObjectiveWeights
+from frost_planner.core.base import Job, Machine, SchedulingInstance, Task
+from frost_planner.core.objective import (
+    ObjectiveWeights,
+    calculate_objective_value,
+)
 from frost_planner.core.schedule import Schedule, ScheduledTask
 from frost_planner.solver.greedy import (
     _create_schedule,
     _perform_task_interval_allocation,
+    _schedule_by_order,
 )
+
+
+@dataclass(frozen=True)
+class _GreedyResult:
+    """Output of a greedy schedule evaluation."""
+
+    scheduled_tasks: list[ScheduledTask]
+    schedule: Schedule
+    objective: float
 
 
 class BaseSolver(ABC):
@@ -104,6 +118,58 @@ class BaseSolver(ABC):
                     machine_intervals,
                 )
         return machine_intervals
+
+    def _greedy_evaluate(
+        self,
+        jobs: list[Job],
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        *,
+        start_time: int = 0,
+        horizon: int | None = None,
+        copy_intervals: bool = True,
+    ) -> _GreedyResult:
+        """Greedy-schedule a job ordering and compute its objective.
+
+        Centralises the four-step (`schedule_by_order` →
+        `_create_schedule` → `calculate_objective_value`) sequence
+        that every concrete solver runs to evaluate a candidate
+        ordering. Locked tasks are honoured automatically. By default
+        ``machine_intervals`` is deep-copied so the caller can reuse
+        the same input across many evaluations (set
+        ``copy_intervals=False`` for one-shot use to avoid the copy).
+        """
+        locked_tasks_map = {
+            st.task.id: st for st in self.locked_tasks.values()
+        }
+        intervals = (
+            deepcopy(machine_intervals)
+            if copy_intervals
+            else machine_intervals
+        )
+        scheduled_tasks = _schedule_by_order(
+            self.instance,
+            jobs,
+            intervals,
+            horizon=self.horizon if horizon is None else horizon,
+            initial_scheduled_tasks=locked_tasks_map,
+            min_time=start_time,
+            machine_id_map=self.machine_id_map,
+            suitable_machines_map=self.suitable_machines_map,
+        )
+        schedule = _create_schedule(
+            scheduled_tasks=scheduled_tasks,
+            machines=self.instance.machines,
+        )
+        objective_value = calculate_objective_value(
+            schedule,
+            self.instance,
+            self.objective,
+        )
+        return _GreedyResult(
+            scheduled_tasks=scheduled_tasks,
+            schedule=schedule,
+            objective=objective_value,
+        )
 
     @abstractmethod
     def _allocate_tasks(

@@ -3,17 +3,12 @@
 
 import random
 import sys
-from copy import deepcopy
 from typing import override
 
 from frost_planner.core.base import Job, SchedulingInstance
-from frost_planner.core.objective import (
-    ObjectiveWeights,
-    calculate_objective_value,
-)
+from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.core.schedule import ScheduledTask
 from frost_planner.solver.base_solver import BaseSolver
-from frost_planner.solver.greedy import _create_schedule, _schedule_by_order
 
 
 class GeneticAlgorithmSolver(BaseSolver):
@@ -66,28 +61,12 @@ class GeneticAlgorithmSolver(BaseSolver):
         Fitness is based on the configured objective value.
         Returns the scheduled tasks and the objective value.
         """
-        # Deepcopy machine_intervals to ensure each evaluation starts fresh
-        temp_machine_intervals = deepcopy(machine_intervals)
-        locked_tasks_map = {st.task.id: st for st in self.locked_tasks.values()}
-        scheduled_tasks: list[ScheduledTask] = _schedule_by_order(
-            self.instance,
+        result = self._greedy_evaluate(
             job_permutation,
-            temp_machine_intervals,
-            horizon=self.horizon,
-            initial_scheduled_tasks=locked_tasks_map,
-            min_time=start_time,
-            machine_id_map=self.machine_id_map,
-            suitable_machines_map=self.suitable_machines_map,
+            machine_intervals,
+            start_time=start_time,
         )
-        schedule = _create_schedule(
-            scheduled_tasks=scheduled_tasks,
-            machines=self.instance.machines,
-        )
-        return scheduled_tasks, calculate_objective_value(
-            schedule,
-            self.instance,
-            self.objective,
-        )
+        return result.scheduled_tasks, result.objective
 
     def _select_parents(
         self, population: list[list[Job]], fitnesses: list[float]

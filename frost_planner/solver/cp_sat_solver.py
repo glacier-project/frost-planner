@@ -3,7 +3,6 @@
 
 import random
 import sys
-from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, override
 
@@ -15,7 +14,7 @@ from frost_planner.core.objective import (
 from frost_planner.core.schedule import Schedule, ScheduledTask
 from frost_planner.core.validate import validate_schedule
 from frost_planner.solver.base_solver import BaseSolver
-from frost_planner.solver.greedy import _create_schedule, _schedule_by_order
+from frost_planner.solver.greedy import _create_schedule
 
 
 @dataclass(frozen=True)
@@ -1235,36 +1234,24 @@ class CpSatSolver(BaseSolver):
         machine_intervals: dict[str, list[tuple[int, int]]],
         effective_horizon: int,
         start_time: int,
-        locked_tasks_map: dict[str, ScheduledTask],
     ) -> tuple[float, dict[str, ScheduledTask], Schedule] | None:
         """Greedy-schedule one ordering and return its objective value."""
         try:
-            scheduled_tasks = _schedule_by_order(
-                self.instance,
+            result = self._greedy_evaluate(
                 ordering,
-                deepcopy(machine_intervals),
+                machine_intervals,
+                start_time=start_time,
                 horizon=effective_horizon,
-                initial_scheduled_tasks=locked_tasks_map,
-                min_time=start_time,
-                machine_id_map=self.machine_id_map,
-                suitable_machines_map=self.suitable_machines_map,
             )
-            schedule = _create_schedule(
-                scheduled_tasks=scheduled_tasks,
-                machines=self.instance.machines,
-            )
-            if not validate_schedule(schedule, self.instance):
-                return None
         except (KeyError, ValueError):
             return None
-        objective_value = calculate_objective_value(
-            schedule, self.instance, self.objective
-        )
+        if not validate_schedule(result.schedule, self.instance):
+            return None
         hint_map = {
             scheduled_task.task.id: scheduled_task
-            for scheduled_task in scheduled_tasks
+            for scheduled_task in result.scheduled_tasks
         }
-        return objective_value, hint_map, schedule
+        return result.objective, hint_map, result.schedule
 
     def _create_heuristic_hint(
         self,
@@ -1273,11 +1260,6 @@ class CpSatSolver(BaseSolver):
         start_time: int,
     ) -> tuple[dict[str, ScheduledTask], Schedule] | None:
         """Pick the best greedy schedule across several job orderings."""
-        locked_tasks_map = {
-            scheduled_task.task.id: scheduled_task
-            for scheduled_task in self.locked_tasks.values()
-        }
-
         best_objective: float | None = None
         best_ordering: list[Job] | None = None
         best_result: tuple[dict[str, ScheduledTask], Schedule] | None = None
@@ -1309,7 +1291,6 @@ class CpSatSolver(BaseSolver):
                 machine_intervals,
                 effective_horizon,
                 start_time,
-                locked_tasks_map,
             )
             if evaluation is None:
                 continue
@@ -1337,7 +1318,6 @@ class CpSatSolver(BaseSolver):
                 machine_intervals,
                 effective_horizon,
                 start_time,
-                locked_tasks_map,
             )
             if evaluation is None:
                 continue
