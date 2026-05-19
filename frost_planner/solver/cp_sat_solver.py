@@ -595,24 +595,43 @@ class CpSatSolver(BaseSolver):
         task: Task,
         machine: Machine,
         free_windows: list[_TimeWindow],
+        earliest_start: int | None = None,
+        latest_end: int | None = None,
     ) -> bool:
-        """Return whether a machine has enough free time for a task."""
-        processing_time = self._processing_time_on(task, machine)
-        if task.allow_breaks:
-            total_available_time = sum(
-                window.end - window.start for window in free_windows
-            )
-            return total_available_time >= processing_time
+        """Return whether a machine has enough free time for a task.
 
-        return any(
-            window.end - window.start >= processing_time
-            for window in free_windows
-        )
+        When ``earliest_start`` / ``latest_end`` are provided, the
+        feasibility check is restricted to the portion of each free
+        window that intersects ``[earliest_start, latest_end]``.
+        """
+        processing_time = self._processing_time_on(task, machine)
+        intersections: list[int] = []
+        for window in free_windows:
+            usable_start = (
+                max(window.start, earliest_start)
+                if earliest_start is not None
+                else window.start
+            )
+            usable_end = (
+                min(window.end, latest_end)
+                if latest_end is not None
+                else window.end
+            )
+            length = usable_end - usable_start
+            if length > 0:
+                intersections.append(length)
+        if not intersections:
+            return False
+        if task.allow_breaks:
+            return sum(intersections) >= processing_time
+        return any(length >= processing_time for length in intersections)
 
     def _feasible_machines_by_task(
         self,
         tasks: list[Task],
         free_windows_by_machine: dict[str, list[_TimeWindow]],
+        earliest_start_by_task: dict[str, int] | None = None,
+        latest_end_by_task: dict[str, int] | None = None,
     ) -> dict[str, list[Machine]]:
         """Return feasible machines after optional availability pruning."""
         feasible_machines_by_task: dict[str, list[Machine]] = {}
@@ -628,6 +647,17 @@ class CpSatSolver(BaseSolver):
                     f"No suitable machine found for task: {task.id}"
                 )
 
+            band_start = (
+                earliest_start_by_task.get(task.id)
+                if earliest_start_by_task is not None
+                else None
+            )
+            band_end = (
+                latest_end_by_task.get(task.id)
+                if latest_end_by_task is not None
+                else None
+            )
+
             feasible_machines = []
             for machine in suitable_machines:
                 free_windows = free_windows_by_machine[machine.id]
@@ -637,6 +667,8 @@ class CpSatSolver(BaseSolver):
                         task,
                         machine,
                         free_windows,
+                        earliest_start=band_start,
+                        latest_end=band_end,
                     )
                 ):
                     continue
@@ -1850,14 +1882,25 @@ class CpSatSolver(BaseSolver):
             )
             for machine in self.instance.machines
         }
+        # First pass: compute loose earliest/latest bounds against the
+        # unpruned suitable-machines set so the band check below has a
+        # safe, wider band than the eventual pruned-set bounds.
+        loose_earliest_starts, _loose_earliest_ends = self._earliest_bounds(
+            start_time
+        )
+        _loose_latest_starts, loose_latest_ends = self._latest_bounds(
+            start_time, effective_horizon
+        )
         feasible_machines_by_task = self._feasible_machines_by_task(
             tasks,
             free_windows_by_machine,
+            earliest_start_by_task=loose_earliest_starts,
+            latest_end_by_task=loose_latest_ends,
         )
         self._feasible_machines_cache = feasible_machines_by_task
-        # The heuristic phase may have memoised min/max processing and
-        # travel values against the unpruned suitable machines. Reset
-        # those caches so subsequent calls see the tighter pruned set.
+        # The first-pass bounds used unpruned _min_processing /
+        # _min_travel; reset those caches so the second pass picks up
+        # the tighter pruned-set values.
         self._min_processing_cache = {}
         self._max_processing_cache = {}
         self._min_travel_cache = {}

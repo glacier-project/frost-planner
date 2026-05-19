@@ -931,6 +931,73 @@ def test_cp_sat_solver_capability_cumulative_packs_bottleneck() -> None:
     assert max(end_times) >= 8
 
 
+def test_cp_sat_solver_band_pruning_excludes_unreachable_windows() -> None:
+    """A breakable task whose reachable band excludes a wide free window
+    on a candidate machine should not see that machine as feasible.
+
+    Task T2 depends on T1 (must end at >= 6 on M0, with travel 0).
+    Machine M_LATE has wide windows only AFTER time 30, but T2's
+    latest_end (and the model horizon) forces its end <= 12. The band
+    pruning should rule M_LATE out for T2.
+    """
+    task_1 = Task(
+        id="T1",
+        name="Task 1",
+        processing_time=6,
+        requires=["common"],
+    )
+    task_2 = Task(
+        id="T2",
+        name="Task 2",
+        processing_time=4,
+        dependencies=["T1"],
+        requires=["target"],
+        allow_breaks=True,
+    )
+    common = Machine(
+        id="M0",
+        name="Common",
+        capabilities=["common"],
+    )
+    early_target = Machine(
+        id="M_EARLY",
+        name="Early Target",
+        capabilities=["target"],
+    )
+    late_target = Machine(
+        id="M_LATE",
+        name="Late Target",
+        capabilities=["target"],
+    )
+    instance = SchedulingInstance(
+        jobs=[Job(id="J1", name="Job 1", tasks=[task_1, task_2])],
+        machines=[common, early_target, late_target],
+        travel_times={
+            "M0": {"M_EARLY": 0, "M_LATE": 0},
+            "M_EARLY": {"M0": 0, "M_LATE": 0},
+            "M_LATE": {"M0": 0, "M_EARLY": 0},
+        },
+    )
+    solver = CpSatSolver(
+        instance=instance,
+        horizon=12,
+        machine_intervals={
+            "M0": [(0, 12)],
+            "M_EARLY": [(0, 12)],
+            "M_LATE": [(30, 200)],
+        },
+    )
+    schedule = solver.schedule()
+    assert validate_schedule(schedule, instance)
+    scheduled_t2 = schedule.get_task_mapping(task_2)
+    assert scheduled_t2 is not None
+    assert scheduled_t2.machine == early_target
+    # Band-aware pruning should leave only M_EARLY as feasible for T2.
+    assert solver._feasible_machines_cache is not None
+    feasible_for_t2 = solver._feasible_machines_cache["T2"]
+    assert [m.id for m in feasible_for_t2] == ["M_EARLY"]
+
+
 def test_cp_sat_solver_repair_hint_flag_produces_valid_schedule() -> None:
     """The repair_hint flag plumbs through and does not break correctness."""
     task_1 = Task(id="T1", name="Task 1", processing_time=3)
