@@ -2466,6 +2466,17 @@ class CpSatSolver(BaseSolver):
                     cp_model.CHOOSE_FIRST,
                     cp_model.SELECT_MIN_VALUE,
                 )
+            if (
+                self.objective.needs_job_completion
+                and job_completion_vars
+            ):
+                completion_vars = list(job_completion_vars.values())
+                if completion_vars:
+                    model.AddDecisionStrategy(
+                        completion_vars,
+                        cp_model.CHOOSE_FIRST,
+                        cp_model.SELECT_MIN_VALUE,
+                    )
 
         solver = cp_model.CpSolver()
         self._configure_solver(solver)
