@@ -23,7 +23,11 @@ from frost_planner.solver.cp_sat_solver._dependencies import (
 from frost_planner.solver.cp_sat_solver._heuristic import _HeuristicMixin
 from frost_planner.solver.cp_sat_solver._intervals import _IntervalsMixin
 from frost_planner.solver.cp_sat_solver._objective import _ObjectiveMixin
-from frost_planner.solver.cp_sat_solver._task_build import _TaskBuildMixin
+from frost_planner.solver.cp_sat_solver._task_build import (
+    _TaskBuildBounds,
+    _TaskBuildContext,
+    _TaskBuildMixin,
+)
 from frost_planner.solver.cp_sat_solver._types import (
     CpSatOptions,
     _load_cp_model,
@@ -267,38 +271,41 @@ class CpSatSolver(
             machine_setup.task_ids_requiring_machine_variables,
             start_time,
         )
+        build_ctx = _TaskBuildContext(
+            model=model,
+            cp_model=cp_model,
+            start_time=start_time,
+            effective_horizon=effective_horizon,
+            free_windows_by_machine=free_windows_by_machine,
+            unavailable_windows_by_machine=(
+                machine_setup.unavailable_windows_by_machine
+            ),
+            machine_indices=machine_setup.machine_indices,
+            task_ids_requiring_machine_variables=(
+                machine_setup.task_ids_requiring_machine_variables
+            ),
+            machines_requiring_separate_availability=(
+                machine_collections
+                .machines_requiring_separate_availability
+            ),
+            non_breakable_availability_intervals=(
+                machine_collections.non_breakable_availability_intervals
+            ),
+            no_overlap_intervals=machine_collections.no_overlap_intervals,
+            machine_load_terms=machine_collections.machine_load_terms,
+        )
         for task in tasks:
             if task.id in task_variables:
                 continue
             task_variables[task.id] = self._build_task_variables(
                 task,
-                model=model,
-                cp_model=cp_model,
-                start_time=start_time,
-                effective_horizon=effective_horizon,
-                feasible_machines=feasible_machines_by_task[task.id],
-                earliest_start=bounds.earliest_start_bounds[task.id],
-                latest_start=bounds.latest_starts[task.id],
-                latest_end=bounds.latest_ends[task.id],
-                free_windows_by_machine=free_windows_by_machine,
-                unavailable_windows_by_machine=(
-                    machine_setup.unavailable_windows_by_machine
+                build_ctx,
+                _TaskBuildBounds(
+                    feasible_machines=feasible_machines_by_task[task.id],
+                    earliest_start=bounds.earliest_start_bounds[task.id],
+                    latest_start=bounds.latest_starts[task.id],
+                    latest_end=bounds.latest_ends[task.id],
                 ),
-                machine_indices=machine_setup.machine_indices,
-                task_ids_requiring_machine_variables=(
-                    machine_setup.task_ids_requiring_machine_variables
-                ),
-                machines_requiring_separate_availability=(
-                    machine_collections
-                    .machines_requiring_separate_availability
-                ),
-                non_breakable_availability_intervals=(
-                    machine_collections.non_breakable_availability_intervals
-                ),
-                no_overlap_intervals=(
-                    machine_collections.no_overlap_intervals
-                ),
-                machine_load_terms=machine_collections.machine_load_terms,
             )
 
         self._add_disjunctive_constraints(model, machine_collections)
