@@ -8,7 +8,7 @@ import pytest
 
 from frost_planner.core.base import Job, Machine, SchedulingInstance, Task
 from frost_planner.core.objective import ObjectiveWeights
-from frost_planner.solver.cp_sat_solver import CpSatSolver
+from frost_planner.solver.cp_sat_solver import CpSatOptions, CpSatSolver
 from frost_planner.solver.dummy_solver import DummySolver
 from frost_planner.solver.factory import (
     CpSatSolverConfiguration,
@@ -138,17 +138,19 @@ def test_create_cp_sat_solver_with_ad_hoc_parameters(
     solver = create_solver(
         CpSatSolverConfiguration(
             instance=instance,
-            time_limit_seconds=2.5,
-            num_workers=2,
-            relative_gap=0.01,
-            log_search_progress=True,
-            use_travel_table=False,
-            travel_model="hybrid",
-            hybrid_travel_threshold=4,
-            use_dependency_bounds=True,
-            use_machine_load_bounds=True,
-            prune_infeasible_alternatives=False,
-            use_heuristic_hints=False,
+            options=CpSatOptions(
+                time_limit_seconds=2.5,
+                num_workers=2,
+                relative_gap=0.01,
+                log_search_progress=True,
+                use_travel_table=False,
+                travel_model="hybrid",
+                hybrid_travel_threshold=4,
+                use_dependency_bounds=True,
+                use_machine_load_bounds=True,
+                prune_infeasible_alternatives=False,
+                use_heuristic_hints=False,
+            ),
         )
     )
 
@@ -183,7 +185,7 @@ def test_create_cp_sat_solver_supports_legacy_table_flag(
     solver = create_solver(
         CpSatSolverConfiguration(
             instance=instance,
-            use_travel_table=True,
+            options=CpSatOptions(use_travel_table=True),
         )
     )
 

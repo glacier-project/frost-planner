@@ -34,6 +34,7 @@ from frost_planner.generator.instance_generator import (
     save_instance_to_json,
 )
 from frost_planner.solver.base_solver import BaseSolver
+from frost_planner.solver.cp_sat_solver import CpSatOptions
 from frost_planner.solver.factory import (
     CpSatSolverConfiguration,
     DummySolverConfiguration,
@@ -824,42 +825,48 @@ def build_configuration(
             horizon=horizon,
             machine_intervals=machine_intervals,
             objective=objective,
-            time_limit_seconds=args.cp_sat_time_limit,
-            num_workers=args.cp_sat_workers,
-            use_travel_table=args.cp_sat_travel_model == "table",
-            travel_model=args.cp_sat_travel_model,
-            hybrid_travel_threshold=args.cp_sat_hybrid_travel_threshold,
-            use_dependency_bounds=args.enable_cp_sat_dependency_bounds,
-            use_machine_load_bounds=args.enable_cp_sat_load_bounds,
-            prune_infeasible_alternatives=(
-                not args.disable_cp_sat_alternative_pruning
+            options=CpSatOptions(
+                time_limit_seconds=args.cp_sat_time_limit,
+                num_workers=args.cp_sat_workers,
+                use_travel_table=args.cp_sat_travel_model == "table",
+                travel_model=args.cp_sat_travel_model,
+                hybrid_travel_threshold=(
+                    args.cp_sat_hybrid_travel_threshold
+                ),
+                use_dependency_bounds=args.enable_cp_sat_dependency_bounds,
+                use_machine_load_bounds=args.enable_cp_sat_load_bounds,
+                prune_infeasible_alternatives=(
+                    not args.disable_cp_sat_alternative_pruning
+                ),
+                use_heuristic_hints=(
+                    not args.disable_cp_sat_heuristic_hints
+                ),
+                random_seed=args.cp_sat_random_seed,
+                max_deterministic_time=args.cp_sat_max_deterministic_time,
+                search_branching=args.cp_sat_search_branching,
+                linearization_level=args.cp_sat_linearization_level,
+                cp_model_presolve=(
+                    False if args.cp_sat_disable_presolve else None
+                ),
+                use_search_strategy=args.enable_cp_sat_search_strategy,
+                use_capability_cumulative=(
+                    args.enable_cp_sat_capability_cumulative
+                ),
+                repair_hint=args.enable_cp_sat_repair_hint,
+                optimize_with_lb_tree_search=(
+                    None
+                    if args.cp_sat_optimize_with_lb_tree_search is None
+                    else args.cp_sat_optimize_with_lb_tree_search == "on"
+                ),
+                use_objective_lb_search=(
+                    None
+                    if args.cp_sat_use_objective_lb_search is None
+                    else args.cp_sat_use_objective_lb_search == "on"
+                ),
+                cp_model_probing_level=args.cp_sat_probing_level,
+                symmetry_level=args.cp_sat_symmetry_level,
+                disjunctive_encoding=args.cp_sat_disjunctive_encoding,
             ),
-            use_heuristic_hints=not args.disable_cp_sat_heuristic_hints,
-            random_seed=args.cp_sat_random_seed,
-            max_deterministic_time=args.cp_sat_max_deterministic_time,
-            search_branching=args.cp_sat_search_branching,
-            linearization_level=args.cp_sat_linearization_level,
-            cp_model_presolve=(
-                False if args.cp_sat_disable_presolve else None
-            ),
-            use_search_strategy=args.enable_cp_sat_search_strategy,
-            use_capability_cumulative=(
-                args.enable_cp_sat_capability_cumulative
-            ),
-            repair_hint=args.enable_cp_sat_repair_hint,
-            optimize_with_lb_tree_search=(
-                None
-                if args.cp_sat_optimize_with_lb_tree_search is None
-                else args.cp_sat_optimize_with_lb_tree_search == "on"
-            ),
-            use_objective_lb_search=(
-                None
-                if args.cp_sat_use_objective_lb_search is None
-                else args.cp_sat_use_objective_lb_search == "on"
-            ),
-            cp_model_probing_level=args.cp_sat_probing_level,
-            symmetry_level=args.cp_sat_symmetry_level,
-            disjunctive_encoding=args.cp_sat_disjunctive_encoding,
         )
     raise ValueError(f"Unsupported solver {solver_name!r}.")
 
