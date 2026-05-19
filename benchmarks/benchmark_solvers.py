@@ -426,6 +426,15 @@ def parse_args() -> argparse.Namespace:
         help="Add explicit AddDecisionStrategy on presences then starts.",
     )
     parser.add_argument(
+        "--enable-cp-sat-capability-cumulative",
+        action="store_true",
+        help=(
+            "Add a redundant AddCumulative per capability class. Useful "
+            "on capability-bottlenecked instances; may slow some "
+            "due-date-deviation / non-bottleneck scenarios."
+        ),
+    )
+    parser.add_argument(
         "--horizon",
         type=int,
         default=None,
@@ -777,6 +786,9 @@ def build_configuration(
                 False if args.cp_sat_disable_presolve else None
             ),
             use_search_strategy=args.enable_cp_sat_search_strategy,
+            use_capability_cumulative=(
+                args.enable_cp_sat_capability_cumulative
+            ),
         )
     raise ValueError(f"Unsupported solver {solver_name!r}.")
 

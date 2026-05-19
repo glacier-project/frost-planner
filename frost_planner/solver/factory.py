@@ -102,6 +102,7 @@ class CpSatSolverConfiguration(SolverConfiguration):
     linearization_level: int | None = None
     cp_model_presolve: bool | None = None
     use_search_strategy: bool = False
+    use_capability_cumulative: bool = False
 
 
 def create_solver(configuration: SolverConfiguration) -> BaseSolver:
@@ -173,6 +174,9 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             linearization_level=configuration.linearization_level,
             cp_model_presolve=configuration.cp_model_presolve,
             use_search_strategy=configuration.use_search_strategy,
+            use_capability_cumulative=(
+                configuration.use_capability_cumulative
+            ),
         )
 
     assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (

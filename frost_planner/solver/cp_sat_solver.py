@@ -96,6 +96,7 @@ class CpSatSolver(BaseSolver):
         linearization_level: int | None = None,
         cp_model_presolve: bool | None = None,
         use_search_strategy: bool = False,
+        use_capability_cumulative: bool = False,
     ) -> None:
         super().__init__(instance, horizon, machine_intervals, objective)
         if num_workers is not None and num_workers < 1:
@@ -146,6 +147,7 @@ class CpSatSolver(BaseSolver):
         self.linearization_level = linearization_level
         self.cp_model_presolve = cp_model_presolve
         self.use_search_strategy = use_search_strategy
+        self.use_capability_cumulative = use_capability_cumulative
         self.last_status: str | None = None
         self.last_objective_value: float | None = None
         self.last_best_bound: float | None = None
@@ -2184,9 +2186,10 @@ class CpSatSolver(BaseSolver):
             if intervals:
                 model.AddNoOverlap(intervals)
 
-        self._add_capability_cumulatives(
-            model, task_variables, effective_horizon, start_time
-        )
+        if self.use_capability_cumulative:
+            self._add_capability_cumulatives(
+                model, task_variables, effective_horizon, start_time
+            )
 
         for group in self._identical_machine_groups(free_windows_by_machine):
             counts: list[Any] = []

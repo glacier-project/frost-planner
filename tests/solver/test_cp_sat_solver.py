@@ -914,14 +914,18 @@ def test_cp_sat_solver_capability_cumulative_packs_bottleneck() -> None:
         ],
         machines=[rare1, rare2],
     )
-    schedule = CpSatSolver(instance=instance, horizon=30).schedule()
+    schedule = CpSatSolver(
+        instance=instance,
+        horizon=30,
+        use_capability_cumulative=True,
+    ).schedule()
     assert validate_schedule(schedule, instance)
     # With only 2 rare-capability machines and 3 tasks, total makespan is
     # at least ceil(3 * 5 / 2) = 8.
-    end_times = [
-        schedule.get_task_mapping(task).end_time
-        for job in instance.jobs
-        for task in job.tasks
-        if schedule.get_task_mapping(task) is not None
-    ]
+    end_times: list[int] = []
+    for job in instance.jobs:
+        for task in job.tasks:
+            scheduled = schedule.get_task_mapping(task)
+            if scheduled is not None:
+                end_times.append(scheduled.end_time)
     assert max(end_times) >= 8
