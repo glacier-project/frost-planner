@@ -1436,6 +1436,7 @@ class CpSatSolver(BaseSolver):
         horizon: int,
         task_variables: dict[str, _TaskVariables] | None = None,
         heuristic_hint: dict[str, ScheduledTask] | None = None,
+        critical_path_ends: dict[str, int] | None = None,
     ) -> Any:
         """Build the configured CP-SAT objective expression."""
         terms = []
@@ -1456,6 +1457,7 @@ class CpSatSolver(BaseSolver):
         )
         tardiness_vars: list[Any] = []
         per_job_tardiness_hints: list[int] = []
+        max_tardiness_upper_bound = 0
         if needs_per_job_term:
             for job in self.instance.jobs:
                 if job.due_date is None:
@@ -1469,16 +1471,47 @@ class CpSatSolver(BaseSolver):
                         job, task_variables, heuristic_hint
                     )
 
+                # Tightened per-job bounds derived from the per-task
+                # critical-path completion lower bounds.
+                job_completion_lower_bound = 0
+                if critical_path_ends is not None:
+                    job_completion_lower_bound = max(
+                        (
+                            critical_path_ends[task.id]
+                            for task in job.tasks
+                            if task.id in critical_path_ends
+                        ),
+                        default=0,
+                    )
+                lateness_lower_bound = (
+                    job_completion_lower_bound - job.due_date
+                )
+                lateness_upper_bound = horizon - job.due_date
+                tardiness_lower_bound = max(0, lateness_lower_bound)
+                tardiness_upper_bound = max(0, lateness_upper_bound)
+                earliness_delta_lower_bound = job.due_date - horizon
+                earliness_delta_upper_bound = (
+                    job.due_date - job_completion_lower_bound
+                )
+                earliness_upper_bound = max(
+                    0, earliness_delta_upper_bound
+                )
+                max_tardiness_upper_bound = max(
+                    max_tardiness_upper_bound, tardiness_upper_bound
+                )
+
                 if objective.total_tardiness or objective.max_tardiness:
                     lateness = model.NewIntVar(
-                        -job.due_date,
-                        horizon,
+                        lateness_lower_bound,
+                        max(lateness_lower_bound, lateness_upper_bound),
                         f"lateness_{job_name}",
                     )
                     model.Add(lateness == completion - job.due_date)
                     tardiness = model.NewIntVar(
-                        0,
-                        horizon,
+                        tardiness_lower_bound,
+                        max(
+                            tardiness_lower_bound, tardiness_upper_bound
+                        ),
                         f"tardiness_{job_name}",
                     )
                     model.AddMaxEquality(
@@ -1513,14 +1546,17 @@ class CpSatSolver(BaseSolver):
                     terms.append(objective.num_tardy_jobs * tardy)
                 if objective.total_earliness:
                     earliness_delta = model.NewIntVar(
-                        -horizon,
-                        job.due_date,
+                        earliness_delta_lower_bound,
+                        max(
+                            earliness_delta_lower_bound,
+                            earliness_delta_upper_bound,
+                        ),
                         f"earliness_delta_{job_name}",
                     )
                     model.Add(earliness_delta == job.due_date - completion)
                     earliness = model.NewIntVar(
                         0,
-                        job.due_date,
+                        max(0, earliness_upper_bound),
                         f"earliness_{job_name}",
                     )
                     model.AddMaxEquality(
@@ -1534,7 +1570,11 @@ class CpSatSolver(BaseSolver):
                     terms.append(objective.total_earliness * earliness)
 
         if objective.max_tardiness:
-            max_tardiness = model.NewIntVar(0, horizon, "max_tardiness")
+            max_tardiness = model.NewIntVar(
+                0,
+                max(0, max_tardiness_upper_bound),
+                "max_tardiness",
+            )
             if tardiness_vars:
                 model.AddMaxEquality(max_tardiness, tardiness_vars)
                 if per_job_tardiness_hints:
@@ -2397,6 +2437,7 @@ class CpSatSolver(BaseSolver):
             effective_horizon,
             task_variables=task_variables,
             heuristic_hint=heuristic_hint,
+            critical_path_ends=critical_path_ends,
         )
         if heuristic_objective_value is not None:
             model.Add(objective_expr <= heuristic_objective_value)
