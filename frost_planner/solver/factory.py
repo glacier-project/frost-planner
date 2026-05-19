@@ -104,6 +104,7 @@ class CpSatSolverConfiguration(SolverConfiguration):
     use_search_strategy: bool = False
     use_capability_cumulative: bool = False
     repair_hint: bool = False
+    disjunctive_encoding: str = "no_overlap"
     optimize_with_lb_tree_search: bool | None = None
     use_objective_lb_search: bool | None = None
     cp_model_probing_level: int | None = None
@@ -189,6 +190,7 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             use_objective_lb_search=configuration.use_objective_lb_search,
             cp_model_probing_level=configuration.cp_model_probing_level,
             symmetry_level=configuration.symmetry_level,
+            disjunctive_encoding=configuration.disjunctive_encoding,
         )
 
     assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (

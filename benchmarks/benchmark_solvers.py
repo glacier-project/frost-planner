@@ -482,6 +482,16 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--cp-sat-disjunctive-encoding",
+        choices=("no_overlap", "cumulative"),
+        default="no_overlap",
+        help=(
+            "Choose how machine NoOverlap is encoded: 'no_overlap' uses "
+            "AddNoOverlap (default); 'cumulative' uses AddCumulative "
+            "with capacity 1."
+        ),
+    )
+    parser.add_argument(
         "--horizon",
         type=int,
         default=None,
@@ -849,6 +859,7 @@ def build_configuration(
             ),
             cp_model_probing_level=args.cp_sat_probing_level,
             symmetry_level=args.cp_sat_symmetry_level,
+            disjunctive_encoding=args.cp_sat_disjunctive_encoding,
         )
     raise ValueError(f"Unsupported solver {solver_name!r}.")
 

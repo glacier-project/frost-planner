@@ -98,6 +98,7 @@ class CpSatSolver(BaseSolver):
         use_search_strategy: bool = False,
         use_capability_cumulative: bool = False,
         repair_hint: bool = False,
+        disjunctive_encoding: str = "no_overlap",
         optimize_with_lb_tree_search: bool | None = None,
         use_objective_lb_search: bool | None = None,
         cp_model_probing_level: int | None = None,
@@ -128,6 +129,11 @@ class CpSatSolver(BaseSolver):
             and symmetry_level not in (0, 1, 2, 3)
         ):
             raise ValueError("symmetry_level must be 0, 1, 2, or 3.")
+        if disjunctive_encoding not in {"no_overlap", "cumulative"}:
+            raise ValueError(
+                "disjunctive_encoding must be 'no_overlap' or "
+                "'cumulative'."
+            )
         if linearization_level is not None and linearization_level not in (
             0, 1, 2,
         ):
@@ -166,6 +172,7 @@ class CpSatSolver(BaseSolver):
         self.use_search_strategy = use_search_strategy
         self.use_capability_cumulative = use_capability_cumulative
         self.repair_hint = repair_hint
+        self.disjunctive_encoding = disjunctive_encoding
         self.optimize_with_lb_tree_search = optimize_with_lb_tree_search
         self.use_objective_lb_search = use_objective_lb_search
         self.cp_model_probing_level = cp_model_probing_level
@@ -766,6 +773,15 @@ class CpSatSolver(BaseSolver):
             if zero_within_group:
                 groups.append(sorted(group, key=lambda m: m.id))
         return groups
+
+    def _add_machine_disjunctive(
+        self, model: Any, intervals: list[Any]
+    ) -> None:
+        """Enforce mutual exclusion on a machine using the chosen encoding."""
+        if self.disjunctive_encoding == "cumulative":
+            model.AddCumulative(intervals, [1] * len(intervals), 1)
+        else:
+            model.AddNoOverlap(intervals)
 
     def _add_capability_cumulatives(
         self,
@@ -2226,10 +2242,10 @@ class CpSatSolver(BaseSolver):
 
         for intervals in no_overlap_intervals.values():
             if intervals:
-                model.AddNoOverlap(intervals)
+                self._add_machine_disjunctive(model, intervals)
         for intervals in non_breakable_availability_intervals.values():
             if intervals:
-                model.AddNoOverlap(intervals)
+                self._add_machine_disjunctive(model, intervals)
 
         if self.use_capability_cumulative:
             self._add_capability_cumulatives(
