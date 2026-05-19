@@ -37,12 +37,10 @@ class DummySolver(BaseSolver):
         return _schedule_by_order(
             self.instance,
             self.instance.jobs,
-            self.instance.machines,
             machine_intervals,
-            self.horizon,
-            self.instance.travel_times,
-            self.machine_id_map,
-            self.suitable_machines_map,
+            horizon=self.horizon,
             initial_scheduled_tasks=locked_tasks_map,
             min_time=start_time,
+            machine_id_map=self.machine_id_map,
+            suitable_machines_map=self.suitable_machines_map,
         )

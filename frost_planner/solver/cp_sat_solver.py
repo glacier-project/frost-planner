@@ -1242,14 +1242,12 @@ class CpSatSolver(BaseSolver):
             scheduled_tasks = _schedule_by_order(
                 self.instance,
                 ordering,
-                self.instance.machines,
                 deepcopy(machine_intervals),
-                effective_horizon,
-                self.instance.travel_times,
-                self.machine_id_map,
-                self.suitable_machines_map,
+                horizon=effective_horizon,
                 initial_scheduled_tasks=locked_tasks_map,
                 min_time=start_time,
+                machine_id_map=self.machine_id_map,
+                suitable_machines_map=self.suitable_machines_map,
             )
             schedule = _create_schedule(
                 scheduled_tasks=scheduled_tasks,

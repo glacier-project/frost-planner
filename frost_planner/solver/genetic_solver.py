@@ -72,14 +72,12 @@ class GeneticAlgorithmSolver(BaseSolver):
         scheduled_tasks: list[ScheduledTask] = _schedule_by_order(
             self.instance,
             job_permutation,
-            self.instance.machines,
             temp_machine_intervals,
-            self.horizon,
-            self.instance.travel_times,
-            self.machine_id_map,
-            self.suitable_machines_map,
+            horizon=self.horizon,
             initial_scheduled_tasks=locked_tasks_map,
             min_time=start_time,
+            machine_id_map=self.machine_id_map,
+            suitable_machines_map=self.suitable_machines_map,
         )
         schedule = _create_schedule(
             scheduled_tasks=scheduled_tasks,

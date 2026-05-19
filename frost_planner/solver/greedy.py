@@ -193,52 +193,58 @@ def _create_schedule(
 def _schedule_by_order(
     instance: SchedulingInstance,
     jobs: list[Job],
-    machines: list[Machine],
     machine_intervals: dict[str, list[tuple[int, int]]],
-    horizon: int,
-    travel_times: dict[str, dict[str, int]],
-    machine_id_map: dict[str, Machine],
-    suitable_machines_map: dict[str, list[Machine]],
+    *,
+    horizon: int = sys.maxsize,
     initial_scheduled_tasks: dict[str, ScheduledTask] | None = None,
     min_time: int = 0,
+    machine_id_map: dict[str, Machine] | None = None,
+    suitable_machines_map: dict[str, list[Machine]] | None = None,
 ) -> list[ScheduledTask]:
-    """Schedules jobs based on their predefined order and machine availability.
+    """Schedule jobs greedily by their predefined order.
 
-    This is a greedy, non-optimizing solver that processes tasks sequentially.
+    A non-optimizing solver that processes each task in instance-order
+    and assigns it to the earliest feasible machine. Mutates
+    ``machine_intervals`` in place; callers that need a fresh copy
+    must deepcopy before calling.
 
     Args:
-        instance (SchedulingInstance):
-            The scheduling instance containing jobs and machines.
-        jobs (list[Job]):
-            The list of jobs to schedule. Tasks within each job are assumed to
+        instance:
+            Scheduling instance providing machines, travel times, and
+            (when ``suitable_machines_map`` is not supplied) suitable
+            machines per task.
+        jobs:
+            Job processing order. Tasks within each job are assumed to
             be topologically sorted by their dependencies.
-        machines (list[Machine]):
-            The list of available machines.
-        machine_intervals (dict[str, list[tuple[int, int]]]):
-            Initial availability intervals for each machine.
-        horizon (int):
-            The time horizon for the scheduling, defining the maximum possible
-            end time for any task.
-        travel_times (Dict[str, Dict[str, int]]):
-            A dictionary representing the time taken to move a piece from a
-            source machine to a destination machine.
-        machine_id_map (dict[str, Machine]):
-            A mapping of machine IDs to their corresponding Machine objects.
-        suitable_machines_map (dict[str, list[Machine]]):
-            A mapping of task IDs to their suitable machines.
-        initial_scheduled_tasks (dict[str, ScheduledTask], optional):
-            A dictionary of tasks that are already scheduled and should be
-            accounted for.
-        min_time (int):
-            A global lower bound for the start time of any task not already
-            present in initial_scheduled_tasks.
+        machine_intervals:
+            Initial availability intervals per machine. Mutated.
+        horizon:
+            Maximum possible end time for any task.
+        initial_scheduled_tasks:
+            Tasks that are already scheduled and should not be touched
+            (used to seed dependency resolution).
+        min_time:
+            Global lower bound on start times for tasks not in
+            ``initial_scheduled_tasks``.
+        machine_id_map:
+            Optional precomputed id→Machine map. Recomputed from
+            ``instance`` if omitted.
+        suitable_machines_map:
+            Optional precomputed task_id→[Machine] map. Recomputed via
+            ``instance.get_suitable_machines`` if omitted.
 
     Returns:
-        list[ScheduledTask]:
-            A list of tasks that have been successfully scheduled, each with a
-            determined start time, end time, and assigned machine.
-
+        Every successfully scheduled task with start/end/machine set.
     """
+    if machine_id_map is None:
+        machine_id_map = {m.id: m for m in instance.machines}
+    if suitable_machines_map is None:
+        suitable_machines_map = {
+            task.id: instance.get_suitable_machines(task)
+            for job in instance.jobs
+            for task in job.tasks
+        }
+    travel_times = instance.travel_times
     # Dictionary to store already scheduled tasks, keyed by their task_id. This
     # allows for quick lookup of dependency completion times.
     scheduled_tasks: dict[str, ScheduledTask] = (
