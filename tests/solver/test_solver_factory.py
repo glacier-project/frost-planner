@@ -153,17 +153,17 @@ def test_create_cp_sat_solver_with_ad_hoc_parameters(
     )
 
     assert isinstance(solver, CpSatSolver)
-    assert solver.time_limit_seconds == 2.5
-    assert solver.num_workers == 2
-    assert solver.relative_gap == 0.01
-    assert solver.log_search_progress is True
-    assert solver.travel_model == "hybrid"
-    assert solver.use_travel_table is False
-    assert solver.hybrid_travel_threshold == 4
-    assert solver.use_dependency_bounds is True
-    assert solver.use_machine_load_bounds is True
-    assert solver.prune_infeasible_alternatives is False
-    assert solver.use_heuristic_hints is False
+    assert solver.options.time_limit_seconds == 2.5
+    assert solver.options.num_workers == 2
+    assert solver.options.relative_gap == 0.01
+    assert solver.options.log_search_progress is True
+    assert solver.options.travel_model == "hybrid"
+    assert solver.options.uses_travel_table is False
+    assert solver.options.hybrid_travel_threshold == 4
+    assert solver.options.use_dependency_bounds is True
+    assert solver.options.use_machine_load_bounds is True
+    assert solver.options.prune_infeasible_alternatives is False
+    assert solver.options.use_heuristic_hints is False
 
 
 def test_create_cp_sat_solver_defaults_to_pairwise_travel(
@@ -172,9 +172,9 @@ def test_create_cp_sat_solver_defaults_to_pairwise_travel(
     solver = create_solver(CpSatSolverConfiguration(instance=instance))
 
     assert isinstance(solver, CpSatSolver)
-    assert solver.num_workers == 16
-    assert solver.travel_model == "pairwise"
-    assert solver.use_travel_table is False
+    assert solver.options.num_workers == 16
+    assert solver.options.travel_model == "pairwise"
+    assert solver.options.uses_travel_table is False
 
 
 def test_create_cp_sat_solver_supports_legacy_table_flag(
@@ -188,8 +188,8 @@ def test_create_cp_sat_solver_supports_legacy_table_flag(
     )
 
     assert isinstance(solver, CpSatSolver)
-    assert solver.travel_model == "table"
-    assert solver.use_travel_table is True
+    assert solver.options.travel_model == "table"
+    assert solver.options.uses_travel_table is True
 
 
 def test_create_solver_uses_default_specific_parameters_for_base_configuration(

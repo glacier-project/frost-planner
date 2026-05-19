@@ -9,7 +9,7 @@ from frost_planner.core.base import Job, Machine, SchedulingInstance, Task
 from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.core.schedule import ScheduledTask
 from frost_planner.core.validate import validate_schedule
-from frost_planner.solver.cp_sat_solver import CpSatSolver
+from frost_planner.solver.cp_sat_solver import CpSatOptions, CpSatSolver
 
 
 def test_cp_sat_solver_schedules_single_task() -> None:
@@ -133,7 +133,7 @@ def test_cp_sat_solver_pairwise_travel_model_enforces_travel_time() -> None:
     schedule = CpSatSolver(
         instance=instance,
         horizon=10,
-        use_travel_table=False,
+        options=CpSatOptions(use_travel_table=False),
     ).schedule()
 
     scheduled_task_1 = schedule.get_task_mapping(task_1)
@@ -191,7 +191,7 @@ def test_cp_sat_solver_pairwise_compressed_travel_enforces_extra_time() -> None:
             "M2": [(20, 30)],
             "M3": [(0, 30)],
         },
-        travel_model="pairwise",
+        options=CpSatOptions(travel_model="pairwise"),
     )
     locked_task = ScheduledTask(
         start_time=0,
@@ -243,7 +243,7 @@ def test_cp_sat_solver_hybrid_travel_model_enforces_travel_time() -> None:
     schedule = CpSatSolver(
         instance=instance,
         horizon=10,
-        travel_model="hybrid",
+        options=CpSatOptions(travel_model="hybrid"),
     ).schedule()
 
     scheduled_task_1 = schedule.get_task_mapping(task_1)
@@ -271,8 +271,10 @@ def test_cp_sat_solver_optional_bound_formulations_schedule() -> None:
     schedule = CpSatSolver(
         instance=instance,
         horizon=10,
-        use_dependency_bounds=True,
-        use_machine_load_bounds=True,
+        options=CpSatOptions(
+            use_dependency_bounds=True,
+            use_machine_load_bounds=True,
+        ),
     ).schedule()
 
     scheduled_task_1 = schedule.get_task_mapping(task_1)
@@ -300,7 +302,7 @@ def test_cp_sat_solver_heuristic_hints_schedule() -> None:
     schedule = CpSatSolver(
         instance=instance,
         horizon=10,
-        use_heuristic_hints=True,
+        options=CpSatOptions(use_heuristic_hints=True),
     ).schedule()
 
     scheduled_task_1 = schedule.get_task_mapping(task_1)
@@ -842,7 +844,7 @@ def test_cp_sat_solver_pruned_machines_tighten_processing_bounds() -> None:
         instance=instance,
         horizon=20,
         machine_intervals={"M_FAST": [(0, 1)], "M_SLOW": [(0, 20)]},
-        prune_infeasible_alternatives=True,
+        options=CpSatOptions(prune_infeasible_alternatives=True),
     )
     schedule = solver.schedule()
 
@@ -917,7 +919,7 @@ def test_cp_sat_solver_capability_cumulative_packs_bottleneck() -> None:
     schedule = CpSatSolver(
         instance=instance,
         horizon=30,
-        use_capability_cumulative=True,
+        options=CpSatOptions(use_capability_cumulative=True),
     ).schedule()
     assert validate_schedule(schedule, instance)
     # With only 2 rare-capability machines and 3 tasks, total makespan is
@@ -1012,7 +1014,7 @@ def test_cp_sat_solver_repair_hint_flag_produces_valid_schedule() -> None:
     solver = CpSatSolver(
         instance=instance,
         horizon=30,
-        repair_hint=True,
+        options=CpSatOptions(repair_hint=True),
     )
     schedule = solver.schedule()
     assert validate_schedule(schedule, instance)

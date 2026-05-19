@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING, Any
 
 from frost_planner.core.objective import calculate_objective_value
 from frost_planner.core.validate import validate_schedule
-from frost_planner.solver.greedy import _create_schedule
+from frost_planner.solver.greedy import create_schedule
 
 if TYPE_CHECKING:
     from frost_planner.core.base import Job, SchedulingInstance
     from frost_planner.core.objective import ObjectiveWeights
     from frost_planner.core.schedule import Schedule, ScheduledTask
-    from frost_planner.solver.base_solver import _GreedyResult
+    from frost_planner.solver.base_solver import GreedyResult
     from frost_planner.solver.cp_sat_solver._types import _TaskVariables
     from frost_planner.solver.instance_analysis import InstanceAnalysis
 
@@ -37,7 +37,7 @@ class _HeuristicMixin:
             start_time: int = ...,
             horizon: int | None = ...,
             copy_intervals: bool = ...,
-        ) -> _GreedyResult: ...
+        ) -> GreedyResult: ...
 
     def _evaluate_ordering(
         self,
@@ -79,7 +79,7 @@ class _HeuristicMixin:
 
         if self._last_scheduled_tasks is not None:
             try:
-                warm_schedule = _create_schedule(
+                warm_schedule = create_schedule(
                     scheduled_tasks=self._last_scheduled_tasks,
                     machines=self.instance.machines,
                 )

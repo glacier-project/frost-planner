@@ -18,6 +18,7 @@ Public API: ``CpSatSolver``. Implementation is split across:
 - ``_objective`` — objective expression and job-completion variables.
 """
 
+from frost_planner.solver.cp_sat_solver._types import CpSatOptions
 from frost_planner.solver.cp_sat_solver.solver import CpSatSolver
 
-__all__ = ["CpSatSolver"]
+__all__ = ["CpSatOptions", "CpSatSolver"]

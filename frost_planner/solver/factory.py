@@ -9,6 +9,14 @@ from enum import StrEnum
 from frost_planner.core.base import SchedulingInstance
 from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.solver.base_solver import BaseSolver
+from frost_planner.solver.cp_sat_solver._types import (
+    DisjunctiveEncoding,
+    LinearizationLevel,
+    ProbingLevel,
+    SearchBranching,
+    SymmetryLevel,
+    TravelModel,
+)
 from frost_planner.solver.dummy_solver import DummySolver
 from frost_planner.solver.genetic_solver import GeneticAlgorithmSolver
 from frost_planner.solver.stochastic_solver import StochasticSolver
@@ -90,7 +98,7 @@ class CpSatSolverConfiguration(SolverConfiguration):
     relative_gap: float = 0.0
     log_search_progress: bool = False
     use_travel_table: bool | None = None
-    travel_model: str | None = None
+    travel_model: TravelModel | None = None
     hybrid_travel_threshold: int = 16
     use_dependency_bounds: bool = False
     use_machine_load_bounds: bool = False
@@ -98,17 +106,17 @@ class CpSatSolverConfiguration(SolverConfiguration):
     use_heuristic_hints: bool = True
     random_seed: int | None = None
     max_deterministic_time: float | None = None
-    search_branching: str | None = None
-    linearization_level: int | None = None
+    search_branching: SearchBranching | None = None
+    linearization_level: LinearizationLevel | None = None
     cp_model_presolve: bool | None = None
     use_search_strategy: bool = False
     use_capability_cumulative: bool = False
     repair_hint: bool = False
-    disjunctive_encoding: str = "no_overlap"
+    disjunctive_encoding: DisjunctiveEncoding = "no_overlap"
     optimize_with_lb_tree_search: bool | None = None
     use_objective_lb_search: bool | None = None
-    cp_model_probing_level: int | None = None
-    symmetry_level: int | None = None
+    cp_model_probing_level: ProbingLevel | None = None
+    symmetry_level: SymmetryLevel | None = None
 
 
 def create_solver(configuration: SolverConfiguration) -> BaseSolver:
@@ -155,42 +163,55 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             "Expected CpSatSolverConfiguration for CP-SAT solver type"
         )
         from frost_planner.solver.cp_sat_solver import CpSatSolver
+        from frost_planner.solver.cp_sat_solver._types import CpSatOptions
 
         return CpSatSolver(
             instance=configuration.instance,
             horizon=configuration.horizon,
             machine_intervals=configuration.machine_intervals,
-            time_limit_seconds=configuration.time_limit_seconds,
-            num_workers=configuration.num_workers,
-            relative_gap=configuration.relative_gap,
-            log_search_progress=configuration.log_search_progress,
-            use_travel_table=configuration.use_travel_table,
-            travel_model=configuration.travel_model,
-            hybrid_travel_threshold=configuration.hybrid_travel_threshold,
-            use_dependency_bounds=configuration.use_dependency_bounds,
-            use_machine_load_bounds=configuration.use_machine_load_bounds,
-            prune_infeasible_alternatives=(
-                configuration.prune_infeasible_alternatives
-            ),
-            use_heuristic_hints=configuration.use_heuristic_hints,
             objective=configuration.objective,
-            random_seed=configuration.random_seed,
-            max_deterministic_time=configuration.max_deterministic_time,
-            search_branching=configuration.search_branching,
-            linearization_level=configuration.linearization_level,
-            cp_model_presolve=configuration.cp_model_presolve,
-            use_search_strategy=configuration.use_search_strategy,
-            use_capability_cumulative=(
-                configuration.use_capability_cumulative
+            options=CpSatOptions(
+                time_limit_seconds=configuration.time_limit_seconds,
+                num_workers=configuration.num_workers,
+                relative_gap=configuration.relative_gap,
+                log_search_progress=configuration.log_search_progress,
+                use_travel_table=configuration.use_travel_table,
+                travel_model=configuration.travel_model,
+                hybrid_travel_threshold=(
+                    configuration.hybrid_travel_threshold
+                ),
+                use_dependency_bounds=configuration.use_dependency_bounds,
+                use_machine_load_bounds=(
+                    configuration.use_machine_load_bounds
+                ),
+                prune_infeasible_alternatives=(
+                    configuration.prune_infeasible_alternatives
+                ),
+                use_heuristic_hints=configuration.use_heuristic_hints,
+                random_seed=configuration.random_seed,
+                max_deterministic_time=(
+                    configuration.max_deterministic_time
+                ),
+                search_branching=configuration.search_branching,
+                linearization_level=configuration.linearization_level,
+                cp_model_presolve=configuration.cp_model_presolve,
+                use_search_strategy=configuration.use_search_strategy,
+                use_capability_cumulative=(
+                    configuration.use_capability_cumulative
+                ),
+                repair_hint=configuration.repair_hint,
+                optimize_with_lb_tree_search=(
+                    configuration.optimize_with_lb_tree_search
+                ),
+                use_objective_lb_search=(
+                    configuration.use_objective_lb_search
+                ),
+                cp_model_probing_level=(
+                    configuration.cp_model_probing_level
+                ),
+                symmetry_level=configuration.symmetry_level,
+                disjunctive_encoding=configuration.disjunctive_encoding,
             ),
-            repair_hint=configuration.repair_hint,
-            optimize_with_lb_tree_search=(
-                configuration.optimize_with_lb_tree_search
-            ),
-            use_objective_lb_search=configuration.use_objective_lb_search,
-            cp_model_probing_level=configuration.cp_model_probing_level,
-            symmetry_level=configuration.symmetry_level,
-            disjunctive_encoding=configuration.disjunctive_encoding,
         )
 
     assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (

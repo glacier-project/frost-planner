@@ -19,6 +19,7 @@ from frost_planner.solver.cp_sat_solver._model_helpers import (
 )
 from frost_planner.solver.cp_sat_solver._objective import _ObjectiveMixin
 from frost_planner.solver.cp_sat_solver._types import (
+    CpSatOptions,
     _AlternativeVariables,
     _load_cp_model,
     _safe_name,
@@ -39,108 +40,13 @@ class CpSatSolver(
         instance: SchedulingInstance,
         horizon: int = sys.maxsize,
         machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
-        time_limit_seconds: float | None = None,
-        num_workers: int | None = 16,
-        relative_gap: float = 0.0,
-        log_search_progress: bool = False,
-        use_travel_table: bool | None = None,
-        travel_model: str | None = None,
-        hybrid_travel_threshold: int = 16,
-        use_dependency_bounds: bool = False,
-        use_machine_load_bounds: bool = False,
-        prune_infeasible_alternatives: bool = True,
-        use_heuristic_hints: bool = True,
         objective: ObjectiveWeights | None = None,
-        random_seed: int | None = None,
-        max_deterministic_time: float | None = None,
-        search_branching: str | None = None,
-        linearization_level: int | None = None,
-        cp_model_presolve: bool | None = None,
-        use_search_strategy: bool = False,
-        use_capability_cumulative: bool = False,
-        repair_hint: bool = False,
-        disjunctive_encoding: str = "no_overlap",
-        optimize_with_lb_tree_search: bool | None = None,
-        use_objective_lb_search: bool | None = None,
-        cp_model_probing_level: int | None = None,
-        symmetry_level: int | None = None,
+        *,
+        options: CpSatOptions | None = None,
     ) -> None:
         super().__init__(instance, horizon, machine_intervals, objective)
-        if num_workers is not None and num_workers < 1:
-            raise ValueError("num_workers must be positive.")
-        if relative_gap < 0:
-            raise ValueError("relative_gap must be non-negative.")
-        if hybrid_travel_threshold < 1:
-            raise ValueError("hybrid_travel_threshold must be positive.")
-        if travel_model is None:
-            travel_model = (
-                "table" if use_travel_table is True else "pairwise"
-            )
-        if travel_model not in {"table", "pairwise", "hybrid"}:
-            raise ValueError(
-                "travel_model must be 'table', 'pairwise', or 'hybrid'."
-            )
-        if (
-            cp_model_probing_level is not None
-            and cp_model_probing_level not in (0, 1, 2, 3)
-        ):
-            raise ValueError(
-                "cp_model_probing_level must be 0, 1, 2, or 3."
-            )
-        if (
-            symmetry_level is not None
-            and symmetry_level not in (0, 1, 2, 3)
-        ):
-            raise ValueError("symmetry_level must be 0, 1, 2, or 3.")
-        if disjunctive_encoding not in {"no_overlap", "cumulative"}:
-            raise ValueError(
-                "disjunctive_encoding must be 'no_overlap' or "
-                "'cumulative'."
-            )
-        if (
-            linearization_level is not None
-            and linearization_level not in (0, 1, 2)
-        ):
-            raise ValueError("linearization_level must be 0, 1, or 2.")
-        valid_branching = {
-            "automatic",
-            "fixed",
-            "portfolio",
-            "lp",
-            "pseudo_cost",
-        }
-        if (
-            search_branching is not None
-            and search_branching not in valid_branching
-        ):
-            raise ValueError(
-                f"search_branching must be one of {sorted(valid_branching)}."
-            )
-
-        self.time_limit_seconds = time_limit_seconds
-        self.num_workers = num_workers
-        self.relative_gap = relative_gap
-        self.log_search_progress = log_search_progress
-        self.travel_model = travel_model
-        self.use_travel_table = travel_model == "table"
-        self.hybrid_travel_threshold = hybrid_travel_threshold
-        self.use_dependency_bounds = use_dependency_bounds
-        self.use_machine_load_bounds = use_machine_load_bounds
-        self.prune_infeasible_alternatives = prune_infeasible_alternatives
-        self.use_heuristic_hints = use_heuristic_hints
-        self.random_seed = random_seed
-        self.max_deterministic_time = max_deterministic_time
-        self.search_branching = search_branching
-        self.linearization_level = linearization_level
-        self.cp_model_presolve = cp_model_presolve
-        self.use_search_strategy = use_search_strategy
-        self.use_capability_cumulative = use_capability_cumulative
-        self.repair_hint = repair_hint
-        self.disjunctive_encoding = disjunctive_encoding
-        self.optimize_with_lb_tree_search = optimize_with_lb_tree_search
-        self.use_objective_lb_search = use_objective_lb_search
-        self.cp_model_probing_level = cp_model_probing_level
-        self.symmetry_level = symmetry_level
+        # CpSatOptions validates its own fields in __post_init__.
+        self.options = options if options is not None else CpSatOptions()
         self.last_status: str | None = None
         self.last_objective_value: float | None = None
         self.last_best_bound: float | None = None
@@ -204,47 +110,51 @@ class CpSatSolver(
 
     def _set_num_workers(self, solver: Any) -> None:
         """Set worker count across OR-Tools parameter naming variants."""
-        if self.num_workers is None:
+        if self.options.num_workers is None:
             return
         if hasattr(solver.parameters, "num_workers"):
-            solver.parameters.num_workers = self.num_workers
+            solver.parameters.num_workers = self.options.num_workers
         else:
-            solver.parameters.num_search_workers = self.num_workers
+            solver.parameters.num_search_workers = self.options.num_workers
 
     def _configure_solver(self, solver: Any) -> None:
         """Apply user-provided CP-SAT search parameters."""
-        if self.time_limit_seconds is not None:
-            solver.parameters.max_time_in_seconds = self.time_limit_seconds
+        if self.options.time_limit_seconds is not None:
+            solver.parameters.max_time_in_seconds = (
+                self.options.time_limit_seconds
+            )
         self._set_num_workers(solver)
-        solver.parameters.relative_gap_limit = self.relative_gap
-        solver.parameters.log_search_progress = self.log_search_progress
-        if self.random_seed is not None:
-            solver.parameters.random_seed = self.random_seed
-        if self.max_deterministic_time is not None:
+        solver.parameters.relative_gap_limit = self.options.relative_gap
+        solver.parameters.log_search_progress = self.options.log_search_progress
+        if self.options.random_seed is not None:
+            solver.parameters.random_seed = self.options.random_seed
+        if self.options.max_deterministic_time is not None:
             solver.parameters.max_deterministic_time = (
-                self.max_deterministic_time
+                self.options.max_deterministic_time
             )
-        if self.linearization_level is not None:
-            solver.parameters.linearization_level = self.linearization_level
-        if self.cp_model_presolve is not None:
-            solver.parameters.cp_model_presolve = self.cp_model_presolve
-        if self.repair_hint:
+        if self.options.linearization_level is not None:
+            solver.parameters.linearization_level = (
+                self.options.linearization_level
+            )
+        if self.options.cp_model_presolve is not None:
+            solver.parameters.cp_model_presolve = self.options.cp_model_presolve
+        if self.options.repair_hint:
             solver.parameters.repair_hint = True
-        if self.optimize_with_lb_tree_search is not None:
+        if self.options.optimize_with_lb_tree_search is not None:
             solver.parameters.optimize_with_lb_tree_search = (
-                self.optimize_with_lb_tree_search
+                self.options.optimize_with_lb_tree_search
             )
-        if self.use_objective_lb_search is not None:
+        if self.options.use_objective_lb_search is not None:
             solver.parameters.use_objective_lb_search = (
-                self.use_objective_lb_search
+                self.options.use_objective_lb_search
             )
-        if self.cp_model_probing_level is not None:
+        if self.options.cp_model_probing_level is not None:
             solver.parameters.cp_model_probing_level = (
-                self.cp_model_probing_level
+                self.options.cp_model_probing_level
             )
-        if self.symmetry_level is not None:
-            solver.parameters.symmetry_level = self.symmetry_level
-        if self.search_branching is not None:
+        if self.options.symmetry_level is not None:
+            solver.parameters.symmetry_level = self.options.symmetry_level
+        if self.options.search_branching is not None:
             cp_model = _load_cp_model()
             branching_map = {
                 "automatic": cp_model.AUTOMATIC_SEARCH,
@@ -254,7 +164,7 @@ class CpSatSolver(
                 "pseudo_cost": cp_model.PSEUDO_COST_SEARCH,
             }
             solver.parameters.search_branching = branching_map[
-                self.search_branching
+                self.options.search_branching
             ]
 
     @override
@@ -286,7 +196,7 @@ class CpSatSolver(
                 effective_horizon,
                 start_time,
             )
-            if self.use_heuristic_hints
+            if self.options.use_heuristic_hints
             else None
         )
         heuristic_hint: dict[str, ScheduledTask] | None = None
@@ -328,7 +238,7 @@ class CpSatSolver(
         feasible_machines_by_task = self.analysis.feasible_machines_by_task(
             tasks,
             free_windows_by_machine,
-            prune_infeasible_alternatives=self.prune_infeasible_alternatives,
+            prune_infeasible_alternatives=self.options.prune_infeasible_alternatives,
             earliest_start_by_task=loose_earliest_starts,
             latest_end_by_task=loose_latest_ends,
         )
@@ -362,7 +272,7 @@ class CpSatSolver(
                 )
         earliest_start_bounds = (
             critical_path_starts
-            if self.use_dependency_bounds
+            if self.options.use_dependency_bounds
             else {task.id: start_time for task in tasks}
         )
         machine_indices = (
@@ -370,7 +280,7 @@ class CpSatSolver(
                 machine.id: index
                 for index, machine in enumerate(self.instance.machines)
             }
-            if self.travel_model in {"table", "hybrid"}
+            if self.options.travel_model in {"table", "hybrid"}
             else None
         )
         unavailable_windows_by_machine = {
@@ -383,7 +293,7 @@ class CpSatSolver(
         }
         task_ids_requiring_machine_variables: set[str] = set()
         if machine_indices is not None:
-            if self.travel_model == "hybrid":
+            if self.options.travel_model == "hybrid":
                 task_ids_requiring_machine_variables = {
                     task.id for task in tasks
                 }
@@ -414,7 +324,7 @@ class CpSatSolver(
             | machines_with_breakable_alternatives
         )
         machine_load_terms: dict[str, list[Any]] | None = None
-        if self.use_machine_load_bounds:
+        if self.options.use_machine_load_bounds:
             machine_load_terms = {
                 machine.id: [] for machine in self.instance.machines
             }
@@ -728,7 +638,7 @@ class CpSatSolver(
             if intervals:
                 self._add_machine_disjunctive(model, intervals)
 
-        if self.use_capability_cumulative:
+        if self.options.use_capability_cumulative:
             self._add_capability_cumulatives(
                 model, task_variables, effective_horizon, start_time
             )
@@ -774,7 +684,7 @@ class CpSatSolver(
         )
 
         needs_makespan_var = bool(
-            self.objective.makespan or self.use_machine_load_bounds
+            self.objective.makespan or self.options.use_machine_load_bounds
         )
         makespan: Any | None = None
         if needs_makespan_var:
@@ -875,7 +785,7 @@ class CpSatSolver(
             model.Add(objective_expr <= heuristic_objective_value)
         model.Minimize(objective_expr)
 
-        if self.use_search_strategy:
+        if self.options.use_search_strategy:
             presence_vars = [
                 alternative.presence
                 for task_variables_entry in task_variables.values()

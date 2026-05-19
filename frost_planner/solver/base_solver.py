@@ -13,15 +13,15 @@ from frost_planner.core.objective import (
 )
 from frost_planner.core.schedule import Schedule, ScheduledTask
 from frost_planner.solver.greedy import (
-    _create_schedule,
-    _perform_task_interval_allocation,
-    _schedule_by_order,
+    create_schedule,
+    perform_task_interval_allocation,
+    schedule_by_order,
 )
 from frost_planner.solver.instance_analysis import InstanceAnalysis
 
 
 @dataclass(frozen=True)
-class _GreedyResult:
+class GreedyResult:
     """Output of a greedy schedule evaluation."""
 
     scheduled_tasks: list[ScheduledTask]
@@ -122,7 +122,7 @@ class BaseSolver(ABC):
                         intervals.pop(0)
             else:
                 # Standard locking for future tasks
-                _perform_task_interval_allocation(
+                perform_task_interval_allocation(
                     task.start_time,
                     task.task,
                     task.machine,
@@ -138,11 +138,11 @@ class BaseSolver(ABC):
         start_time: int = 0,
         horizon: int | None = None,
         copy_intervals: bool = True,
-    ) -> _GreedyResult:
+    ) -> GreedyResult:
         """Greedy-schedule a job ordering and compute its objective.
 
         Centralises the four-step (`schedule_by_order` →
-        `_create_schedule` → `calculate_objective_value`) sequence
+        `create_schedule` → `calculate_objective_value`) sequence
         that every concrete solver runs to evaluate a candidate
         ordering. Locked tasks are honoured automatically. By default
         ``machine_intervals`` is deep-copied so the caller can reuse
@@ -157,7 +157,7 @@ class BaseSolver(ABC):
             if copy_intervals
             else machine_intervals
         )
-        scheduled_tasks = _schedule_by_order(
+        scheduled_tasks = schedule_by_order(
             self.instance,
             jobs,
             intervals,
@@ -167,7 +167,7 @@ class BaseSolver(ABC):
             machine_id_map=self.machine_id_map,
             suitable_machines_map=self.suitable_machines_map,
         )
-        schedule = _create_schedule(
+        schedule = create_schedule(
             scheduled_tasks=scheduled_tasks,
             machines=self.instance.machines,
         )
@@ -176,7 +176,7 @@ class BaseSolver(ABC):
             self.instance,
             self.objective,
         )
-        return _GreedyResult(
+        return GreedyResult(
             scheduled_tasks=scheduled_tasks,
             schedule=schedule,
             objective=objective_value,
@@ -228,7 +228,7 @@ class BaseSolver(ABC):
             if st.task.id not in locked_ids:
                 combined_tasks.append(st)
 
-        return _create_schedule(
+        return create_schedule(
             scheduled_tasks=combined_tasks,
             machines=self.instance.machines,
         )

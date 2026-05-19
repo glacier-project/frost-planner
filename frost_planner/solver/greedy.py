@@ -77,7 +77,7 @@ def _get_machine_intervals_for_task(
     return s_intervals
 
 
-def _perform_task_interval_allocation(
+def perform_task_interval_allocation(
     start_time: int,
     task: Task,
     machine: Machine,
@@ -156,7 +156,7 @@ def _allocate_task(
             The scheduled task allocation.
 
     """
-    _perform_task_interval_allocation(
+    perform_task_interval_allocation(
         start_time, task, machine, machine_intervals
     )
     return ScheduledTask(
@@ -167,7 +167,7 @@ def _allocate_task(
     )
 
 
-def _create_schedule(
+def create_schedule(
     scheduled_tasks: list[ScheduledTask],
     machines: list[Machine],
 ) -> Schedule:
@@ -190,7 +190,7 @@ def _create_schedule(
     return schedule
 
 
-def _schedule_by_order(
+def schedule_by_order(
     instance: SchedulingInstance,
     jobs: list[Job],
     machine_intervals: dict[str, list[tuple[int, int]]],

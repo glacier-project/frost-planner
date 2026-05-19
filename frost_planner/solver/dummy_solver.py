@@ -8,7 +8,7 @@ from frost_planner.core.base import SchedulingInstance
 from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.core.schedule import ScheduledTask
 from frost_planner.solver.base_solver import BaseSolver
-from frost_planner.solver.greedy import _schedule_by_order
+from frost_planner.solver.greedy import schedule_by_order
 
 
 class DummySolver(BaseSolver):
@@ -34,7 +34,7 @@ class DummySolver(BaseSolver):
         start_time: int = 0,
     ) -> list[ScheduledTask]:
         locked_tasks_map = {st.task.id: st for st in self.locked_tasks.values()}
-        return _schedule_by_order(
+        return schedule_by_order(
             self.instance,
             self.instance.jobs,
             machine_intervals,

@@ -21,6 +21,7 @@ from frost_planner.solver.cp_sat_solver._types import (
 if TYPE_CHECKING:
     from frost_planner.core.base import Machine, SchedulingInstance, Task
     from frost_planner.core.schedule import ScheduledTask
+    from frost_planner.solver.cp_sat_solver._types import CpSatOptions
     from frost_planner.solver.instance_analysis import (
         InstanceAnalysis,
         TimeWindow,
@@ -41,15 +42,13 @@ class _ModelHelpersMixin:
         task_id_map: dict[str, Task]
         machine_id_map: dict[str, Machine]
         analysis: InstanceAnalysis
-        disjunctive_encoding: str
-        travel_model: str
-        hybrid_travel_threshold: int
+        options: CpSatOptions
 
     def _add_machine_disjunctive(
         self, model: Any, intervals: list[Any]
     ) -> None:
         """Enforce mutual exclusion on a machine using the chosen encoding."""
-        if self.disjunctive_encoding == "cumulative":
+        if self.options.disjunctive_encoding == "cumulative":
             model.AddCumulative(intervals, [1] * len(intervals), 1)
         else:
             model.AddNoOverlap(intervals)
@@ -147,7 +146,7 @@ class _ModelHelpersMixin:
         feasible_machines_by_task: dict[str, list[Machine]],
     ) -> set[str]:
         """Return tasks that need machine-index variables for table edges."""
-        if self.travel_model not in {"table", "hybrid"}:
+        if self.options.travel_model not in {"table", "hybrid"}:
             return set()
 
         task_by_id = {task.id: task for task in tasks}
@@ -172,8 +171,8 @@ class _ModelHelpersMixin:
                 if min(travel_times) == max(travel_times):
                     continue
 
-                use_table = self.travel_model == "table"
-                if self.travel_model == "hybrid":
+                use_table = self.options.travel_model == "table"
+                if self.options.travel_model == "hybrid":
                     min_travel = min(travel_times)
                     extra_pair_count = sum(
                         1
@@ -181,7 +180,7 @@ class _ModelHelpersMixin:
                         if travel_time > min_travel
                     )
                     use_table = (
-                        extra_pair_count > self.hybrid_travel_threshold
+                        extra_pair_count > self.options.hybrid_travel_threshold
                     )
                 if use_table:
                     task_ids.add(dependency_id)
@@ -588,15 +587,15 @@ class _ModelHelpersMixin:
                     )
                     continue
 
-                use_table = self.travel_model == "table"
-                if self.travel_model == "hybrid":
+                use_table = self.options.travel_model == "table"
+                if self.options.travel_model == "hybrid":
                     extra_pair_count = sum(
                         1
                         for travel_time in travel_times
                         if travel_time > min_travel_time
                     )
                     use_table = (
-                        extra_pair_count > self.hybrid_travel_threshold
+                        extra_pair_count > self.options.hybrid_travel_threshold
                     )
 
                 if use_table:
