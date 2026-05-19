@@ -4,9 +4,10 @@
 """CP-SAT solver orchestration: build the model, solve, extract."""
 
 import sys
+from dataclasses import dataclass
 from typing import Any, override
 
-from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.base import Machine, SchedulingInstance, Task
 from frost_planner.core.objective import (
     ObjectiveWeights,
     calculate_objective_value,
@@ -26,7 +27,39 @@ from frost_planner.solver.cp_sat_solver._task_build import _TaskBuildMixin
 from frost_planner.solver.cp_sat_solver._types import (
     CpSatOptions,
     _load_cp_model,
+    _TaskVariables,
 )
+from frost_planner.solver.instance_analysis import TimeWindow
+
+
+@dataclass
+class _BoundsPhase:
+    """Result of the bounds / infeasibility-check phase."""
+
+    critical_path_starts: dict[str, int]
+    critical_path_ends: dict[str, int]
+    latest_starts: dict[str, int]
+    latest_ends: dict[str, int]
+    earliest_start_bounds: dict[str, int]
+
+
+@dataclass
+class _MachineSetupPhase:
+    """Result of the machine-side-only setup phase."""
+
+    machine_indices: dict[str, int] | None
+    unavailable_windows_by_machine: dict[str, list[TimeWindow]]
+    task_ids_requiring_machine_variables: set[str]
+
+
+@dataclass
+class _MachineCollectionsPhase:
+    """Mutable per-machine collections plus the separated-availability set."""
+
+    no_overlap_intervals: dict[str, list[Any]]
+    non_breakable_availability_intervals: dict[str, list[Any]]
+    machine_load_terms: dict[str, list[Any]] | None
+    machines_requiring_separate_availability: set[str]
 
 
 class CpSatSolver(
@@ -195,34 +228,187 @@ class CpSatSolver(
         if not tasks:
             return []
 
-        heuristic_result = (
-            self._create_heuristic_hint(
-                machine_intervals,
-                effective_horizon,
-                start_time,
+        heuristic_hint, heuristic_objective_value, effective_horizon = (
+            self._run_heuristic_phase(
+                machine_intervals, effective_horizon, start_time
             )
-            if self.options.use_heuristic_hints
-            else None
         )
-        heuristic_hint: dict[str, ScheduledTask] | None = None
-        heuristic_objective_value: int | None = None
-        if heuristic_result is not None:
-            heuristic_hint, heuristic_schedule = heuristic_result
-            heuristic_objective_value = int(
-                calculate_objective_value(
-                    heuristic_schedule, self.instance, self.objective
-                )
-            )
-            if self.objective.is_pure_makespan:
-                heuristic_makespan = max(
-                    scheduled_task.end_time
-                    for scheduled_task in heuristic_hint.values()
-                )
-                effective_horizon = max(
-                    start_time,
-                    min(effective_horizon, heuristic_makespan),
-                )
 
+        free_windows_by_machine, feasible_machines_by_task = (
+            self._build_feasibility_phase(
+                tasks, machine_intervals, start_time, effective_horizon
+            )
+        )
+
+        bounds = self._compute_bounds_phase(
+            tasks, start_time, effective_horizon
+        )
+
+        machine_setup = self._build_machine_setup_phase(
+            tasks,
+            feasible_machines_by_task,
+            free_windows_by_machine,
+            start_time,
+            effective_horizon,
+        )
+
+        machine_collections = self._build_machine_collections_phase(
+            model,
+            tasks,
+            feasible_machines_by_task,
+            machine_setup.unavailable_windows_by_machine,
+            start_time,
+        )
+
+        task_variables = self._create_locked_variables(
+            model,
+            machine_collections.no_overlap_intervals,
+            machine_setup.machine_indices,
+            machine_setup.task_ids_requiring_machine_variables,
+            start_time,
+        )
+        for task in tasks:
+            if task.id in task_variables:
+                continue
+            task_variables[task.id] = self._build_task_variables(
+                task,
+                model=model,
+                cp_model=cp_model,
+                start_time=start_time,
+                effective_horizon=effective_horizon,
+                feasible_machines=feasible_machines_by_task[task.id],
+                earliest_start=bounds.earliest_start_bounds[task.id],
+                latest_start=bounds.latest_starts[task.id],
+                latest_end=bounds.latest_ends[task.id],
+                free_windows_by_machine=free_windows_by_machine,
+                unavailable_windows_by_machine=(
+                    machine_setup.unavailable_windows_by_machine
+                ),
+                machine_indices=machine_setup.machine_indices,
+                task_ids_requiring_machine_variables=(
+                    machine_setup.task_ids_requiring_machine_variables
+                ),
+                machines_requiring_separate_availability=(
+                    machine_collections
+                    .machines_requiring_separate_availability
+                ),
+                non_breakable_availability_intervals=(
+                    machine_collections.non_breakable_availability_intervals
+                ),
+                no_overlap_intervals=(
+                    machine_collections.no_overlap_intervals
+                ),
+                machine_load_terms=machine_collections.machine_load_terms,
+            )
+
+        self._add_disjunctive_constraints(model, machine_collections)
+        if self.options.use_capability_cumulative:
+            self._add_capability_cumulatives(
+                model, task_variables, effective_horizon, start_time
+            )
+        self._add_symmetry_constraints(
+            model, task_variables, free_windows_by_machine
+        )
+        self._add_dependency_constraints(
+            model,
+            task_variables,
+            machine_setup.machine_indices,
+            self.analysis.reduced_dependencies(),
+        )
+
+        makespan = self._build_makespan_var(
+            model,
+            task_variables,
+            tasks,
+            bounds.critical_path_ends,
+            machine_collections.machine_load_terms,
+            start_time,
+            effective_horizon,
+        )
+        job_completion_vars = self._build_job_completion_with_bounds(
+            model,
+            task_variables,
+            bounds.critical_path_ends,
+            heuristic_hint,
+            start_time,
+            effective_horizon,
+        )
+
+        if heuristic_hint is not None:
+            self._add_heuristic_hint(
+                model,
+                makespan,
+                task_variables,
+                heuristic_hint,
+                machine_setup.machine_indices,
+            )
+        objective_expr = self._objective_expression(
+            model,
+            makespan,
+            job_completion_vars,
+            effective_horizon,
+            task_variables=task_variables,
+            heuristic_hint=heuristic_hint,
+            critical_path_ends=bounds.critical_path_ends,
+        )
+        if heuristic_objective_value is not None:
+            model.Add(objective_expr <= heuristic_objective_value)
+        model.Minimize(objective_expr)
+
+        self._add_decision_strategies(
+            model, cp_model, task_variables, job_completion_vars
+        )
+
+        return self._solve_and_extract(model, cp_model, task_variables, tasks)
+
+    # ----- _allocate_tasks phases ------------------------------------
+
+    def _run_heuristic_phase(
+        self,
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        effective_horizon: int,
+        start_time: int,
+    ) -> tuple[
+        dict[str, ScheduledTask] | None,
+        int | None,
+        int,
+    ]:
+        """Greedy heuristic + pure-makespan horizon shrink."""
+        if not self.options.use_heuristic_hints:
+            return None, None, effective_horizon
+        heuristic_result = self._create_heuristic_hint(
+            machine_intervals, effective_horizon, start_time
+        )
+        if heuristic_result is None:
+            return None, None, effective_horizon
+        heuristic_hint, heuristic_schedule = heuristic_result
+        heuristic_objective_value = int(
+            calculate_objective_value(
+                heuristic_schedule, self.instance, self.objective
+            )
+        )
+        if self.objective.is_pure_makespan:
+            heuristic_makespan = max(
+                scheduled_task.end_time
+                for scheduled_task in heuristic_hint.values()
+            )
+            effective_horizon = max(
+                start_time,
+                min(effective_horizon, heuristic_makespan),
+            )
+        return heuristic_hint, heuristic_objective_value, effective_horizon
+
+    def _build_feasibility_phase(
+        self,
+        tasks: list[Task],
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        start_time: int,
+        effective_horizon: int,
+    ) -> tuple[
+        dict[str, list[TimeWindow]],
+        dict[str, list[Machine]],
+    ]:
+        """Compute free windows, then prune machine alternatives by band."""
         free_windows_by_machine = {
             machine.id: self.analysis.normalise_windows(
                 machine_intervals.get(machine.id, []),
@@ -234,23 +420,31 @@ class CpSatSolver(
         # First pass: compute loose earliest/latest bounds against the
         # unpruned suitable-machines set so the band check below has a
         # safe, wider band than the eventual pruned-set bounds.
-        loose_earliest_starts, _loose_earliest_ends = (
-            self.analysis.earliest_bounds(start_time)
-        )
-        _loose_latest_starts, loose_latest_ends = (
-            self.analysis.latest_bounds(start_time, effective_horizon)
+        loose_earliest_starts, _ = self.analysis.earliest_bounds(start_time)
+        _, loose_latest_ends = self.analysis.latest_bounds(
+            start_time, effective_horizon
         )
         feasible_machines_by_task = self.analysis.feasible_machines_by_task(
             tasks,
             free_windows_by_machine,
-            prune_infeasible_alternatives=self.options.prune_infeasible_alternatives,
+            prune_infeasible_alternatives=(
+                self.options.prune_infeasible_alternatives
+            ),
             earliest_start_by_task=loose_earliest_starts,
             latest_end_by_task=loose_latest_ends,
         )
         # Pruned-feasibility view: invalidates the stale per-lookup caches
         # the loose first pass may have populated.
         self.analysis.set_feasible_machines(feasible_machines_by_task)
+        return free_windows_by_machine, feasible_machines_by_task
 
+    def _compute_bounds_phase(
+        self,
+        tasks: list[Task],
+        start_time: int,
+        effective_horizon: int,
+    ) -> _BoundsPhase:
+        """Critical-path + latest-bounds + feasibility-window guard."""
         critical_path_starts, critical_path_ends = (
             self.analysis.earliest_bounds(start_time)
         )
@@ -267,10 +461,7 @@ class CpSatSolver(
                     f"{critical_path_starts[task.id]}."
                 )
             cp_end = critical_path_ends.get(task.id)
-            if (
-                cp_end is not None
-                and latest_ends[task.id] < cp_end
-            ):
+            if cp_end is not None and latest_ends[task.id] < cp_end:
                 raise ValueError(
                     f"Task {task.id} is infeasible: latest_end "
                     f"{latest_ends[task.id]} < earliest_end {cp_end}."
@@ -280,6 +471,23 @@ class CpSatSolver(
             if self.options.use_dependency_bounds
             else {task.id: start_time for task in tasks}
         )
+        return _BoundsPhase(
+            critical_path_starts=critical_path_starts,
+            critical_path_ends=critical_path_ends,
+            latest_starts=latest_starts,
+            latest_ends=latest_ends,
+            earliest_start_bounds=earliest_start_bounds,
+        )
+
+    def _build_machine_setup_phase(
+        self,
+        tasks: list[Task],
+        feasible_machines_by_task: dict[str, list[Machine]],
+        free_windows_by_machine: dict[str, list[TimeWindow]],
+        start_time: int,
+        effective_horizon: int,
+    ) -> _MachineSetupPhase:
+        """Machine-index var domain + per-machine unavailable windows."""
         machine_indices = (
             {
                 machine.id: index
@@ -305,10 +513,26 @@ class CpSatSolver(
             else:
                 task_ids_requiring_machine_variables = (
                     self._table_machine_task_ids(
-                        tasks,
-                        feasible_machines_by_task,
+                        tasks, feasible_machines_by_task
                     )
                 )
+        return _MachineSetupPhase(
+            machine_indices=machine_indices,
+            unavailable_windows_by_machine=unavailable_windows_by_machine,
+            task_ids_requiring_machine_variables=(
+                task_ids_requiring_machine_variables
+            ),
+        )
+
+    def _build_machine_collections_phase(
+        self,
+        model: Any,
+        tasks: list[Task],
+        feasible_machines_by_task: dict[str, list[Machine]],
+        unavailable_windows_by_machine: dict[str, list[TimeWindow]],
+        start_time: int,
+    ) -> _MachineCollectionsPhase:
+        """Per-machine interval lists + load terms + availability split."""
         no_overlap_intervals: dict[str, list[Any]] = {
             machine.id: [] for machine in self.instance.machines
         }
@@ -328,113 +552,98 @@ class CpSatSolver(
             machines_with_future_locked_tasks
             | machines_with_breakable_alternatives
         )
-        machine_load_terms: dict[str, list[Any]] | None = None
-        if self.options.use_machine_load_bounds:
-            machine_load_terms = {
-                machine.id: [] for machine in self.instance.machines
-            }
-            for scheduled_task in self.locked_tasks.values():
-                if scheduled_task.task.id not in self.task_id_map:
-                    continue
-                if scheduled_task.machine.id not in machine_load_terms:
-                    raise ValueError(
-                        f"Locked task {scheduled_task.task.id} is "
-                        f"assigned to unknown machine "
-                        f"{scheduled_task.machine.id}."
-                    )
-                if scheduled_task.end_time <= start_time:
-                    continue
-                locked_duration = (
-                    scheduled_task.end_time
-                    - max(start_time, scheduled_task.start_time)
-                )
-                machine_load_terms[scheduled_task.machine.id].append(
-                    locked_duration
-                )
+        machine_load_terms = self._build_machine_load_terms(start_time)
         fixed_unavailable_intervals = (
             self._create_fixed_unavailable_intervals(
-                model,
-                unavailable_windows_by_machine,
+                model, unavailable_windows_by_machine
             )
         )
         non_breakable_availability_intervals: dict[str, list[Any]] = {
             machine.id: [] for machine in self.instance.machines
         }
         for machine in self.instance.machines:
-            if machine.id in machines_requiring_separate_availability:
-                non_breakable_availability_intervals[machine.id].extend(
-                    fixed_unavailable_intervals[machine.id]
-                )
-            else:
-                no_overlap_intervals[machine.id].extend(
-                    fixed_unavailable_intervals[machine.id]
-                )
-        task_variables = self._create_locked_variables(
-            model,
-            no_overlap_intervals,
-            machine_indices,
-            task_ids_requiring_machine_variables,
-            start_time,
+            target = (
+                non_breakable_availability_intervals
+                if machine.id in machines_requiring_separate_availability
+                else no_overlap_intervals
+            )
+            target[machine.id].extend(fixed_unavailable_intervals[machine.id])
+        return _MachineCollectionsPhase(
+            no_overlap_intervals=no_overlap_intervals,
+            non_breakable_availability_intervals=(
+                non_breakable_availability_intervals
+            ),
+            machine_load_terms=machine_load_terms,
+            machines_requiring_separate_availability=(
+                machines_requiring_separate_availability
+            ),
         )
 
-        for task in tasks:
-            if task.id in task_variables:
+    def _build_machine_load_terms(
+        self, start_time: int
+    ) -> dict[str, list[Any]] | None:
+        """Seed per-machine load with the locked-task contributions."""
+        if not self.options.use_machine_load_bounds:
+            return None
+        machine_load_terms: dict[str, list[Any]] = {
+            machine.id: [] for machine in self.instance.machines
+        }
+        for scheduled_task in self.locked_tasks.values():
+            if scheduled_task.task.id not in self.task_id_map:
                 continue
-            task_variables[task.id] = self._build_task_variables(
-                task,
-                model=model,
-                cp_model=cp_model,
-                start_time=start_time,
-                effective_horizon=effective_horizon,
-                feasible_machines=feasible_machines_by_task[task.id],
-                earliest_start=earliest_start_bounds[task.id],
-                latest_start=latest_starts[task.id],
-                latest_end=latest_ends[task.id],
-                free_windows_by_machine=free_windows_by_machine,
-                unavailable_windows_by_machine=(
-                    unavailable_windows_by_machine
-                ),
-                machine_indices=machine_indices,
-                task_ids_requiring_machine_variables=(
-                    task_ids_requiring_machine_variables
-                ),
-                machines_requiring_separate_availability=(
-                    machines_requiring_separate_availability
-                ),
-                non_breakable_availability_intervals=(
-                    non_breakable_availability_intervals
-                ),
-                no_overlap_intervals=no_overlap_intervals,
-                machine_load_terms=machine_load_terms,
+            if scheduled_task.machine.id not in machine_load_terms:
+                raise ValueError(
+                    f"Locked task {scheduled_task.task.id} is "
+                    f"assigned to unknown machine "
+                    f"{scheduled_task.machine.id}."
+                )
+            if scheduled_task.end_time <= start_time:
+                continue
+            locked_duration = (
+                scheduled_task.end_time
+                - max(start_time, scheduled_task.start_time)
             )
+            machine_load_terms[scheduled_task.machine.id].append(
+                locked_duration
+            )
+        return machine_load_terms
 
-        for intervals in no_overlap_intervals.values():
+    def _add_disjunctive_constraints(
+        self,
+        model: Any,
+        collections: _MachineCollectionsPhase,
+    ) -> None:
+        """Apply per-machine NoOverlap (or capacity-1 cumulative)."""
+        for intervals in collections.no_overlap_intervals.values():
             if intervals:
                 self._add_machine_disjunctive(model, intervals)
-        for intervals in non_breakable_availability_intervals.values():
+        for intervals in (
+            collections.non_breakable_availability_intervals.values()
+        ):
             if intervals:
                 self._add_machine_disjunctive(model, intervals)
 
-        if self.options.use_capability_cumulative:
-            self._add_capability_cumulatives(
-                model, task_variables, effective_horizon, start_time
-            )
-
-        identical_groups = self.analysis.identical_machine_groups(
+    def _add_symmetry_constraints(
+        self,
+        model: Any,
+        task_variables: dict[str, _TaskVariables],
+        free_windows_by_machine: dict[str, list[TimeWindow]],
+    ) -> None:
+        """Break identical-machine and identical-job symmetries."""
+        for group in self.analysis.identical_machine_groups(
             free_windows_by_machine
-        )
-        for group in identical_groups:
+        ):
             counts: list[Any] = []
             for machine in group:
-                presence_terms = []
-                for variables in task_variables.values():
-                    alternative = variables.alternatives.get(machine.id)
+                presence_terms = [
+                    alternative.presence
+                    for variables in task_variables.values()
                     if (
-                        alternative is None
-                        or alternative.presence is None
-                    ):
-                        continue
-                    presence_terms.append(alternative.presence)
+                        alternative := variables.alternatives.get(machine.id)
+                    )
+                    is not None
+                    and alternative.presence is not None
+                ]
                 counts.append(
                     sum(presence_terms) if presence_terms else 0
                 )
@@ -448,63 +657,65 @@ class CpSatSolver(
                 if job.tasks and job.tasks[0].id in task_variables
             ]
             for index in range(len(entry_starts) - 1):
-                model.Add(
-                    entry_starts[index] <= entry_starts[index + 1]
-                )
+                model.Add(entry_starts[index] <= entry_starts[index + 1])
 
-        reduced_dependencies = self.analysis.reduced_dependencies()
-        self._add_dependency_constraints(
-            model,
-            task_variables,
-            machine_indices,
-            reduced_dependencies,
-        )
-
-        needs_makespan_var = bool(
+    def _build_makespan_var(
+        self,
+        model: Any,
+        task_variables: dict[str, _TaskVariables],
+        tasks: list[Task],
+        critical_path_ends: dict[str, int],
+        machine_load_terms: dict[str, list[Any]] | None,
+        start_time: int,
+        effective_horizon: int,
+    ) -> Any | None:
+        """Build the makespan IntVar + critical-path / capability LBs."""
+        if not (
             self.objective.makespan or self.options.use_machine_load_bounds
+        ):
+            return None
+        makespan = model.NewIntVar(0, effective_horizon, "makespan")
+        model.AddMaxEquality(
+            makespan,
+            [
+                task_variable.end
+                for task_variable in task_variables.values()
+            ],
         )
-        makespan: Any | None = None
-        if needs_makespan_var:
-            makespan = model.NewIntVar(
-                0, effective_horizon, "makespan"
-            )
-            model.AddMaxEquality(
-                makespan,
-                [
-                    task_variable.end
-                    for task_variable in task_variables.values()
-                ],
-            )
-            if machine_load_terms is not None:
-                for terms in machine_load_terms.values():
-                    if terms:
-                        model.Add(
-                            makespan >= start_time + sum(terms)
-                        )
-            critical_path_makespan_lb = max(
-                (
-                    critical_path_ends[task.id]
-                    for task in tasks
-                    if task.id in critical_path_ends
-                ),
-                default=start_time,
-            )
-            if critical_path_makespan_lb > start_time:
-                model.Add(makespan >= critical_path_makespan_lb)
-            bottleneck_lbs = (
-                self.analysis.capability_bottleneck_lower_bounds(
-                    start_time
-                )
-            )
-            for bottleneck_lb in bottleneck_lbs:
-                if bottleneck_lb > start_time:
-                    model.Add(makespan >= bottleneck_lb)
+        if machine_load_terms is not None:
+            for terms in machine_load_terms.values():
+                if terms:
+                    model.Add(makespan >= start_time + sum(terms))
+        critical_path_makespan_lb = max(
+            (
+                critical_path_ends[task.id]
+                for task in tasks
+                if task.id in critical_path_ends
+            ),
+            default=start_time,
+        )
+        if critical_path_makespan_lb > start_time:
+            model.Add(makespan >= critical_path_makespan_lb)
+        for bottleneck_lb in self.analysis.capability_bottleneck_lower_bounds(
+            start_time
+        ):
+            if bottleneck_lb > start_time:
+                model.Add(makespan >= bottleneck_lb)
+        return makespan
+
+    def _build_job_completion_with_bounds(
+        self,
+        model: Any,
+        task_variables: dict[str, _TaskVariables],
+        critical_path_ends: dict[str, int],
+        heuristic_hint: dict[str, ScheduledTask] | None,
+        start_time: int,
+        effective_horizon: int,
+    ) -> dict[str, Any]:
+        """Build job-completion vars + per-job/per-task critical-path LBs."""
         job_completion_vars: dict[str, Any] = (
             self._job_completion_variables(
-                model,
-                task_variables,
-                effective_horizon,
-                heuristic_hint,
+                model, task_variables, effective_horizon, heuristic_hint
             )
             if self.objective.needs_job_completion
             else {}
@@ -522,8 +733,7 @@ class CpSatSolver(
                 continue
             if job.id in job_completion_vars:
                 model.Add(
-                    job_completion_vars[job.id]
-                    >= job_critical_path_lb
+                    job_completion_vars[job.id] >= job_critical_path_lb
                 )
             # Item #47: per-job analogue of item #9's global makespan
             # LB, applied to every task's `end` regardless of whether
@@ -541,84 +751,77 @@ class CpSatSolver(
                 if task.id in self.locked_tasks:
                     continue
                 model.Add(task_variables[task.id].end >= task_lb)
-        if heuristic_hint is not None:
-            self._add_heuristic_hint(
-                model,
-                makespan,
-                task_variables,
-                heuristic_hint,
-                machine_indices,
-            )
-        objective_expr = self._objective_expression(
-            model,
-            makespan,
-            job_completion_vars,
-            effective_horizon,
-            task_variables=task_variables,
-            heuristic_hint=heuristic_hint,
-            critical_path_ends=critical_path_ends,
-        )
-        if heuristic_objective_value is not None:
-            model.Add(objective_expr <= heuristic_objective_value)
-        model.Minimize(objective_expr)
+        return job_completion_vars
 
-        if self.options.use_search_strategy:
-            presence_vars = [
-                alternative.presence
-                for task_variables_entry in task_variables.values()
-                for alternative in (
-                    task_variables_entry.alternatives.values()
-                )
-                if alternative.presence is not None
-            ]
-            if presence_vars:
+    def _add_decision_strategies(
+        self,
+        model: Any,
+        cp_model: Any,
+        task_variables: dict[str, _TaskVariables],
+        job_completion_vars: dict[str, Any],
+    ) -> None:
+        """Optional CP-SAT decision strategies (presences/starts/etc.)."""
+        if not self.options.use_search_strategy:
+            return
+        presence_vars = [
+            alternative.presence
+            for task_variables_entry in task_variables.values()
+            for alternative in (
+                task_variables_entry.alternatives.values()
+            )
+            if alternative.presence is not None
+        ]
+        if presence_vars:
+            model.AddDecisionStrategy(
+                presence_vars,
+                cp_model.CHOOSE_FIRST,
+                cp_model.SELECT_MAX_VALUE,
+            )
+        start_vars = [
+            task_variables_entry.start
+            for task_variables_entry in task_variables.values()
+        ]
+        if start_vars:
+            model.AddDecisionStrategy(
+                start_vars,
+                cp_model.CHOOSE_FIRST,
+                cp_model.SELECT_MIN_VALUE,
+            )
+        if self.objective.needs_job_completion and job_completion_vars:
+            completion_vars = list(job_completion_vars.values())
+            if completion_vars:
                 model.AddDecisionStrategy(
-                    presence_vars,
-                    cp_model.CHOOSE_FIRST,
-                    cp_model.SELECT_MAX_VALUE,
-                )
-            start_vars = [
-                task_variables_entry.start
-                for task_variables_entry in task_variables.values()
-            ]
-            if start_vars:
-                model.AddDecisionStrategy(
-                    start_vars,
+                    completion_vars,
                     cp_model.CHOOSE_FIRST,
                     cp_model.SELECT_MIN_VALUE,
                 )
-            if (
-                self.objective.needs_job_completion
-                and job_completion_vars
-            ):
-                completion_vars = list(job_completion_vars.values())
-                if completion_vars:
-                    model.AddDecisionStrategy(
-                        completion_vars,
-                        cp_model.CHOOSE_FIRST,
-                        cp_model.SELECT_MIN_VALUE,
-                    )
 
+    def _solve_and_extract(
+        self,
+        model: Any,
+        cp_model: Any,
+        task_variables: dict[str, _TaskVariables],
+        tasks: list[Task],
+    ) -> list[ScheduledTask]:
+        """Run the solver and read back the scheduled tasks."""
         solver = cp_model.CpSolver()
         self._configure_solver(solver)
         status = solver.Solve(model)
         self.last_status = solver.StatusName(status)
         self.last_wall_time_seconds = solver.WallTime()
-
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             raise ValueError(
                 f"CP-SAT did not find a feasible schedule. "
                 f"Status: {self.last_status}."
             )
-
         self.last_objective_value = solver.ObjectiveValue()
         self.last_best_bound = solver.BestObjectiveBound()
+
         scheduled_tasks: list[ScheduledTask] = []
         locked_ids = set(self.locked_tasks)
         for task in tasks:
             if task.id in locked_ids:
                 continue
-
             task_variables_for_solution = task_variables[task.id]
             selected_alternative = next(
                 alternative
@@ -645,8 +848,8 @@ class CpSatSolver(
                     break_time=break_time,
                 )
             )
-
-        # Cache full schedule (including locked tasks) for warm-starts.
+        # Cache the full schedule (locked + scheduled) for warm-starts
+        # on the next solve.
         locked_scheduled = [
             scheduled_task
             for scheduled_task in self.locked_tasks.values()
