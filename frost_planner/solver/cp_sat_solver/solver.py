@@ -13,10 +13,14 @@ from frost_planner.core.objective import (
 )
 from frost_planner.core.schedule import ScheduledTask
 from frost_planner.solver.base_solver import BaseSolver
-from frost_planner.solver.cp_sat_solver._heuristic import _HeuristicMixin
-from frost_planner.solver.cp_sat_solver._model_helpers import (
-    _ModelHelpersMixin,
+from frost_planner.solver.cp_sat_solver._cumulatives import (
+    _CumulativesMixin,
 )
+from frost_planner.solver.cp_sat_solver._dependencies import (
+    _DependenciesMixin,
+)
+from frost_planner.solver.cp_sat_solver._heuristic import _HeuristicMixin
+from frost_planner.solver.cp_sat_solver._intervals import _IntervalsMixin
 from frost_planner.solver.cp_sat_solver._objective import _ObjectiveMixin
 from frost_planner.solver.cp_sat_solver._task_build import _TaskBuildMixin
 from frost_planner.solver.cp_sat_solver._types import (
@@ -27,7 +31,9 @@ from frost_planner.solver.cp_sat_solver._types import (
 
 class CpSatSolver(
     BaseSolver,
-    _ModelHelpersMixin,
+    _IntervalsMixin,
+    _DependenciesMixin,
+    _CumulativesMixin,
     _TaskBuildMixin,
     _HeuristicMixin,
     _ObjectiveMixin,
