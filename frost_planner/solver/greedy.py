@@ -14,63 +14,30 @@ def _get_machine_intervals_for_task(
     horizon: int,
     suitable_machines_map: dict[str, list[Machine]],
 ) -> dict[str, list[tuple[int, int]]]:
-    """Gets the time intervals for a task on a specific machine.
+    """Return free intervals on each suitable machine that can host the task.
 
-    Args:
-        task (Task):
-            The task to get intervals for.
-        machine_intervals (dict[str, list[tuple[int, int]]]):
-            The machine intervals to get intervals from.
-        earliest_start (int):
-            The earliest start time for the task based on its dependencies.
-        horizon (int):
-            The time horizon for the scheduling.
-        suitable_machines_map (dict[str, list[Machine]]):
-            A mapping of task IDs to their suitable machines.
-
-    Returns:
-        dict[str, list[tuple[int, int]]]:
-            A dictionary mapping machine IDs to their available time intervals
-            for the task.
-
+    Each returned interval is clipped to ``[earliest_start, horizon]`` and
+    is wide enough to fit the task's machine-specific processing time.
     """
     s_intervals: dict[str, list[tuple[int, int]]] = {}
-
-    # Get suitable machines for the task.
-    suitable_machines = suitable_machines_map[task.id]
-    # Convert to set for efficient lookup.
-    suitable_machine_ids = {m.id for m in suitable_machines}
+    suitable_machine_ids = {m.id for m in suitable_machines_map[task.id]}
 
     for machine_id, intervals in machine_intervals.items():
         if machine_id not in suitable_machine_ids:
             continue
 
-        # Task start_time and end_time are no longer attributes of Task
-        # definition. Use earliest_start and horizon for interval calculations.
-        task_start_time = earliest_start
-        task_end_time = horizon
         ms_intervals: list[tuple[int, int]] = []
-
-        # adds all the intervals that can fit the task
         for start, end in intervals:
-            # exit if the next intervals starts after the task's end time
-            if start >= task_end_time:
+            # Intervals are sorted; nothing useful remains past horizon.
+            if start >= horizon:
                 break
-
-            # skip if the interval ends before the task's start time
-            if end < task_start_time:
+            if end < earliest_start:
                 continue
-
-            # earliest start time
-            start = max(start, task_start_time)
-            # latest end time
-            end = min(end, task_end_time)
-
-            # Check if the task can fit in the interval.
+            start = max(start, earliest_start)
+            end = min(end, horizon)
             processing_time = task.processing_time_on(machine_id)
             if processing_time > (end - start):
                 continue
-
             ms_intervals.append((start, end))
         s_intervals[machine_id] = ms_intervals
 
@@ -139,23 +106,7 @@ def _allocate_task(
     machine: Machine,
     machine_intervals: dict[str, list[tuple[int, int]]],
 ) -> ScheduledTask:
-    """Allocates a task to a machine at a specific start time.
-
-    Args:
-        start_time (int):
-            The start time for the task allocation.
-        task (Task):
-            The task to allocate.
-        machine (Machine):
-            The machine to allocate the task to.
-        machine_intervals (dict[str, list[tuple[int, int]]]):
-            The machine intervals to allocate the task within.
-
-    Returns:
-        ScheduledTask:
-            The scheduled task allocation.
-
-    """
+    """Place a task on a machine at ``start_time`` and return the binding."""
     perform_task_interval_allocation(
         start_time, task, machine, machine_intervals
     )
@@ -171,19 +122,7 @@ def create_schedule(
     scheduled_tasks: list[ScheduledTask],
     machines: list[Machine],
 ) -> Schedule:
-    """Creates a schedule from the list of scheduled tasks and avail machines.
-
-    Args:
-        scheduled_tasks (list[ScheduledTask]):
-            The list of scheduled tasks.
-        machines (list[Machine]):
-            The list of available machines.
-
-    Returns:
-        Schedule:
-            The schedule created from the scheduled tasks and machines.
-
-    """
+    """Build a ``Schedule`` from already-allocated tasks and the machine set."""
     schedule = Schedule(machines=machines)
     for st in scheduled_tasks:
         schedule.add_scheduled_task(st)
@@ -245,44 +184,28 @@ def schedule_by_order(
             for task in job.tasks
         }
     travel_times = instance.travel_times
-    # Dictionary to store already scheduled tasks, keyed by their task_id. This
-    # allows for quick lookup of dependency completion times.
     scheduled_tasks: dict[str, ScheduledTask] = (
         initial_scheduled_tasks.copy() if initial_scheduled_tasks else {}
     )
-
-    # Flatten the list of jobs into a single list of tasks. Tasks are processed
-    # in the order they appear, which is assumed to be a valid topological order
-    # within each job.
+    # Jobs are passed in the desired processing order; tasks within each
+    # job are already topologically sorted by their dependencies.
     tasks = [task for job in jobs for task in job.tasks]
 
-    # Iterate through each task to schedule it.
     for task in tasks:
-        # Skip tasks that are already scheduled
         if task.id in scheduled_tasks:
             continue
 
-        # Determine the earliest possible start time for the current task based
-        # on its dependencies.
-        # It must be at least min_time and also at least the end time of all its
-        # predecessors.
+        # Earliest start: max of caller's min_time and every predecessor's
+        # end time (predecessor travel is applied per-machine below).
         min_start_time = min_time
         for dep in task.dependencies:
-            start_time = scheduled_tasks[dep].end_time
-            min_start_time = max(min_start_time, start_time)
+            min_start_time = max(
+                min_start_time, scheduled_tasks[dep].end_time
+            )
 
-        # Initialize variables to track the best machine and its corresponding
-        # start time for the current task.
-        # - 'selected_machine' will store the machine chosen for this task.
-        # - 'selected_start_time' will store the earliest time this task can
-        #   start on 'selected_machine'. Initialize with a very large integer
-        #   to easily find the minimum.
         selected_machine: Machine | None = None
         selected_start_time: int = sys.maxsize
 
-        # Find available time intervals for the task on suitable machines. This
-        # considers the task's requirements and the machines' capabilities, as
-        # well as the task's earliest possible start time (min_start_time).
         s_intervals = _get_machine_intervals_for_task(
             task,
             machine_intervals,
@@ -291,78 +214,43 @@ def schedule_by_order(
             suitable_machines_map,
         )
 
-        # Iterate through each suitable machine and its available intervals to
-        # find the best fit.
         for machine_id, intervals in s_intervals.items():
-            if not intervals:
-                # If no intervals are available for this machine, skip it.
-                continue
-
             for start_interval, end_interval in intervals:
-                # The earliest time this task could start on the current
-                # 'machine_id' based solely on the machine's availability.
-                current_machine_earliest_start = start_interval
-
-                # Calculate the adjusted start time, considering both machine
-                # availability and the completion of dependencies, including
-                # travel time if applicable.
-                adjusted_start_time = current_machine_earliest_start
-
-                # Account for travel time from predecessor tasks if they are on
-                # different machines.
+                # Push the machine-available start forward past every
+                # predecessor's completion (plus travel when the
+                # predecessor ran on a different machine).
+                adjusted_start_time = start_interval
                 for dep_id in task.dependencies:
                     dep_scheduled_task = scheduled_tasks[dep_id]
-
-                    # If the dependent task was processed on a different machine
-                    # than the current 'machine_id' being considered for the
-                    # current task, then a travel time delay must be added.
+                    dep_end = dep_scheduled_task.end_time
                     if dep_scheduled_task.machine.id != machine_id:
-                        travel_time = travel_times.get(
+                        dep_end += travel_times.get(
                             dep_scheduled_task.machine.id, {}
                         ).get(machine_id, 0)
-                        adjusted_start_time = max(
-                            adjusted_start_time,
-                            dep_scheduled_task.end_time + travel_time,
-                        )
-                    else:
-                        # If the dependent task is on the same machine, no
-                        # travel time is incurred.
-                        adjusted_start_time = max(
-                            adjusted_start_time,
-                            dep_scheduled_task.end_time,
-                        )
+                    adjusted_start_time = max(
+                        adjusted_start_time, dep_end
+                    )
 
-                # Check if the task, with its adjusted start time, still fits
-                # within the current interval.
                 duration = task.processing_time_on(machine_id)
                 if adjusted_start_time + duration <= end_interval:
-                    # If it fits, this is a potential candidate.
                     if (
-                        not selected_machine
+                        selected_machine is None
                         or adjusted_start_time < selected_start_time
                     ):
                         selected_start_time = adjusted_start_time
                         selected_machine = machine_id_map[machine_id]
-                    # We found a valid slot in this interval, no need to check
-                    # further intervals for this machine.
-                    break  # Move to the next machine
+                    # First fitting slot wins on this machine; the rest
+                    # would only be later.
+                    break
 
-        # After checking all suitable machines, ensure a machine was found. If
-        # not, it means the task cannot be scheduled within the given horizon or
-        # constraints.
-        if not selected_machine:
+        if selected_machine is None:
             raise ValueError(f"No suitable machine found for task: {task.id}")
 
-        # Allocate the task to the selected machine with its determined start
-        # time. This also updates the machine's availability intervals.
-        scheduled_task = _allocate_task(
+        scheduled_tasks[task.id] = _allocate_task(
             start_time=selected_start_time,
             task=task,
             machine=selected_machine,
             machine_intervals=machine_intervals,
         )
-        # Add the newly scheduled task to our record.
-        scheduled_tasks[task.id] = scheduled_task
 
-    # Return the list of all successfully scheduled tasks.
     return list(scheduled_tasks.values())

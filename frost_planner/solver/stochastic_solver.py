@@ -55,65 +55,33 @@ class StochasticSolver(BaseSolver):
         self.t_idle = t_idle
 
     def _get_random_neighbor(self, jobs: list[Job]) -> list[Job]:
-        """Generate a random neighbor solution by swapping two jobs.
-
-        Args:
-            jobs (list[Job]):
-                List of jobs to generate a neighbor for.
-
-        Returns:
-            list[Job]:
-                A list of jobs with two jobs swapped.
-
-        """
+        """Swap two random jobs in-place and return the list."""
         if len(jobs) < 2:
             return jobs
-
         idx1, idx2 = random.sample(range(len(jobs)), 2)
         jobs[idx1], jobs[idx2] = jobs[idx2], jobs[idx1]
         return jobs
 
     def _get_local_neighbor(self, jobs: list[Job]) -> list[Job]:
-        """Generate a local neighbor by swapping two tasks within the same job.
-
-        Args:
-            jobs (list[Job]):
-                List of jobs to generate a neighbor for.
-
-        Returns:
-            list[Job]:
-                A list of jobs with two tasks swapped.
-        """
+        """Swap two tasks in a random job, then re-sort to keep deps valid."""
         if not jobs:
             return jobs
-
-        # Select a job to modify
         job_to_modify = random.choice(jobs)
-        job_index = jobs.index(job_to_modify)
-
         if len(job_to_modify.tasks) < 2:
             return jobs
 
-        # Create a mutable copy of the tasks list
         tasks_copy = list(job_to_modify.tasks)
-
-        # Swap two tasks in the copy
         idx1, idx2 = random.sample(range(len(tasks_copy)), 2)
         tasks_copy[idx1], tasks_copy[idx2] = tasks_copy[idx2], tasks_copy[idx1]
-
-        # Sort tasks and create a new Job instance
+        # Re-sort to keep dependencies satisfied after the swap.
         new_tasks = _sort_tasks(tasks_copy)
-        new_job = Job(
+        jobs[jobs.index(job_to_modify)] = Job(
             id=job_to_modify.id,
             name=job_to_modify.name,
             tasks=new_tasks,
             priority=job_to_modify.priority,
             due_date=job_to_modify.due_date,
         )
-
-        # Replace the old job with the new job in the jobs list
-        jobs[job_index] = new_job
-
         return jobs
 
     def _evaluate_solution(

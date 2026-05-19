@@ -64,11 +64,7 @@ class GeneticAlgorithmSolver(BaseSolver):
         machine_intervals: dict[str, list[tuple[int, int]]],
         start_time: int = 0,
     ) -> tuple[list[ScheduledTask], float]:
-        """Evaluates the fitness of a job permutation.
-
-        Fitness is based on the configured objective value.
-        Returns the scheduled tasks and the objective value.
-        """
+        """Return (scheduled_tasks, objective_value) for a job permutation."""
         result = self._greedy_evaluate(
             job_permutation,
             machine_intervals,
@@ -76,21 +72,18 @@ class GeneticAlgorithmSolver(BaseSolver):
         )
         return result.scheduled_tasks, result.objective
 
+    _TOURNAMENT_SIZE = 5
+
     def _select_parents(
         self, population: list[list[Job]], fitnesses: list[float]
     ) -> list[list[Job]]:
-        """Selects parents for the next gen using tournament selection."""
+        """Tournament selection: pick the best of K random contenders."""
         selected_parents = []
-        # Lower objective values are better, so select individuals
-        # with lower fitness values.
-        # For tournament selection, pick a few individuals randomly and select
-        # the best among them.
-        tournament_size = 5  # Example tournament size
         for _ in range(self.population_size):
             tournament_contenders = random.sample(
-                list(zip(population, fitnesses, strict=False)), tournament_size
+                list(zip(population, fitnesses, strict=False)),
+                self._TOURNAMENT_SIZE,
             )
-            # Select the individual with the minimum objective (best fitness)
             winner = min(tournament_contenders, key=lambda x: x[1])[0]
             selected_parents.append(winner)
         return selected_parents
@@ -98,58 +91,50 @@ class GeneticAlgorithmSolver(BaseSolver):
     def _crossover(
         self, parent1: list[Job], parent2: list[Job]
     ) -> tuple[list[Job], list[Job]]:
+        """Order-1 crossover.
+
+        Copy a segment from one parent, then fill the rest from the
+        other parent preserving relative order.
+        """
         size = len(parent1)
         if size < 2:
             return list(parent1), list(parent2)
 
         point1, point2 = sorted(random.sample(range(size), 2))
-
         offspring1: list[Job | None] = [None] * size
         offspring2: list[Job | None] = [None] * size
-
-        # Copy segment from parent1 to offspring1
         offspring1[point1:point2] = parent1[point1:point2]
-        # Copy segment from parent2 to offspring2
         offspring2[point1:point2] = parent2[point1:point2]
 
-        # Keep track of jobs already placed in the segment
-        offspring1_segment_jobs: set[Job] = {
-            job for job in offspring1[point1:point2] if job is not None
-        }
-        offspring2_segment_jobs: set[Job] = {
-            job for job in offspring2[point1:point2] if job is not None
-        }
-
-        # Fill offspring1
-        p2_idx = 0
-        for i in range(size):
-            if offspring1[i] is None:
-                # Find next available job from parent2 that is not in the
-                # segment
-                while parent2[p2_idx] in offspring1_segment_jobs:
-                    p2_idx = (p2_idx + 1) % size
-                offspring1[i] = parent2[p2_idx]
-                # Add to the set of placed jobs
-                offspring1_segment_jobs.add(parent2[p2_idx])
-                p2_idx = (p2_idx + 1) % size
-
-        # Fill offspring2
-        p1_idx = 0
-        for i in range(size):
-            if offspring2[i] is None:
-                # Find next available job from parent1 that is not in the
-                # segment
-                while parent1[p1_idx] in offspring2_segment_jobs:
-                    p1_idx = (p1_idx + 1) % size
-                offspring2[i] = parent1[p1_idx]
-                # Add to the set of placed jobs.
-                offspring2_segment_jobs.add(parent1[p1_idx])
-                p1_idx = (p1_idx + 1) % size
-
+        offspring1 = self._fill_offspring(offspring1, parent2, point1, point2)
+        offspring2 = self._fill_offspring(offspring2, parent1, point1, point2)
         return offspring1, offspring2  # type: ignore[return-value]
 
+    @staticmethod
+    def _fill_offspring(
+        offspring: list[Job | None],
+        donor: list[Job],
+        seg_start: int,
+        seg_end: int,
+    ) -> list[Job | None]:
+        """Order-1 fill: walk the donor and slot in jobs not in the segment."""
+        size = len(offspring)
+        already_placed: set[Job] = {
+            job for job in offspring[seg_start:seg_end] if job is not None
+        }
+        donor_idx = 0
+        for i in range(size):
+            if offspring[i] is not None:
+                continue
+            while donor[donor_idx] in already_placed:
+                donor_idx = (donor_idx + 1) % size
+            offspring[i] = donor[donor_idx]
+            already_placed.add(donor[donor_idx])
+            donor_idx = (donor_idx + 1) % size
+        return offspring
+
     def _mutate(self, job_permutation: list[Job]) -> list[Job]:
-        """Performs a simple swap mutation on a job permutation."""
+        """Swap two random jobs in-place."""
         if len(job_permutation) < 2:
             return job_permutation
         idx1, idx2 = random.sample(range(len(job_permutation)), 2)
