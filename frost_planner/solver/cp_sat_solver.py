@@ -1483,30 +1483,18 @@ class CpSatSolver(BaseSolver):
                         ),
                         default=0,
                     )
-                lateness_lower_bound = (
-                    job_completion_lower_bound - job.due_date
+                tardiness_lower_bound = max(
+                    0, job_completion_lower_bound - job.due_date
                 )
-                lateness_upper_bound = horizon - job.due_date
-                tardiness_lower_bound = max(0, lateness_lower_bound)
-                tardiness_upper_bound = max(0, lateness_upper_bound)
-                earliness_delta_lower_bound = job.due_date - horizon
-                earliness_delta_upper_bound = (
-                    job.due_date - job_completion_lower_bound
-                )
+                tardiness_upper_bound = max(0, horizon - job.due_date)
                 earliness_upper_bound = max(
-                    0, earliness_delta_upper_bound
+                    0, job.due_date - job_completion_lower_bound
                 )
                 max_tardiness_upper_bound = max(
                     max_tardiness_upper_bound, tardiness_upper_bound
                 )
 
                 if objective.total_tardiness or objective.max_tardiness:
-                    lateness = model.NewIntVar(
-                        lateness_lower_bound,
-                        max(lateness_lower_bound, lateness_upper_bound),
-                        f"lateness_{job_name}",
-                    )
-                    model.Add(lateness == completion - job.due_date)
                     tardiness = model.NewIntVar(
                         tardiness_lower_bound,
                         max(
@@ -1516,15 +1504,13 @@ class CpSatSolver(BaseSolver):
                     )
                     model.AddMaxEquality(
                         tardiness,
-                        [lateness, model.NewConstant(0)],
+                        [completion - job.due_date, model.NewConstant(0)],
                     )
                     tardiness_vars.append(tardiness)
                     if heuristic_completion is not None:
-                        lateness_hint = (
-                            heuristic_completion - job.due_date
+                        tardiness_hint = max(
+                            0, heuristic_completion - job.due_date
                         )
-                        tardiness_hint = max(0, lateness_hint)
-                        model.AddHint(lateness, lateness_hint)
                         model.AddHint(tardiness, tardiness_hint)
                         per_job_tardiness_hints.append(tardiness_hint)
                     if objective.total_tardiness:
@@ -1545,15 +1531,6 @@ class CpSatSolver(BaseSolver):
                         )
                     terms.append(objective.num_tardy_jobs * tardy)
                 if objective.total_earliness:
-                    earliness_delta = model.NewIntVar(
-                        earliness_delta_lower_bound,
-                        max(
-                            earliness_delta_lower_bound,
-                            earliness_delta_upper_bound,
-                        ),
-                        f"earliness_delta_{job_name}",
-                    )
-                    model.Add(earliness_delta == job.due_date - completion)
                     earliness = model.NewIntVar(
                         0,
                         max(0, earliness_upper_bound),
@@ -1561,12 +1538,13 @@ class CpSatSolver(BaseSolver):
                     )
                     model.AddMaxEquality(
                         earliness,
-                        [earliness_delta, model.NewConstant(0)],
+                        [job.due_date - completion, model.NewConstant(0)],
                     )
                     if heuristic_completion is not None:
-                        delta_hint = job.due_date - heuristic_completion
-                        model.AddHint(earliness_delta, delta_hint)
-                        model.AddHint(earliness, max(0, delta_hint))
+                        model.AddHint(
+                            earliness,
+                            max(0, job.due_date - heuristic_completion),
+                        )
                     terms.append(objective.total_earliness * earliness)
 
         if objective.max_tardiness:
