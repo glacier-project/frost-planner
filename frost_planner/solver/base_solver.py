@@ -86,7 +86,22 @@ class BaseSolver(ABC):
     def _create_machine_intervals(
         self, start_time: int = 0
     ) -> dict[str, list[tuple[int, int]]]:
-        """Creates the initial availability intervals for each machine."""
+        """Build per-machine free intervals for the solve.
+
+        The returned intervals already account for ``start_time``
+        (intervals fully in the past are dropped; an interval straddling
+        ``start_time`` is clipped) and for every locked task:
+
+        * a locked task ending at or before ``start_time`` is treated as
+          history and consumes no future capacity;
+        * an *active* locked task (started before ``start_time`` and
+          still running) reserves the machine from ``start_time`` until
+          its end -- the first free interval is shifted forward to
+          ``task.end_time`` (or dropped entirely);
+        * a *future* locked task gets the standard split: the free
+          interval covering its run is sliced into pre- and post-task
+          remainders.
+        """
         if self.initial_machine_intervals:
             machine_intervals = deepcopy(self.initial_machine_intervals)
         else:
@@ -95,7 +110,8 @@ class BaseSolver(ABC):
                 for machine in self.instance.machines
             }
 
-        # Truncate all intervals to start at least at start_time
+        # Trim intervals so nothing earlier than start_time is exposed
+        # to the solver.
         for machine_id in machine_intervals:
             intervals = machine_intervals[machine_id]
             while intervals and intervals[0][1] <= start_time:
@@ -104,16 +120,18 @@ class BaseSolver(ABC):
                 intervals[0] = (start_time, intervals[0][1])
 
         for task in self.locked_tasks.values():
-            # If the task ends before or at start_time, it's effectively
-            # "history" and doesn't consume future machine capacity.
+            # Past locked task: no remaining occupancy to model.
             if task.end_time <= start_time:
                 continue
 
-            # If it's active (started < now < end), we must ensure the machine
-            # is busy.
             if task.start_time < start_time:
+                # Active locked task. The machine is already busy at
+                # start_time, so we cannot use the standard split: we
+                # must trim the first free interval (which starts at
+                # start_time after the earlier clip) forward to
+                # task.end_time, or drop it if the task fully covers
+                # that interval.
                 intervals = machine_intervals[task.machine.id]
-                # Machine should be busy from start_time until task.end_time
                 if intervals and intervals[0][0] == start_time:
                     new_start = task.end_time
                     if new_start < intervals[0][1]:
@@ -121,7 +139,8 @@ class BaseSolver(ABC):
                     else:
                         intervals.pop(0)
             else:
-                # Standard locking for future tasks
+                # Future locked task: standard split via the shared
+                # interval-allocation helper (also used by greedy).
                 perform_task_interval_allocation(
                     task.start_time,
                     task.task,
