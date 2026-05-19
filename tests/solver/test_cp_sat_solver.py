@@ -852,10 +852,10 @@ def test_cp_sat_solver_pruned_machines_tighten_processing_bounds() -> None:
     assert scheduled_task.end_time - scheduled_task.start_time == 5
     assert validate_schedule(schedule, instance)
     # After solve, the cache must reflect only the slow machine.
-    assert solver._feasible_machines_cache is not None
-    assert solver._feasible_machines_cache["T1"] == [slow_machine]
-    # And _min_processing_time consults the pruned set.
-    assert solver._min_processing_time(task) == 5
+    assert solver.analysis.feasible_machines_cache is not None
+    assert solver.analysis.feasible_machines_cache["T1"] == [slow_machine]
+    # And min_processing_time consults the pruned set.
+    assert solver.analysis.min_processing_time(task) == 5
     assert validate_schedule(schedule, instance)
 
 
@@ -993,8 +993,8 @@ def test_cp_sat_solver_band_pruning_excludes_unreachable_windows() -> None:
     assert scheduled_t2 is not None
     assert scheduled_t2.machine == early_target
     # Band-aware pruning should leave only M_EARLY as feasible for T2.
-    assert solver._feasible_machines_cache is not None
-    feasible_for_t2 = solver._feasible_machines_cache["T2"]
+    assert solver.analysis.feasible_machines_cache is not None
+    feasible_for_t2 = solver.analysis.feasible_machines_cache["T2"]
     assert [m.id for m in feasible_for_t2] == ["M_EARLY"]
 
 

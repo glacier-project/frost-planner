@@ -17,6 +17,7 @@ from frost_planner.solver.greedy import (
     _perform_task_interval_allocation,
     _schedule_by_order,
 )
+from frost_planner.solver.instance_analysis import InstanceAnalysis
 
 
 @dataclass(frozen=True)
@@ -50,8 +51,13 @@ class BaseSolver(ABC):
         self.horizon: int = horizon
         self.initial_machine_intervals = machine_intervals
         self.objective = objective or ObjectiveWeights()
-        self._update_maps()
         self.locked_tasks: dict[str, ScheduledTask] = {}
+        self._update_maps()
+        self.analysis = InstanceAnalysis(
+            self.instance,
+            self.locked_tasks,
+            self.suitable_machines_map,
+        )
 
     def _update_maps(self) -> None:
         """Re-compute internal maps when the instance changes."""
@@ -71,6 +77,11 @@ class BaseSolver(ABC):
         """Update the scheduling instance (e.g., when new jobs arrive)."""
         self.instance = instance
         self._update_maps()
+        self.analysis = InstanceAnalysis(
+            self.instance,
+            self.locked_tasks,
+            self.suitable_machines_map,
+        )
 
     def _create_machine_intervals(
         self, start_time: int = 0
@@ -186,6 +197,8 @@ class BaseSolver(ABC):
 
         for st in tasks:
             self.locked_tasks[st.task.id] = st
+        # Locked-task changes invalidate the cached bounds / feasibility.
+        self.analysis.reset_caches()
 
     def schedule(self, start_time: int = 0) -> Schedule:
         """Generate a complete schedule, respecting constraints.
