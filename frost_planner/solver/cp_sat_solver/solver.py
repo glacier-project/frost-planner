@@ -1,0 +1,969 @@
+# SPDX-FileCopyrightText: 2024 the Glacier project contributors
+# SPDX-License-Identifier: BSD-2-Clause
+
+"""CP-SAT solver orchestration: build the model, solve, extract."""
+
+import sys
+from typing import Any, override
+
+from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.objective import (
+    ObjectiveWeights,
+    calculate_objective_value,
+)
+from frost_planner.core.schedule import ScheduledTask
+from frost_planner.solver.base_solver import BaseSolver
+from frost_planner.solver.cp_sat_solver._heuristic import _HeuristicMixin
+from frost_planner.solver.cp_sat_solver._model_helpers import (
+    _ModelHelpersMixin,
+)
+from frost_planner.solver.cp_sat_solver._objective import _ObjectiveMixin
+from frost_planner.solver.cp_sat_solver._types import (
+    _AlternativeVariables,
+    _load_cp_model,
+    _safe_name,
+    _TaskVariables,
+)
+
+
+class CpSatSolver(
+    BaseSolver,
+    _ModelHelpersMixin,
+    _HeuristicMixin,
+    _ObjectiveMixin,
+):
+    """CP-SAT solver for Frost Planner scheduling instances."""
+
+    def __init__(
+        self,
+        instance: SchedulingInstance,
+        horizon: int = sys.maxsize,
+        machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
+        time_limit_seconds: float | None = None,
+        num_workers: int | None = 16,
+        relative_gap: float = 0.0,
+        log_search_progress: bool = False,
+        use_travel_table: bool | None = None,
+        travel_model: str | None = None,
+        hybrid_travel_threshold: int = 16,
+        use_dependency_bounds: bool = False,
+        use_machine_load_bounds: bool = False,
+        prune_infeasible_alternatives: bool = True,
+        use_heuristic_hints: bool = True,
+        objective: ObjectiveWeights | None = None,
+        random_seed: int | None = None,
+        max_deterministic_time: float | None = None,
+        search_branching: str | None = None,
+        linearization_level: int | None = None,
+        cp_model_presolve: bool | None = None,
+        use_search_strategy: bool = False,
+        use_capability_cumulative: bool = False,
+        repair_hint: bool = False,
+        disjunctive_encoding: str = "no_overlap",
+        optimize_with_lb_tree_search: bool | None = None,
+        use_objective_lb_search: bool | None = None,
+        cp_model_probing_level: int | None = None,
+        symmetry_level: int | None = None,
+    ) -> None:
+        super().__init__(instance, horizon, machine_intervals, objective)
+        if num_workers is not None and num_workers < 1:
+            raise ValueError("num_workers must be positive.")
+        if relative_gap < 0:
+            raise ValueError("relative_gap must be non-negative.")
+        if hybrid_travel_threshold < 1:
+            raise ValueError("hybrid_travel_threshold must be positive.")
+        if travel_model is None:
+            travel_model = (
+                "table" if use_travel_table is True else "pairwise"
+            )
+        if travel_model not in {"table", "pairwise", "hybrid"}:
+            raise ValueError(
+                "travel_model must be 'table', 'pairwise', or 'hybrid'."
+            )
+        if (
+            cp_model_probing_level is not None
+            and cp_model_probing_level not in (0, 1, 2, 3)
+        ):
+            raise ValueError(
+                "cp_model_probing_level must be 0, 1, 2, or 3."
+            )
+        if (
+            symmetry_level is not None
+            and symmetry_level not in (0, 1, 2, 3)
+        ):
+            raise ValueError("symmetry_level must be 0, 1, 2, or 3.")
+        if disjunctive_encoding not in {"no_overlap", "cumulative"}:
+            raise ValueError(
+                "disjunctive_encoding must be 'no_overlap' or "
+                "'cumulative'."
+            )
+        if (
+            linearization_level is not None
+            and linearization_level not in (0, 1, 2)
+        ):
+            raise ValueError("linearization_level must be 0, 1, or 2.")
+        valid_branching = {
+            "automatic",
+            "fixed",
+            "portfolio",
+            "lp",
+            "pseudo_cost",
+        }
+        if (
+            search_branching is not None
+            and search_branching not in valid_branching
+        ):
+            raise ValueError(
+                f"search_branching must be one of {sorted(valid_branching)}."
+            )
+
+        self.time_limit_seconds = time_limit_seconds
+        self.num_workers = num_workers
+        self.relative_gap = relative_gap
+        self.log_search_progress = log_search_progress
+        self.travel_model = travel_model
+        self.use_travel_table = travel_model == "table"
+        self.hybrid_travel_threshold = hybrid_travel_threshold
+        self.use_dependency_bounds = use_dependency_bounds
+        self.use_machine_load_bounds = use_machine_load_bounds
+        self.prune_infeasible_alternatives = prune_infeasible_alternatives
+        self.use_heuristic_hints = use_heuristic_hints
+        self.random_seed = random_seed
+        self.max_deterministic_time = max_deterministic_time
+        self.search_branching = search_branching
+        self.linearization_level = linearization_level
+        self.cp_model_presolve = cp_model_presolve
+        self.use_search_strategy = use_search_strategy
+        self.use_capability_cumulative = use_capability_cumulative
+        self.repair_hint = repair_hint
+        self.disjunctive_encoding = disjunctive_encoding
+        self.optimize_with_lb_tree_search = optimize_with_lb_tree_search
+        self.use_objective_lb_search = use_objective_lb_search
+        self.cp_model_probing_level = cp_model_probing_level
+        self.symmetry_level = symmetry_level
+        self.last_status: str | None = None
+        self.last_objective_value: float | None = None
+        self.last_best_bound: float | None = None
+        self.last_wall_time_seconds: float | None = None
+        self._last_scheduled_tasks: list[ScheduledTask] | None = None
+
+    def _effective_horizon(
+        self,
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        start_time: int,
+    ) -> int:
+        """Compute a finite CP-SAT horizon."""
+        if self.horizon != sys.maxsize:
+            return self.horizon
+
+        finite_ends = [
+            end
+            for intervals in machine_intervals.values()
+            for _, end in intervals
+            if end != sys.maxsize
+        ]
+        all_machines_have_finite_end = all(
+            any(
+                end != sys.maxsize
+                for _, end in machine_intervals.get(m.id, [])
+            )
+            for m in self.instance.machines
+        )
+        if finite_ends and all_machines_have_finite_end:
+            return max(max(finite_ends), start_time)
+
+        all_tasks = self.analysis.all_tasks()
+        processing_time = sum(
+            self.analysis.max_processing_time(task) for task in all_tasks
+        )
+        max_locked_end = max(
+            (st.end_time for st in self.locked_tasks.values()),
+            default=start_time,
+        )
+        travel_slack = 0
+        for task in all_tasks:
+            for _ in task.dependencies:
+                travel_slack += max(
+                    (
+                        travel_time
+                        for destinations in (
+                            self.instance.travel_times.values()
+                        )
+                        for travel_time in destinations.values()
+                    ),
+                    default=0,
+                )
+
+        task_slack = len(all_tasks)
+        return (
+            max(start_time, max_locked_end)
+            + processing_time
+            + travel_slack
+            + task_slack
+        )
+
+    def _set_num_workers(self, solver: Any) -> None:
+        """Set worker count across OR-Tools parameter naming variants."""
+        if self.num_workers is None:
+            return
+        if hasattr(solver.parameters, "num_workers"):
+            solver.parameters.num_workers = self.num_workers
+        else:
+            solver.parameters.num_search_workers = self.num_workers
+
+    def _configure_solver(self, solver: Any) -> None:
+        """Apply user-provided CP-SAT search parameters."""
+        if self.time_limit_seconds is not None:
+            solver.parameters.max_time_in_seconds = self.time_limit_seconds
+        self._set_num_workers(solver)
+        solver.parameters.relative_gap_limit = self.relative_gap
+        solver.parameters.log_search_progress = self.log_search_progress
+        if self.random_seed is not None:
+            solver.parameters.random_seed = self.random_seed
+        if self.max_deterministic_time is not None:
+            solver.parameters.max_deterministic_time = (
+                self.max_deterministic_time
+            )
+        if self.linearization_level is not None:
+            solver.parameters.linearization_level = self.linearization_level
+        if self.cp_model_presolve is not None:
+            solver.parameters.cp_model_presolve = self.cp_model_presolve
+        if self.repair_hint:
+            solver.parameters.repair_hint = True
+        if self.optimize_with_lb_tree_search is not None:
+            solver.parameters.optimize_with_lb_tree_search = (
+                self.optimize_with_lb_tree_search
+            )
+        if self.use_objective_lb_search is not None:
+            solver.parameters.use_objective_lb_search = (
+                self.use_objective_lb_search
+            )
+        if self.cp_model_probing_level is not None:
+            solver.parameters.cp_model_probing_level = (
+                self.cp_model_probing_level
+            )
+        if self.symmetry_level is not None:
+            solver.parameters.symmetry_level = self.symmetry_level
+        if self.search_branching is not None:
+            cp_model = _load_cp_model()
+            branching_map = {
+                "automatic": cp_model.AUTOMATIC_SEARCH,
+                "fixed": cp_model.FIXED_SEARCH,
+                "portfolio": cp_model.PORTFOLIO_SEARCH,
+                "lp": cp_model.LP_SEARCH,
+                "pseudo_cost": cp_model.PSEUDO_COST_SEARCH,
+            }
+            solver.parameters.search_branching = branching_map[
+                self.search_branching
+            ]
+
+    @override
+    def _allocate_tasks(
+        self,
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        start_time: int = 0,
+    ) -> list[ScheduledTask]:
+        self.analysis.reset_caches()
+        cp_model = _load_cp_model()
+        model = cp_model.CpModel()
+        effective_horizon = self._effective_horizon(
+            machine_intervals,
+            start_time,
+        )
+        if effective_horizon < start_time:
+            raise ValueError(
+                f"Horizon {effective_horizon} is before start_time "
+                f"{start_time}."
+            )
+
+        tasks = self.analysis.all_tasks()
+        if not tasks:
+            return []
+
+        heuristic_result = (
+            self._create_heuristic_hint(
+                machine_intervals,
+                effective_horizon,
+                start_time,
+            )
+            if self.use_heuristic_hints
+            else None
+        )
+        heuristic_hint: dict[str, ScheduledTask] | None = None
+        heuristic_objective_value: int | None = None
+        if heuristic_result is not None:
+            heuristic_hint, heuristic_schedule = heuristic_result
+            heuristic_objective_value = int(
+                calculate_objective_value(
+                    heuristic_schedule, self.instance, self.objective
+                )
+            )
+            if self.objective.is_pure_makespan:
+                heuristic_makespan = max(
+                    scheduled_task.end_time
+                    for scheduled_task in heuristic_hint.values()
+                )
+                effective_horizon = max(
+                    start_time,
+                    min(effective_horizon, heuristic_makespan),
+                )
+
+        free_windows_by_machine = {
+            machine.id: self.analysis.normalise_windows(
+                machine_intervals.get(machine.id, []),
+                start_time,
+                effective_horizon,
+            )
+            for machine in self.instance.machines
+        }
+        # First pass: compute loose earliest/latest bounds against the
+        # unpruned suitable-machines set so the band check below has a
+        # safe, wider band than the eventual pruned-set bounds.
+        loose_earliest_starts, _loose_earliest_ends = (
+            self.analysis.earliest_bounds(start_time)
+        )
+        _loose_latest_starts, loose_latest_ends = (
+            self.analysis.latest_bounds(start_time, effective_horizon)
+        )
+        feasible_machines_by_task = self.analysis.feasible_machines_by_task(
+            tasks,
+            free_windows_by_machine,
+            prune_infeasible_alternatives=self.prune_infeasible_alternatives,
+            earliest_start_by_task=loose_earliest_starts,
+            latest_end_by_task=loose_latest_ends,
+        )
+        # Pruned-feasibility view: invalidates the stale per-lookup caches
+        # the loose first pass may have populated.
+        self.analysis.set_feasible_machines(feasible_machines_by_task)
+
+        critical_path_starts, critical_path_ends = (
+            self.analysis.earliest_bounds(start_time)
+        )
+        latest_starts, latest_ends = self.analysis.latest_bounds(
+            start_time, effective_horizon
+        )
+        for task in tasks:
+            if task.id in self.locked_tasks:
+                continue
+            if latest_starts[task.id] < critical_path_starts[task.id]:
+                raise ValueError(
+                    f"Task {task.id} is infeasible: latest_start "
+                    f"{latest_starts[task.id]} < earliest_start "
+                    f"{critical_path_starts[task.id]}."
+                )
+            cp_end = critical_path_ends.get(task.id)
+            if (
+                cp_end is not None
+                and latest_ends[task.id] < cp_end
+            ):
+                raise ValueError(
+                    f"Task {task.id} is infeasible: latest_end "
+                    f"{latest_ends[task.id]} < earliest_end {cp_end}."
+                )
+        earliest_start_bounds = (
+            critical_path_starts
+            if self.use_dependency_bounds
+            else {task.id: start_time for task in tasks}
+        )
+        machine_indices = (
+            {
+                machine.id: index
+                for index, machine in enumerate(self.instance.machines)
+            }
+            if self.travel_model in {"table", "hybrid"}
+            else None
+        )
+        unavailable_windows_by_machine = {
+            machine.id: self.analysis.unavailable_windows(
+                free_windows_by_machine[machine.id],
+                start_time,
+                effective_horizon,
+            )
+            for machine in self.instance.machines
+        }
+        task_ids_requiring_machine_variables: set[str] = set()
+        if machine_indices is not None:
+            if self.travel_model == "hybrid":
+                task_ids_requiring_machine_variables = {
+                    task.id for task in tasks
+                }
+            else:
+                task_ids_requiring_machine_variables = (
+                    self._table_machine_task_ids(
+                        tasks,
+                        feasible_machines_by_task,
+                    )
+                )
+        no_overlap_intervals: dict[str, list[Any]] = {
+            machine.id: [] for machine in self.instance.machines
+        }
+        machines_with_future_locked_tasks = {
+            scheduled_task.machine.id
+            for scheduled_task in self.locked_tasks.values()
+            if scheduled_task.task.id in self.task_id_map
+            and scheduled_task.end_time > start_time
+        }
+        machines_with_breakable_alternatives: set[str] = set()
+        for task in tasks:
+            if task.id in self.locked_tasks or not task.allow_breaks:
+                continue
+            for machine in feasible_machines_by_task[task.id]:
+                machines_with_breakable_alternatives.add(machine.id)
+        machines_requiring_separate_availability = (
+            machines_with_future_locked_tasks
+            | machines_with_breakable_alternatives
+        )
+        machine_load_terms: dict[str, list[Any]] | None = None
+        if self.use_machine_load_bounds:
+            machine_load_terms = {
+                machine.id: [] for machine in self.instance.machines
+            }
+            for scheduled_task in self.locked_tasks.values():
+                if scheduled_task.task.id not in self.task_id_map:
+                    continue
+                if scheduled_task.machine.id not in machine_load_terms:
+                    raise ValueError(
+                        f"Locked task {scheduled_task.task.id} is "
+                        f"assigned to unknown machine "
+                        f"{scheduled_task.machine.id}."
+                    )
+                if scheduled_task.end_time <= start_time:
+                    continue
+                locked_duration = (
+                    scheduled_task.end_time
+                    - max(start_time, scheduled_task.start_time)
+                )
+                machine_load_terms[scheduled_task.machine.id].append(
+                    locked_duration
+                )
+        fixed_unavailable_intervals = (
+            self._create_fixed_unavailable_intervals(
+                model,
+                unavailable_windows_by_machine,
+            )
+        )
+        non_breakable_availability_intervals: dict[str, list[Any]] = {
+            machine.id: [] for machine in self.instance.machines
+        }
+        for machine in self.instance.machines:
+            if machine.id in machines_requiring_separate_availability:
+                non_breakable_availability_intervals[machine.id].extend(
+                    fixed_unavailable_intervals[machine.id]
+                )
+            else:
+                no_overlap_intervals[machine.id].extend(
+                    fixed_unavailable_intervals[machine.id]
+                )
+        task_variables = self._create_locked_variables(
+            model,
+            no_overlap_intervals,
+            machine_indices,
+            task_ids_requiring_machine_variables,
+            start_time,
+        )
+
+        for task in tasks:
+            if task.id in task_variables:
+                continue
+
+            task_name = _safe_name(task.id)
+            min_processing_time = self.analysis.min_processing_time(task)
+            task_start_lower_bound = min(
+                max(start_time, earliest_start_bounds[task.id]),
+                effective_horizon,
+            )
+            task_start_upper_bound = max(
+                task_start_lower_bound,
+                min(
+                    effective_horizon - min_processing_time,
+                    latest_starts[task.id],
+                ),
+            )
+            task_end_lower_bound = min(
+                task_start_lower_bound + min_processing_time,
+                effective_horizon,
+            )
+            task_end_upper_bound = max(
+                task_end_lower_bound,
+                min(effective_horizon, latest_ends[task.id]),
+            )
+            task_start = model.NewIntVar(
+                task_start_lower_bound,
+                task_start_upper_bound,
+                f"start_{task_name}",
+            )
+            task_end = model.NewIntVar(
+                task_end_lower_bound,
+                task_end_upper_bound,
+                f"end_{task_name}",
+            )
+            feasible_machines = feasible_machines_by_task[task.id]
+            single_alternative = len(feasible_machines) == 1
+
+            task_machine = None
+            if task.id in task_ids_requiring_machine_variables:
+                if machine_indices is None:
+                    raise ValueError(
+                        "Missing machine indices for table travel model."
+                    )
+                if single_alternative:
+                    task_machine = model.NewConstant(
+                        machine_indices[feasible_machines[0].id]
+                    )
+                else:
+                    machine_values = sorted(
+                        machine_indices[machine.id]
+                        for machine in feasible_machines
+                    )
+                    task_machine = model.NewIntVarFromDomain(
+                        cp_model.Domain.FromValues(machine_values),
+                        f"machine_{task_name}",
+                    )
+
+            alternatives: dict[str, _AlternativeVariables] = {}
+            presences = []
+            for machine in feasible_machines:
+                free_windows = free_windows_by_machine[machine.id]
+                processing_time = self.analysis.processing_time_on(
+                    task, machine
+                )
+
+                machine_name = _safe_name(machine.id)
+                alternative_name = f"{task_name}_{machine_name}"
+                presence: Any | None = (
+                    None
+                    if single_alternative
+                    else model.NewBoolVar(
+                        f"presence_{alternative_name}"
+                    )
+                )
+
+                relevant_unavailable_windows = []
+                if task.allow_breaks:
+                    # The task's actual occupancy is bounded above by
+                    # task_end_upper_bound (= min(effective_horizon,
+                    # latest_end[task])), so windows starting at or
+                    # after that bound cannot overlap. Restricting the
+                    # filter to that interval tightens max_break_time
+                    # / max_elapsed_duration / local_end_upper_bound
+                    # without changing semantics.
+                    relevant_unavailable_windows = (
+                        self.analysis.relevant_unavailable_windows(
+                            unavailable_windows_by_machine[machine.id],
+                            task_start_lower_bound,
+                            task_end_upper_bound,
+                            machine_id=machine.id,
+                        )
+                    )
+
+                if relevant_unavailable_windows:
+                    max_elapsed_duration = (
+                        processing_time
+                        + sum(
+                            window.end - window.start
+                            for window in relevant_unavailable_windows
+                        )
+                    )
+                    local_end_upper_bound = min(
+                        task_end_upper_bound,
+                        task_start_upper_bound + max_elapsed_duration,
+                    )
+                    if single_alternative:
+                        local_start = task_start
+                        local_end = task_end
+                    else:
+                        local_start = model.NewIntVar(
+                            task_start_lower_bound,
+                            task_start_upper_bound,
+                            f"local_start_{alternative_name}",
+                        )
+                        local_end = model.NewIntVar(
+                            task_end_lower_bound,
+                            local_end_upper_bound,
+                            f"local_end_{alternative_name}",
+                        )
+                    break_time = self._create_break_time_var(
+                        model,
+                        local_start,
+                        local_end,
+                        relevant_unavailable_windows,
+                        effective_horizon,
+                        alternative_name,
+                        task_start_lower_bound,
+                        task_end_upper_bound,
+                    )
+                    elapsed_duration_upper_bound = min(
+                        max_elapsed_duration,
+                        local_end_upper_bound - task_start_lower_bound,
+                    )
+                    elapsed_duration = model.NewIntVar(
+                        processing_time,
+                        elapsed_duration_upper_bound,
+                        f"duration_{alternative_name}",
+                    )
+                    model.Add(
+                        elapsed_duration == processing_time + break_time
+                    )
+                    if presence is None:
+                        interval = model.NewIntervalVar(
+                            local_start,
+                            elapsed_duration,
+                            local_end,
+                            f"interval_{alternative_name}",
+                        )
+                    else:
+                        interval = model.NewOptionalIntervalVar(
+                            local_start,
+                            elapsed_duration,
+                            local_end,
+                            presence,
+                            f"interval_{alternative_name}",
+                        )
+                    self._bind_point_to_free_window(
+                        model,
+                        cp_model,
+                        local_start,
+                        presence,
+                        free_windows,
+                        is_start=True,
+                        lower_bound=task_start_lower_bound,
+                        upper_bound=task_start_upper_bound,
+                    )
+                    self._bind_point_to_free_window(
+                        model,
+                        cp_model,
+                        local_end,
+                        presence,
+                        free_windows,
+                        is_start=False,
+                        lower_bound=task_end_lower_bound,
+                        upper_bound=effective_horizon,
+                    )
+                    if presence is not None:
+                        model.Add(
+                            task_start == local_start
+                        ).OnlyEnforceIf(presence)
+                        model.Add(
+                            task_end == local_end
+                        ).OnlyEnforceIf(presence)
+                else:
+                    break_time = model.NewConstant(0)
+                    if presence is None:
+                        interval = model.NewIntervalVar(
+                            task_start,
+                            processing_time,
+                            task_end,
+                            f"interval_{alternative_name}",
+                        )
+                    else:
+                        interval = model.NewOptionalIntervalVar(
+                            task_start,
+                            processing_time,
+                            task_end,
+                            presence,
+                            f"interval_{alternative_name}",
+                        )
+                    if (
+                        not task.allow_breaks
+                        and machine.id
+                        in machines_requiring_separate_availability
+                    ):
+                        non_breakable_availability_intervals[
+                            machine.id
+                        ].append(interval)
+                    if not task.allow_breaks:
+                        self._bind_non_breakable_start_to_window(
+                            model,
+                            cp_model,
+                            task_start,
+                            presence,
+                            free_windows,
+                            processing_time,
+                            lower_bound=task_start_lower_bound,
+                            upper_bound=task_start_upper_bound,
+                        )
+
+                alternatives[machine.id] = _AlternativeVariables(
+                    machine=machine,
+                    processing_time=processing_time,
+                    presence=presence,
+                    interval=interval,
+                    break_time=break_time,
+                )
+                if (
+                    task_machine is not None
+                    and machine_indices is not None
+                    and presence is not None
+                ):
+                    model.Add(
+                        task_machine == machine_indices[machine.id]
+                    ).OnlyEnforceIf(presence)
+                if presence is not None:
+                    presences.append(presence)
+                no_overlap_intervals[machine.id].append(interval)
+                if machine_load_terms is not None:
+                    if presence is None:
+                        machine_load_terms[machine.id].append(
+                            processing_time
+                        )
+                    else:
+                        machine_load_terms[machine.id].append(
+                            processing_time * presence
+                        )
+
+            if presences:
+                model.AddExactlyOne(presences)
+            task_variables[task.id] = _TaskVariables(
+                task=task,
+                start=task_start,
+                end=task_end,
+                machine=task_machine,
+                alternatives=alternatives,
+            )
+
+        for intervals in no_overlap_intervals.values():
+            if intervals:
+                self._add_machine_disjunctive(model, intervals)
+        for intervals in non_breakable_availability_intervals.values():
+            if intervals:
+                self._add_machine_disjunctive(model, intervals)
+
+        if self.use_capability_cumulative:
+            self._add_capability_cumulatives(
+                model, task_variables, effective_horizon, start_time
+            )
+
+        identical_groups = self.analysis.identical_machine_groups(
+            free_windows_by_machine
+        )
+        for group in identical_groups:
+            counts: list[Any] = []
+            for machine in group:
+                presence_terms = []
+                for variables in task_variables.values():
+                    alternative = variables.alternatives.get(machine.id)
+                    if (
+                        alternative is None
+                        or alternative.presence is None
+                    ):
+                        continue
+                    presence_terms.append(alternative.presence)
+                counts.append(
+                    sum(presence_terms) if presence_terms else 0
+                )
+            for index in range(len(counts) - 1):
+                model.Add(counts[index] >= counts[index + 1])
+
+        for job_group in self.analysis.identical_job_groups():
+            entry_starts = [
+                task_variables[job.tasks[0].id].start
+                for job in job_group
+                if job.tasks and job.tasks[0].id in task_variables
+            ]
+            for index in range(len(entry_starts) - 1):
+                model.Add(
+                    entry_starts[index] <= entry_starts[index + 1]
+                )
+
+        reduced_dependencies = self.analysis.reduced_dependencies()
+        self._add_dependency_constraints(
+            model,
+            task_variables,
+            machine_indices,
+            reduced_dependencies,
+        )
+
+        needs_makespan_var = bool(
+            self.objective.makespan or self.use_machine_load_bounds
+        )
+        makespan: Any | None = None
+        if needs_makespan_var:
+            makespan = model.NewIntVar(
+                0, effective_horizon, "makespan"
+            )
+            model.AddMaxEquality(
+                makespan,
+                [
+                    task_variable.end
+                    for task_variable in task_variables.values()
+                ],
+            )
+            if machine_load_terms is not None:
+                for terms in machine_load_terms.values():
+                    if terms:
+                        model.Add(
+                            makespan >= start_time + sum(terms)
+                        )
+            critical_path_makespan_lb = max(
+                (
+                    critical_path_ends[task.id]
+                    for task in tasks
+                    if task.id in critical_path_ends
+                ),
+                default=start_time,
+            )
+            if critical_path_makespan_lb > start_time:
+                model.Add(makespan >= critical_path_makespan_lb)
+            bottleneck_lbs = (
+                self.analysis.capability_bottleneck_lower_bounds(
+                    start_time
+                )
+            )
+            for bottleneck_lb in bottleneck_lbs:
+                if bottleneck_lb > start_time:
+                    model.Add(makespan >= bottleneck_lb)
+        job_completion_vars: dict[str, Any] = (
+            self._job_completion_variables(
+                model,
+                task_variables,
+                effective_horizon,
+                heuristic_hint,
+            )
+            if self.objective.needs_job_completion
+            else {}
+        )
+        for job in self.instance.jobs:
+            job_critical_path_lb = max(
+                (
+                    critical_path_ends[task.id]
+                    for task in job.tasks
+                    if task.id in critical_path_ends
+                ),
+                default=start_time,
+            )
+            if job_critical_path_lb <= start_time:
+                continue
+            if job.id in job_completion_vars:
+                model.Add(
+                    job_completion_vars[job.id]
+                    >= job_critical_path_lb
+                )
+            # Item #47: per-job analogue of item #9's global makespan
+            # LB, applied to every task's `end` regardless of whether
+            # this job builds a completion variable. The IntVar already
+            # carries this as a domain lower bound when
+            # use_dependency_bounds is on, but the explicit constraint
+            # lets CP-SAT use it at branching, not just at variable
+            # build.
+            for task in job.tasks:
+                if task.id not in task_variables:
+                    continue
+                task_lb = critical_path_ends.get(task.id)
+                if task_lb is None or task_lb <= start_time:
+                    continue
+                if task.id in self.locked_tasks:
+                    continue
+                model.Add(task_variables[task.id].end >= task_lb)
+        if heuristic_hint is not None:
+            self._add_heuristic_hint(
+                model,
+                makespan,
+                task_variables,
+                heuristic_hint,
+                machine_indices,
+            )
+        objective_expr = self._objective_expression(
+            model,
+            makespan,
+            job_completion_vars,
+            effective_horizon,
+            task_variables=task_variables,
+            heuristic_hint=heuristic_hint,
+            critical_path_ends=critical_path_ends,
+        )
+        if heuristic_objective_value is not None:
+            model.Add(objective_expr <= heuristic_objective_value)
+        model.Minimize(objective_expr)
+
+        if self.use_search_strategy:
+            presence_vars = [
+                alternative.presence
+                for task_variables_entry in task_variables.values()
+                for alternative in (
+                    task_variables_entry.alternatives.values()
+                )
+                if alternative.presence is not None
+            ]
+            if presence_vars:
+                model.AddDecisionStrategy(
+                    presence_vars,
+                    cp_model.CHOOSE_FIRST,
+                    cp_model.SELECT_MAX_VALUE,
+                )
+            start_vars = [
+                task_variables_entry.start
+                for task_variables_entry in task_variables.values()
+            ]
+            if start_vars:
+                model.AddDecisionStrategy(
+                    start_vars,
+                    cp_model.CHOOSE_FIRST,
+                    cp_model.SELECT_MIN_VALUE,
+                )
+            if (
+                self.objective.needs_job_completion
+                and job_completion_vars
+            ):
+                completion_vars = list(job_completion_vars.values())
+                if completion_vars:
+                    model.AddDecisionStrategy(
+                        completion_vars,
+                        cp_model.CHOOSE_FIRST,
+                        cp_model.SELECT_MIN_VALUE,
+                    )
+
+        solver = cp_model.CpSolver()
+        self._configure_solver(solver)
+        status = solver.Solve(model)
+        self.last_status = solver.StatusName(status)
+        self.last_wall_time_seconds = solver.WallTime()
+
+        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            raise ValueError(
+                f"CP-SAT did not find a feasible schedule. "
+                f"Status: {self.last_status}."
+            )
+
+        self.last_objective_value = solver.ObjectiveValue()
+        self.last_best_bound = solver.BestObjectiveBound()
+        scheduled_tasks: list[ScheduledTask] = []
+        locked_ids = set(self.locked_tasks)
+        for task in tasks:
+            if task.id in locked_ids:
+                continue
+
+            task_variables_for_solution = task_variables[task.id]
+            selected_alternative = next(
+                alternative
+                for alternative in (
+                    task_variables_for_solution.alternatives.values()
+                )
+                if alternative.presence is None
+                or solver.BooleanValue(alternative.presence)
+            )
+            scheduled_start = solver.Value(
+                task_variables_for_solution.start
+            )
+            break_time = solver.Value(selected_alternative.break_time)
+            scheduled_tasks.append(
+                ScheduledTask(
+                    start_time=scheduled_start,
+                    end_time=(
+                        scheduled_start
+                        + selected_alternative.processing_time
+                        + break_time
+                    ),
+                    task=task,
+                    machine=selected_alternative.machine,
+                    break_time=break_time,
+                )
+            )
+
+        # Cache full schedule (including locked tasks) for warm-starts.
+        locked_scheduled = [
+            scheduled_task
+            for scheduled_task in self.locked_tasks.values()
+            if scheduled_task.task.id in self.task_id_map
+        ]
+        self._last_scheduled_tasks = locked_scheduled + scheduled_tasks
+        return scheduled_tasks
