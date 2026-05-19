@@ -143,7 +143,6 @@ def test_create_cp_sat_solver_with_ad_hoc_parameters(
                 num_workers=2,
                 relative_gap=0.01,
                 log_search_progress=True,
-                use_travel_table=False,
                 travel_model="hybrid",
                 hybrid_travel_threshold=4,
                 use_dependency_bounds=True,
@@ -179,13 +178,13 @@ def test_create_cp_sat_solver_defaults_to_pairwise_travel(
     assert solver.options.uses_travel_table is False
 
 
-def test_create_cp_sat_solver_supports_legacy_table_flag(
+def test_create_cp_sat_solver_with_table_travel(
     instance: SchedulingInstance,
 ) -> None:
     solver = create_solver(
         CpSatSolverConfiguration(
             instance=instance,
-            options=CpSatOptions(use_travel_table=True),
+            options=CpSatOptions(travel_model="table"),
         )
     )
 

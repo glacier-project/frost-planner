@@ -828,7 +828,6 @@ def build_configuration(
             options=CpSatOptions(
                 time_limit_seconds=args.cp_sat_time_limit,
                 num_workers=args.cp_sat_workers,
-                use_travel_table=args.cp_sat_travel_model == "table",
                 travel_model=args.cp_sat_travel_model,
                 hybrid_travel_threshold=(
                     args.cp_sat_hybrid_travel_threshold

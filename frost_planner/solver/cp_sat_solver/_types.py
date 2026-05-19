@@ -51,8 +51,7 @@ class CpSatOptions:
     max_deterministic_time: float | None = None
 
     # Travel-time formulation.
-    use_travel_table: bool | None = None
-    travel_model: TravelModel | None = None
+    travel_model: TravelModel = "pairwise"
     hybrid_travel_threshold: int = 16
 
     # Bounds / pruning toggles.
@@ -84,10 +83,6 @@ class CpSatOptions:
             raise ValueError("relative_gap must be non-negative.")
         if self.hybrid_travel_threshold < 1:
             raise ValueError("hybrid_travel_threshold must be positive.")
-        if self.travel_model is None:
-            self.travel_model = (
-                "table" if self.use_travel_table is True else "pairwise"
-            )
         if self.travel_model not in TRAVEL_MODELS:
             raise ValueError(
                 f"travel_model must be one of {list(TRAVEL_MODELS)}."

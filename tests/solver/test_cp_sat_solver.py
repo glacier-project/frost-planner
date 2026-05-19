@@ -133,7 +133,7 @@ def test_cp_sat_solver_pairwise_travel_model_enforces_travel_time() -> None:
     schedule = CpSatSolver(
         instance=instance,
         horizon=10,
-        options=CpSatOptions(use_travel_table=False),
+        options=CpSatOptions(travel_model="pairwise"),
     ).schedule()
 
     scheduled_task_1 = schedule.get_task_mapping(task_1)
