@@ -2416,8 +2416,6 @@ class CpSatSolver(BaseSolver):
             else {}
         )
         for job in self.instance.jobs:
-            if job.id not in job_completion_vars:
-                continue
             job_critical_path_lb = max(
                 (
                     critical_path_ends[task.id]
@@ -2426,10 +2424,27 @@ class CpSatSolver(BaseSolver):
                 ),
                 default=start_time,
             )
-            if job_critical_path_lb > start_time:
+            if job_critical_path_lb <= start_time:
+                continue
+            if job.id in job_completion_vars:
                 model.Add(
                     job_completion_vars[job.id] >= job_critical_path_lb
                 )
+            # Item #47: per-job analogue of item #9's global makespan
+            # LB, applied to every task's `end` regardless of whether
+            # this job builds a completion variable. The IntVar already
+            # carries this as a domain lower bound when use_dependency_bounds
+            # is on, but the explicit constraint lets CP-SAT use it at
+            # branching, not just at variable build.
+            for task in job.tasks:
+                if task.id not in task_variables:
+                    continue
+                task_lb = critical_path_ends.get(task.id)
+                if task_lb is None or task_lb <= start_time:
+                    continue
+                if task.id in self.locked_tasks:
+                    continue
+                model.Add(task_variables[task.id].end >= task_lb)
         if heuristic_hint is not None:
             self._add_heuristic_hint(
                 model,
