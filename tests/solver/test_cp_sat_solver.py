@@ -889,3 +889,39 @@ def test_cp_sat_solver_objective_hint_path_keeps_correctness() -> None:
     assert urgent_scheduled is not None
     # Urgent job must finish on or before its due date (4).
     assert urgent_scheduled.end_time <= 4
+
+
+def test_cp_sat_solver_capability_cumulative_packs_bottleneck() -> None:
+    """Three tasks requiring a 2-machine capability cannot all overlap."""
+    rare_caps = ["rare"]
+    rare1 = Machine(id="R1", name="Rare 1", capabilities=rare_caps)
+    rare2 = Machine(id="R2", name="Rare 2", capabilities=rare_caps)
+    instance = SchedulingInstance(
+        jobs=[
+            Job(
+                id=f"J{i}",
+                name=f"Job {i}",
+                tasks=[
+                    Task(
+                        id=f"T{i}",
+                        name=f"Task {i}",
+                        processing_time=5,
+                        requires=rare_caps,
+                    )
+                ],
+            )
+            for i in range(3)
+        ],
+        machines=[rare1, rare2],
+    )
+    schedule = CpSatSolver(instance=instance, horizon=30).schedule()
+    assert validate_schedule(schedule, instance)
+    # With only 2 rare-capability machines and 3 tasks, total makespan is
+    # at least ceil(3 * 5 / 2) = 8.
+    end_times = [
+        schedule.get_task_mapping(task).end_time
+        for job in instance.jobs
+        for task in job.tasks
+        if schedule.get_task_mapping(task) is not None
+    ]
+    assert max(end_times) >= 8
