@@ -38,14 +38,22 @@ class GeneticAlgorithmSolver(BaseSolver):
         self.elitism_count = elitism_count
 
     def _initialize_population(self) -> list[list[Job]]:
-        """Initializes a population of random job permutations.
+        """Initialize a population seeded by structured orderings.
 
-        Each individual in the population is a list of Job objects,
-        representing a job processing order.
+        The first slots come from the analysis's structured
+        candidate orderings (instance order, SPT, LPT, EDD, min slack,
+        a few seeded shuffles); the remaining slots are random
+        permutations. Seeding with non-random orderings gives the GA
+        a head start and stops the first generations being pure noise.
         """
-        population = []
+        population: list[list[Job]] = [
+            list(ordering)
+            for ordering in self.analysis.candidate_job_orderings()
+        ]
+        if len(population) > self.population_size:
+            population = population[: self.population_size]
         jobs = list(self.instance.jobs)
-        for _ in range(self.population_size):
+        while len(population) < self.population_size:
             random.shuffle(jobs)
             population.append(list(jobs))
         return population

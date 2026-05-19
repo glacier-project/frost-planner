@@ -116,21 +116,6 @@ class StochasticSolver(BaseSolver):
 
         return jobs
 
-    def _sort_jobs_random(self, jobs: list[Job]) -> list[Job]:
-        """Sort jobs randomly.
-
-        Args:
-            jobs (list[Job]):
-                List of jobs to sort.
-
-        Returns:
-            list[Job]:
-                Randomly sorted list of jobs.
-
-        """
-        random.shuffle(jobs)
-        return jobs
-
     def _evaluate_solution(
         self,
         jobs: list[Job],
@@ -145,20 +130,51 @@ class StochasticSolver(BaseSolver):
         )
         return result.scheduled_tasks, result.objective
 
+    def _seed_from_structured_orderings(
+        self,
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        start_time: int,
+    ) -> tuple[list[Job], list[ScheduledTask], float]:
+        """Pick the best of the analysis's structured orderings as seed.
+
+        Strictly better than a pure-random shuffle: SPT, LPT, EDD,
+        min-slack, instance-order, and three seeded shuffles get
+        evaluated; the best becomes the starting point for the
+        randomised local / remote-neighbour search.
+        """
+        best_jobs: list[Job] | None = None
+        best_solution: list[ScheduledTask] | None = None
+        best_score: float | None = None
+        for candidate in self.analysis.candidate_job_orderings():
+            solution, score = self._evaluate_solution(
+                candidate, machine_intervals, start_time=start_time
+            )
+            if best_score is None or score < best_score:
+                best_jobs = list(candidate)
+                best_solution = solution
+                best_score = score
+        if best_jobs is None or best_solution is None or best_score is None:
+            # Fallback: pure-random shuffle (no candidate scored).
+            jobs = list(self.instance.jobs)
+            random.shuffle(jobs)
+            solution, score = self._evaluate_solution(
+                jobs, machine_intervals, start_time=start_time
+            )
+            return jobs, solution, score
+        return best_jobs, best_solution, best_score
+
     @override
     def _allocate_tasks(
         self,
         machine_intervals: dict[str, list[tuple[int, int]]],
         start_time: int = 0,
     ) -> list[ScheduledTask]:
-        # init random
         alpha = self.alpha
         B = self.B  # noqa: N806 — math convention (budget)
         R = self.R  # noqa: N806 — math convention (remote neighbors)
         local_iterations = round(((1 - alpha) * B) / R)
-        jobs = self._sort_jobs_random(list(self.instance.jobs))
-        solution, best_score = self._evaluate_solution(
-            jobs, machine_intervals, start_time=start_time
+        jobs, solution, best_score = self._seed_from_structured_orderings(
+            machine_intervals, start_time
         )
         idle_iterations = 0
 
