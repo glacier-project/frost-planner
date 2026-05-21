@@ -222,9 +222,18 @@ def schedule_by_order(
                     dep_scheduled_task = scheduled_tasks[dep_id]
                     dep_end = dep_scheduled_task.end_time
                     if dep_scheduled_task.machine.id != machine_id:
-                        dep_end += travel_times.get(
-                            dep_scheduled_task.machine.id, {}
-                        ).get(machine_id, 0)
+                        if (
+                            dep_scheduled_task.machine.id not in travel_times
+                            or machine_id
+                            not in travel_times[dep_scheduled_task.machine.id]
+                        ):
+                            raise ValueError(
+                                "Missing travel time from machine "
+                                f"{dep_scheduled_task.machine.id} to {machine_id}"
+                            )
+                        dep_end += travel_times[dep_scheduled_task.machine.id][
+                            machine_id
+                        ]
                     adjusted_start_time = max(adjusted_start_time, dep_end)
 
                 duration = task.processing_time_on(machine_id)
