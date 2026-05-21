@@ -46,7 +46,14 @@ class ObjectiveWeights:
     @property
     def is_pure_makespan(self) -> bool:
         """Return whether the objective is only makespan minimization."""
-        return self == ObjectiveWeights()
+        return (
+            self.makespan > 0
+            and self.total_flow_time == 0
+            and self.num_tardy_jobs == 0
+            and self.total_tardiness == 0
+            and self.total_earliness == 0
+            and self.max_tardiness == 0
+        )
 
     @property
     def needs_job_completion(self) -> bool:
