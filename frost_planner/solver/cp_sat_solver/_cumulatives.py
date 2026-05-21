@@ -70,10 +70,8 @@ class _CumulativesMixin:
         for task_id, variables in task_variables.items():
             if not variables.task.requires:
                 continue
-            cumulative_intervals[task_id] = (
-                self._task_cumulative_interval(
-                    model, variables, effective_horizon, start_time
-                )
+            cumulative_intervals[task_id] = self._task_cumulative_interval(
+                model, variables, effective_horizon, start_time
             )
 
         for capability in sorted(capabilities):

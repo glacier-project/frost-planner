@@ -220,16 +220,11 @@ class _TaskBuildMixin:
         if not include_task_machine_var:
             return None
         if machine_indices is None:
-            raise ValueError(
-                "Missing machine indices for table travel model."
-            )
+            raise ValueError("Missing machine indices for table travel model.")
         if single_alternative:
-            return model.NewConstant(
-                machine_indices[feasible_machines[0].id]
-            )
+            return model.NewConstant(machine_indices[feasible_machines[0].id])
         machine_values = sorted(
-            machine_indices[machine.id]
-            for machine in feasible_machines
+            machine_indices[machine.id] for machine in feasible_machines
         )
         return model.NewIntVarFromDomain(
             cp_model.Domain.FromValues(machine_values),
@@ -338,8 +333,7 @@ class _TaskBuildMixin:
         """Build the breakable-task interval (start/end may include breaks)."""
         model = ctx.model
         max_elapsed_duration = processing_time + sum(
-            window.end - window.start
-            for window in relevant_unavailable_windows
+            window.end - window.start for window in relevant_unavailable_windows
         )
         local_end_upper_bound = min(
             task_end_upper_bound,

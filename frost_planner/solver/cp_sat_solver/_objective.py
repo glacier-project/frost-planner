@@ -145,9 +145,7 @@ class _ObjectiveMixin:
                 if objective.total_tardiness or objective.max_tardiness:
                     tardiness = model.NewIntVar(
                         tardiness_lower_bound,
-                        max(
-                            tardiness_lower_bound, tardiness_upper_bound
-                        ),
+                        max(tardiness_lower_bound, tardiness_upper_bound),
                         f"tardiness_{job_name}",
                     )
                     model.AddMaxEquality(
@@ -165,18 +163,16 @@ class _ObjectiveMixin:
                         model.AddHint(tardiness, tardiness_hint)
                         per_job_tardiness_hints.append(tardiness_hint)
                     if objective.total_tardiness:
-                        terms.append(
-                            objective.total_tardiness * tardiness
-                        )
+                        terms.append(objective.total_tardiness * tardiness)
 
                 if objective.num_tardy_jobs:
                     tardy = model.NewBoolVar(f"tardy_{job_name}")
-                    model.Add(
-                        completion >= job.due_date + 1
-                    ).OnlyEnforceIf(tardy)
-                    model.Add(
-                        completion <= job.due_date
-                    ).OnlyEnforceIf(tardy.Not())
+                    model.Add(completion >= job.due_date + 1).OnlyEnforceIf(
+                        tardy
+                    )
+                    model.Add(completion <= job.due_date).OnlyEnforceIf(
+                        tardy.Not()
+                    )
                     if heuristic_completion is not None:
                         model.AddHint(
                             tardy,
@@ -212,9 +208,7 @@ class _ObjectiveMixin:
             if tardiness_vars:
                 model.AddMaxEquality(max_tardiness, tardiness_vars)
                 if per_job_tardiness_hints:
-                    model.AddHint(
-                        max_tardiness, max(per_job_tardiness_hints)
-                    )
+                    model.AddHint(max_tardiness, max(per_job_tardiness_hints))
             else:
                 model.Add(max_tardiness == 0)
             terms.append(objective.max_tardiness * max_tardiness)

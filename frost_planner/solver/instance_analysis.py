@@ -247,9 +247,7 @@ class InstanceAnalysis:
         """Backward critical-path: latest start/end per task."""
         tasks = self.all_tasks()
         task_by_id = {task.id: task for task in tasks}
-        successors_by_id: dict[str, list[str]] = {
-            task.id: [] for task in tasks
-        }
+        successors_by_id: dict[str, list[str]] = {task.id: [] for task in tasks}
         for task in tasks:
             for dependency_id in task.dependencies:
                 if dependency_id in task_by_id:
@@ -285,10 +283,7 @@ class InstanceAnalysis:
                 if task.id not in pending:
                     continue
                 successors = successors_by_id[task.id]
-                if any(
-                    successor_id in pending
-                    for successor_id in successors
-                ):
+                if any(successor_id in pending for successor_id in successors):
                     continue
                 for successor_id in successors:
                     successor = task_by_id[successor_id]
@@ -308,9 +303,7 @@ class InstanceAnalysis:
 
         return latest_start, latest_end
 
-    def capability_bottleneck_lower_bounds(
-        self, start_time: int
-    ) -> list[int]:
+    def capability_bottleneck_lower_bounds(self, start_time: int) -> list[int]:
         """Per-capability and per-capability-pair workload ceilings."""
         tasks = self.all_tasks()
         capabilities: set[str] = set()
@@ -320,7 +313,7 @@ class InstanceAnalysis:
         sorted_caps = sorted(capabilities)
         cap_pairs: list[tuple[str, ...]] = [(cap,) for cap in sorted_caps]
         for index, cap_a in enumerate(sorted_caps):
-            for cap_b in sorted_caps[index + 1:]:
+            for cap_b in sorted_caps[index + 1 :]:
                 cap_pairs.append((cap_a, cap_b))
         for cap_subset in cap_pairs:
             cap_set = frozenset(cap_subset)
@@ -442,8 +435,7 @@ class InstanceAnalysis:
         return [
             window
             for window in unavailable_windows
-            if window.end > start_lower_bound
-            and window.start < end_upper_bound
+            if window.end > start_lower_bound and window.start < end_upper_bound
         ]
 
     def machine_can_process_task(
@@ -485,9 +477,7 @@ class InstanceAnalysis:
         elif task.allow_breaks:
             result = sum(intersections) >= processing_time
         else:
-            result = any(
-                length >= processing_time for length in intersections
-            )
+            result = any(length >= processing_time for length in intersections)
         self._machine_can_process_cache[cache_key] = result
         return result
 
@@ -554,9 +544,7 @@ class InstanceAnalysis:
     def identical_job_groups(self) -> list[list[Job]]:
         """Group jobs that share an identical task-sequence signature."""
         jobs = list(self.instance.jobs)
-        all_task_ids = {
-            task.id for job in jobs for task in job.tasks
-        }
+        all_task_ids = {task.id for job in jobs for task in job.tasks}
         locked_task_ids = set(self.locked_tasks)
         signatures: dict[object, list[Job]] = {}
         for job in jobs:
@@ -592,9 +580,7 @@ class InstanceAnalysis:
                     (
                         tuple(sorted(task.requires)),
                         task.processing_time,
-                        tuple(
-                            sorted(task.machine_processing_times.items())
-                        ),
+                        tuple(sorted(task.machine_processing_times.items())),
                         task.allow_breaks,
                         within_dep_positions,
                     )
@@ -627,8 +613,7 @@ class InstanceAnalysis:
             processing_signature = tuple(
                 (task.id, self.processing_time_on(task, machine))
                 for task in tasks
-                if machine
-                in self.suitable_machines_map.get(task.id, [])
+                if machine in self.suitable_machines_map.get(task.id, [])
             )
             travel_out = tuple(
                 (
@@ -657,7 +642,7 @@ class InstanceAnalysis:
                 continue
             zero_within_group = True
             for index_a, machine_a in enumerate(group):
-                for machine_b in group[index_a + 1:]:
+                for machine_b in group[index_a + 1 :]:
                     try:
                         forward = self.instance.get_travel_time(
                             machine_a, machine_b
@@ -693,17 +678,17 @@ class InstanceAnalysis:
         populations instead of pure-random shuffles.
         """
         jobs = list(self.instance.jobs)
-        far_future = max(
-            (job.due_date for job in jobs if job.due_date is not None),
-            default=0,
-        ) + sum(self.job_workload(job) for job in jobs) + 1
+        far_future = (
+            max(
+                (job.due_date for job in jobs if job.due_date is not None),
+                default=0,
+            )
+            + sum(self.job_workload(job) for job in jobs)
+            + 1
+        )
         candidates: list[list[Job]] = [list(jobs)]
-        candidates.append(
-            sorted(jobs, key=self.job_workload)
-        )
-        candidates.append(
-            sorted(jobs, key=lambda job: -self.job_workload(job))
-        )
+        candidates.append(sorted(jobs, key=self.job_workload))
+        candidates.append(sorted(jobs, key=lambda job: -self.job_workload(job)))
         candidates.append(
             sorted(
                 jobs,
@@ -716,11 +701,7 @@ class InstanceAnalysis:
             sorted(
                 jobs,
                 key=lambda job: (
-                    (
-                        job.due_date
-                        if job.due_date is not None
-                        else far_future
-                    )
+                    (job.due_date if job.due_date is not None else far_future)
                     - self.job_workload(job)
                 ),
             )

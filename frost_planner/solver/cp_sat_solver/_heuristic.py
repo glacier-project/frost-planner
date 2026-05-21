@@ -73,9 +73,7 @@ class _HeuristicMixin:
         """Pick the best greedy schedule across several job orderings."""
         best_objective: float | None = None
         best_ordering: list[Job] | None = None
-        best_result: tuple[dict[str, ScheduledTask], Schedule] | None = (
-            None
-        )
+        best_result: tuple[dict[str, ScheduledTask], Schedule] | None = None
 
         if self._last_scheduled_tasks is not None:
             try:
@@ -108,10 +106,7 @@ class _HeuristicMixin:
             if evaluation is None:
                 continue
             candidate_objective, hint_map, schedule = evaluation
-            if (
-                best_objective is None
-                or candidate_objective < best_objective
-            ):
+            if best_objective is None or candidate_objective < best_objective:
                 best_objective = candidate_objective
                 best_ordering = ordering
                 best_result = (hint_map, schedule)

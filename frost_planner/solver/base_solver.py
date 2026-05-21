@@ -168,13 +168,9 @@ class BaseSolver(ABC):
         the same input across many evaluations (set
         ``copy_intervals=False`` for one-shot use to avoid the copy).
         """
-        locked_tasks_map = {
-            st.task.id: st for st in self.locked_tasks.values()
-        }
+        locked_tasks_map = {st.task.id: st for st in self.locked_tasks.values()}
         intervals = (
-            deepcopy(machine_intervals)
-            if copy_intervals
-            else machine_intervals
+            deepcopy(machine_intervals) if copy_intervals else machine_intervals
         )
         scheduled_tasks = schedule_by_order(
             self.instance,

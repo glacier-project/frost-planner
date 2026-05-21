@@ -199,9 +199,7 @@ def schedule_by_order(
         # end time (predecessor travel is applied per-machine below).
         min_start_time = min_time
         for dep in task.dependencies:
-            min_start_time = max(
-                min_start_time, scheduled_tasks[dep].end_time
-            )
+            min_start_time = max(min_start_time, scheduled_tasks[dep].end_time)
 
         selected_machine: Machine | None = None
         selected_start_time: int = sys.maxsize
@@ -227,9 +225,7 @@ def schedule_by_order(
                         dep_end += travel_times.get(
                             dep_scheduled_task.machine.id, {}
                         ).get(machine_id, 0)
-                    adjusted_start_time = max(
-                        adjusted_start_time, dep_end
-                    )
+                    adjusted_start_time = max(adjusted_start_time, dep_end)
 
                 duration = task.processing_time_on(machine_id)
                 if adjusted_start_time + duration <= end_interval:

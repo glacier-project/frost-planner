@@ -144,8 +144,7 @@ class Task(BaseModel):
             self.id == other.id
             and self.name == other.name
             and self.processing_time == other.processing_time
-            and self.machine_processing_times
-            == other.machine_processing_times
+            and self.machine_processing_times == other.machine_processing_times
             and self.dependencies == other.dependencies
             and self.requires == other.requires
             and self.priority == other.priority

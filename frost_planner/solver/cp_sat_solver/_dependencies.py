@@ -73,8 +73,7 @@ class _DependenciesMixin:
                         if travel_time > min_travel
                     )
                     use_table = (
-                        extra_pair_count
-                        > self.options.hybrid_travel_threshold
+                        extra_pair_count > self.options.hybrid_travel_threshold
                     )
                 if use_table:
                     task_ids.add(dependency_id)
@@ -103,8 +102,7 @@ class _DependenciesMixin:
     ) -> None:
         """Add an unconditional dependency with a fixed travel time."""
         model.Add(
-            current_variables.start
-            >= dependency_variables.end + travel_time
+            current_variables.start >= dependency_variables.end + travel_time
         )
 
     def _dependency_travel_options(
@@ -221,8 +219,7 @@ class _DependenciesMixin:
             sorted(travel_tuples),
         )
         model.Add(
-            current_variables.start
-            >= dependency_variables.end + travel_var
+            current_variables.start >= dependency_variables.end + travel_var
         )
 
     def _add_dependency_constraints(
@@ -245,9 +242,7 @@ class _DependenciesMixin:
                     )
 
                 dependency_variables = task_variables[dependency_id]
-                dependency_choices = self._machine_choices(
-                    dependency_variables
-                )
+                dependency_choices = self._machine_choices(dependency_variables)
                 current_choices = self._machine_choices(current_variables)
                 travel_options = self._dependency_travel_options(
                     dependency_choices,
@@ -277,15 +272,13 @@ class _DependenciesMixin:
                         if travel_time > min_travel_time
                     )
                     use_table = (
-                        extra_pair_count
-                        > self.options.hybrid_travel_threshold
+                        extra_pair_count > self.options.hybrid_travel_threshold
                     )
 
                 if use_table:
                     if machine_indices is None:
                         raise ValueError(
-                            "Missing machine indices for table travel "
-                            "model."
+                            "Missing machine indices for table travel model."
                         )
                     self._add_table_dependency_edge(
                         model,

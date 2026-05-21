@@ -91,12 +91,12 @@ class CpSatOptions:
             self.cp_model_probing_level is not None
             and self.cp_model_probing_level not in (0, 1, 2, 3)
         ):
-            raise ValueError(
-                "cp_model_probing_level must be 0, 1, 2, or 3."
-            )
-        if (
-            self.symmetry_level is not None
-            and self.symmetry_level not in (0, 1, 2, 3)
+            raise ValueError("cp_model_probing_level must be 0, 1, 2, or 3.")
+        if self.symmetry_level is not None and self.symmetry_level not in (
+            0,
+            1,
+            2,
+            3,
         ):
             raise ValueError("symmetry_level must be 0, 1, 2, or 3.")
         if self.disjunctive_encoding not in DISJUNCTIVE_ENCODINGS:
@@ -114,8 +114,7 @@ class CpSatOptions:
             and self.search_branching not in SEARCH_BRANCHINGS
         ):
             raise ValueError(
-                "search_branching must be one of "
-                f"{list(SEARCH_BRANCHINGS)}."
+                f"search_branching must be one of {list(SEARCH_BRANCHINGS)}."
             )
 
     @property

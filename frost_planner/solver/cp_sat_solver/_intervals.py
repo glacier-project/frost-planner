@@ -141,9 +141,7 @@ class _IntervalsMixin:
         max_break_time = sum(
             window.end - window.start for window in unavailable_windows
         )
-        break_time = model.NewIntVar(
-            0, max_break_time, f"{name}_break_time"
-        )
+        break_time = model.NewIntVar(0, max_break_time, f"{name}_break_time")
         if not unavailable_windows:
             model.Add(break_time == 0)
             return break_time
@@ -151,12 +149,8 @@ class _IntervalsMixin:
         zero = model.NewConstant(0)
         overlaps = []
         for idx, window in enumerate(unavailable_windows):
-            min_end = model.NewIntVar(
-                0, horizon, f"{name}_min_end_{idx}"
-            )
-            max_start = model.NewIntVar(
-                0, horizon, f"{name}_max_start_{idx}"
-            )
+            min_end = model.NewIntVar(0, horizon, f"{name}_min_end_{idx}")
+            max_start = model.NewIntVar(0, horizon, f"{name}_max_start_{idx}")
             overlap = model.NewIntVar(
                 0,
                 window.end - window.start,

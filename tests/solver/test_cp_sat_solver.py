@@ -623,7 +623,8 @@ def test_cp_sat_solver_single_machine_breakable_with_dependency() -> None:
     assert scheduled_task_1.end_time == 2
     assert scheduled_task_2.start_time >= scheduled_task_1.end_time
     assert (
-        scheduled_task_2.end_time - scheduled_task_2.start_time
+        scheduled_task_2.end_time
+        - scheduled_task_2.start_time
         - scheduled_task_2.break_time
         == 4
     )

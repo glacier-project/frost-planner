@@ -112,8 +112,7 @@ class CpSatSolver(
         ]
         all_machines_have_finite_end = all(
             any(
-                end != sys.maxsize
-                for _, end in machine_intervals.get(m.id, [])
+                end != sys.maxsize for _, end in machine_intervals.get(m.id, [])
             )
             for m in self.instance.machines
         )
@@ -285,8 +284,7 @@ class CpSatSolver(
                 machine_setup.task_ids_requiring_machine_variables
             ),
             machines_requiring_separate_availability=(
-                machine_collections
-                .machines_requiring_separate_availability
+                machine_collections.machines_requiring_separate_availability
             ),
             non_breakable_availability_intervals=(
                 machine_collections.non_breakable_availability_intervals
@@ -560,10 +558,8 @@ class CpSatSolver(
             | machines_with_breakable_alternatives
         )
         machine_load_terms = self._build_machine_load_terms(start_time)
-        fixed_unavailable_intervals = (
-            self._create_fixed_unavailable_intervals(
-                model, unavailable_windows_by_machine
-            )
+        fixed_unavailable_intervals = self._create_fixed_unavailable_intervals(
+            model, unavailable_windows_by_machine
         )
         non_breakable_availability_intervals: dict[str, list[Any]] = {
             machine.id: [] for machine in self.instance.machines
@@ -606,9 +602,8 @@ class CpSatSolver(
                 )
             if scheduled_task.end_time <= start_time:
                 continue
-            locked_duration = (
-                scheduled_task.end_time
-                - max(start_time, scheduled_task.start_time)
+            locked_duration = scheduled_task.end_time - max(
+                start_time, scheduled_task.start_time
             )
             machine_load_terms[scheduled_task.machine.id].append(
                 locked_duration
@@ -624,9 +619,9 @@ class CpSatSolver(
         for intervals in collections.no_overlap_intervals.values():
             if intervals:
                 self._add_machine_disjunctive(model, intervals)
-        for intervals in (
-            collections.non_breakable_availability_intervals.values()
-        ):
+        for (
+            intervals
+        ) in collections.non_breakable_availability_intervals.values():
             if intervals:
                 self._add_machine_disjunctive(model, intervals)
 
@@ -645,15 +640,11 @@ class CpSatSolver(
                 presence_terms = [
                     alternative.presence
                     for variables in task_variables.values()
-                    if (
-                        alternative := variables.alternatives.get(machine.id)
-                    )
+                    if (alternative := variables.alternatives.get(machine.id))
                     is not None
                     and alternative.presence is not None
                 ]
-                counts.append(
-                    sum(presence_terms) if presence_terms else 0
-                )
+                counts.append(sum(presence_terms) if presence_terms else 0)
             for index in range(len(counts) - 1):
                 model.Add(counts[index] >= counts[index + 1])
 
@@ -684,10 +675,7 @@ class CpSatSolver(
         makespan = model.NewIntVar(0, effective_horizon, "makespan")
         model.AddMaxEquality(
             makespan,
-            [
-                task_variable.end
-                for task_variable in task_variables.values()
-            ],
+            [task_variable.end for task_variable in task_variables.values()],
         )
         if machine_load_terms is not None:
             for terms in machine_load_terms.values():
@@ -739,9 +727,7 @@ class CpSatSolver(
             if job_critical_path_lb <= start_time:
                 continue
             if job.id in job_completion_vars:
-                model.Add(
-                    job_completion_vars[job.id] >= job_critical_path_lb
-                )
+                model.Add(job_completion_vars[job.id] >= job_critical_path_lb)
             # Item #47: per-job analogue of item #9's global makespan
             # LB, applied to every task's `end` regardless of whether
             # this job builds a completion variable. The IntVar already
@@ -773,9 +759,7 @@ class CpSatSolver(
         presence_vars = [
             alternative.presence
             for task_variables_entry in task_variables.values()
-            for alternative in (
-                task_variables_entry.alternatives.values()
-            )
+            for alternative in (task_variables_entry.alternatives.values())
             if alternative.presence is not None
         ]
         if presence_vars:
@@ -838,9 +822,7 @@ class CpSatSolver(
                 if alternative.presence is None
                 or solver.BooleanValue(alternative.presence)
             )
-            scheduled_start = solver.Value(
-                task_variables_for_solution.start
-            )
+            scheduled_start = solver.Value(task_variables_for_solution.start)
             break_time = solver.Value(selected_alternative.break_time)
             scheduled_tasks.append(
                 ScheduledTask(
