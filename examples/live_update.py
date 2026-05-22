@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2024 the Glacier project contributors
 # SPDX-License-Identifier: BSD-2-Clause
 
+import argparse
 import time
 
 from frost_planner.core.base import TaskStatus
@@ -10,11 +11,28 @@ from frost_planner.solver.stochastic_solver import StochasticSolver
 from frost_planner.utils import cprint, crule
 
 
+def _parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Event-driven scheduling simulation with live updates."
+    )
+    parser.add_argument(
+        "--instance",
+        type=str,
+        default="data/instance_3.json",
+        help="Path to the instance JSON file.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
     """Event-driven scheduling simulation."""
     crule("Event-driven Scheduling Simulation", style="blue")
 
-    instance_path = "data/instance_3.json"
+    args = _parse_args()
+    instance_path = args.instance
     cprint(
         f"Loading instance from [green]{instance_path}[/green]...",
         style="yellow",
@@ -25,9 +43,7 @@ def main() -> None:
     initial_jobs = all_jobs[:5]
     pending_jobs = all_jobs[5:]
 
-    current_instance = full_instance.model_copy(
-        update={"jobs": list(initial_jobs)}
-    )
+    current_instance = full_instance.model_copy(update={"jobs": list(initial_jobs)})
     solver = StochasticSolver(instance=current_instance, T=100, B=200)
     executor = DynamicExecutor(solver, live_plot=True)
 
@@ -73,10 +89,7 @@ def main() -> None:
             # changed
             current_schedule = executor.get_current_schedule()
             for st in current_schedule.get_tasks():
-                if (
-                    st.end_time <= now
-                    and st.task.status != TaskStatus.COMPLETED
-                ):
+                if st.end_time <= now and st.task.status != TaskStatus.COMPLETED:
                     executor.task_completed(st)
                     cprint(f"  [green]✔ Task {st.task.name} finished.[/green]")
                 elif (
@@ -107,9 +120,7 @@ def main() -> None:
                 for st in solver.locked_tasks.values()
             )
             if not pending_jobs and all_tasks_locked and all_tasks_completed:
-                cprint(
-                    "\n[bold green]Success: All tasks completed![/bold green]"
-                )
+                cprint("\n[bold green]Success: All tasks completed![/bold green]")
                 time.sleep(2)
                 break
 
