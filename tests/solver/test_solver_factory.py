@@ -7,8 +7,11 @@ from collections.abc import Callable
 import pytest
 
 from frost_planner.core.base import Job, Machine, SchedulingInstance, Task
+from frost_planner.core.objective import ObjectiveWeights
+from frost_planner.solver.cp_sat_solver import CpSatOptions, CpSatSolver
 from frost_planner.solver.dummy_solver import DummySolver
 from frost_planner.solver.factory import (
+    CpSatSolverConfiguration,
     DummySolverConfiguration,
     GeneticAlgorithmSolverConfiguration,
     SolverConfiguration,
@@ -19,7 +22,10 @@ from frost_planner.solver.genetic_solver import GeneticAlgorithmSolver
 from frost_planner.solver.stochastic_solver import StochasticSolver
 
 SolverClass = (
-    type[DummySolver] | type[StochasticSolver] | type[GeneticAlgorithmSolver]
+    type[DummySolver]
+    | type[StochasticSolver]
+    | type[GeneticAlgorithmSolver]
+    | type[CpSatSolver]
 )
 
 
@@ -50,12 +56,17 @@ def _genetic_configuration(instance: SchedulingInstance) -> SolverConfiguration:
     return GeneticAlgorithmSolverConfiguration(instance=instance)
 
 
+def _cp_sat_configuration(instance: SchedulingInstance) -> SolverConfiguration:
+    return CpSatSolverConfiguration(instance=instance)
+
+
 @pytest.mark.parametrize(
     ("configuration", "solver_class"),
     [
         (_dummy_configuration, DummySolver),
         (_stochastic_configuration, StochasticSolver),
         (_genetic_configuration, GeneticAlgorithmSolver),
+        (_cp_sat_configuration, CpSatSolver),
     ],
 )
 def test_create_solver_from_configuration(
@@ -66,6 +77,7 @@ def test_create_solver_from_configuration(
     sc = configuration(instance)
     sc.horizon = 100
     sc.machine_intervals = {"M1": [(5, sys.maxsize)]}
+    sc.objective = ObjectiveWeights(makespan=0, total_flow_time=1)
 
     solver = create_solver(sc)
 
@@ -73,6 +85,7 @@ def test_create_solver_from_configuration(
     assert solver.instance == instance
     assert solver.horizon == 100
     assert solver.initial_machine_intervals == sc.machine_intervals
+    assert solver.objective == sc.objective
 
 
 def test_create_stochastic_solver_with_ad_hoc_parameters(
@@ -117,6 +130,67 @@ def test_create_genetic_solver_with_ad_hoc_parameters(
     assert solver.mutation_rate == 0.2
     assert solver.crossover_rate == 0.7
     assert solver.elitism_count == 2
+
+
+def test_create_cp_sat_solver_with_ad_hoc_parameters(
+    instance: SchedulingInstance,
+) -> None:
+    solver = create_solver(
+        CpSatSolverConfiguration(
+            instance=instance,
+            options=CpSatOptions(
+                time_limit_seconds=2.5,
+                num_workers=2,
+                relative_gap=0.01,
+                log_search_progress=True,
+                travel_model="hybrid",
+                hybrid_travel_threshold=4,
+                use_dependency_bounds=True,
+                use_machine_load_bounds=True,
+                prune_infeasible_alternatives=False,
+                use_heuristic_hints=False,
+            ),
+        )
+    )
+
+    assert isinstance(solver, CpSatSolver)
+    assert solver.options.time_limit_seconds == 2.5
+    assert solver.options.num_workers == 2
+    assert solver.options.relative_gap == 0.01
+    assert solver.options.log_search_progress is True
+    assert solver.options.travel_model == "hybrid"
+    assert solver.options.uses_travel_table is False
+    assert solver.options.hybrid_travel_threshold == 4
+    assert solver.options.use_dependency_bounds is True
+    assert solver.options.use_machine_load_bounds is True
+    assert solver.options.prune_infeasible_alternatives is False
+    assert solver.options.use_heuristic_hints is False
+
+
+def test_create_cp_sat_solver_defaults_to_pairwise_travel(
+    instance: SchedulingInstance,
+) -> None:
+    solver = create_solver(CpSatSolverConfiguration(instance=instance))
+
+    assert isinstance(solver, CpSatSolver)
+    assert solver.options.num_workers == 16
+    assert solver.options.travel_model == "pairwise"
+    assert solver.options.uses_travel_table is False
+
+
+def test_create_cp_sat_solver_with_table_travel(
+    instance: SchedulingInstance,
+) -> None:
+    solver = create_solver(
+        CpSatSolverConfiguration(
+            instance=instance,
+            options=CpSatOptions(travel_model="table"),
+        )
+    )
+
+    assert isinstance(solver, CpSatSolver)
+    assert solver.options.travel_model == "table"
+    assert solver.options.uses_travel_table is True
 
 
 def test_create_solver_uses_default_specific_parameters_for_base_configuration(

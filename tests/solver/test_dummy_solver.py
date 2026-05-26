@@ -3,7 +3,7 @@
 
 import pytest
 
-from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.base import Job, Machine, SchedulingInstance, Task
 from frost_planner.core.metrics import calculate_start_time
 from frost_planner.generator.instance_generator import (
     InstanceConfiguration,
@@ -39,3 +39,23 @@ class TestDummySolver:
 
         assert schedule is not None
         assert calculate_start_time(schedule) == start_time
+
+
+def test_dummy_solver_uses_machine_specific_processing_time() -> None:
+    task = Task(
+        id="T1",
+        name="Task 1",
+        processing_time=5,
+        machine_processing_times={"M1": 7},
+    )
+    machine = Machine(id="M1", name="Machine 1")
+    instance = SchedulingInstance(
+        jobs=[Job(id="J1", name="Job 1", tasks=[task])],
+        machines=[machine],
+    )
+
+    schedule = DummySolver(instance=instance).schedule()
+
+    scheduled_task = schedule.get_task_mapping(task)
+    assert scheduled_task is not None
+    assert scheduled_task.end_time == 7

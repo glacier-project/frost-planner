@@ -17,6 +17,8 @@ path = [
     "requirements-dev.txt",
     "tox.ini",
     "uv.lock",
+    "benchmarks/results/.gitignore",
+    "benchmarks/README.md"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2024 the Glacier project contributors"

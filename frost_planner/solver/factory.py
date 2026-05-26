@@ -3,11 +3,13 @@
 
 import sys
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 from frost_planner.core.base import SchedulingInstance
+from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.solver.base_solver import BaseSolver
+from frost_planner.solver.cp_sat_solver._types import CpSatOptions
 from frost_planner.solver.dummy_solver import DummySolver
 from frost_planner.solver.genetic_solver import GeneticAlgorithmSolver
 from frost_planner.solver.stochastic_solver import StochasticSolver
@@ -19,6 +21,7 @@ class SolverType(StrEnum):
     DUMMY = "dummy"
     STOCHASTIC = "stochastic"
     GENETIC = "genetic"
+    CP_SAT = "cp_sat"
 
 
 @dataclass
@@ -33,6 +36,7 @@ class SolverConfiguration(ABC):
     solver_type: SolverType | str = SolverType.DUMMY
     horizon: int = sys.maxsize
     machine_intervals: dict[str, list[tuple[int, int]]] | None = None
+    objective: ObjectiveWeights | None = None
 
     def __post_init__(self) -> None:
         """Reject direct instantiation of the abstract base class."""
@@ -41,7 +45,8 @@ class SolverConfiguration(ABC):
                 "SolverConfiguration is abstract and cannot be instantiated "
                 "directly; use a concrete subclass (DummySolverConfiguration, "
                 "StochasticSolverConfiguration, "
-                "GeneticAlgorithmSolverConfiguration)."
+                "GeneticAlgorithmSolverConfiguration, "
+                "CpSatSolverConfiguration)."
             )
 
 
@@ -76,6 +81,19 @@ class GeneticAlgorithmSolverConfiguration(SolverConfiguration):
     elitism_count: int = 5
 
 
+@dataclass
+class CpSatSolverConfiguration(SolverConfiguration):
+    """Configuration for the CP-SAT solver.
+
+    Cp-sat tunables live in ``options``; problem-shape fields
+    (``instance``, ``horizon``, ``machine_intervals``, ``objective``)
+    are inherited from ``SolverConfiguration``.
+    """
+
+    solver_type: SolverType | str = SolverType.CP_SAT
+    options: CpSatOptions = field(default_factory=CpSatOptions)
+
+
 def create_solver(configuration: SolverConfiguration) -> BaseSolver:
     """Create a solver instance from a solver configuration."""
     try:
@@ -95,6 +113,7 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             instance=configuration.instance,
             horizon=configuration.horizon,
             machine_intervals=configuration.machine_intervals,
+            objective=configuration.objective,
         )
 
     if solver_type is SolverType.STOCHASTIC:
@@ -106,11 +125,26 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
             instance=configuration.instance,
             horizon=configuration.horizon,
             machine_intervals=configuration.machine_intervals,
+            objective=configuration.objective,
             T=configuration.T,
             B=configuration.B,
             R=configuration.R,
             alpha=configuration.alpha,
             t_idle=configuration.t_idle,
+        )
+
+    if solver_type is SolverType.CP_SAT:
+        assert isinstance(configuration, CpSatSolverConfiguration), (
+            "Expected CpSatSolverConfiguration for CP-SAT solver type"
+        )
+        from frost_planner.solver.cp_sat_solver import CpSatSolver
+
+        return CpSatSolver(
+            instance=configuration.instance,
+            horizon=configuration.horizon,
+            machine_intervals=configuration.machine_intervals,
+            objective=configuration.objective,
+            options=configuration.options,
         )
 
     assert isinstance(configuration, GeneticAlgorithmSolverConfiguration), (
@@ -120,6 +154,7 @@ def create_solver(configuration: SolverConfiguration) -> BaseSolver:
         instance=configuration.instance,
         horizon=configuration.horizon,
         machine_intervals=configuration.machine_intervals,
+        objective=configuration.objective,
         population_size=configuration.population_size,
         generations=configuration.generations,
         mutation_rate=configuration.mutation_rate,

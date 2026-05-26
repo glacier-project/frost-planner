@@ -3,12 +3,11 @@
 
 import random
 import sys
-from copy import deepcopy
 from typing import override
 
 from frost_planner.core.base import Job, SchedulingInstance, _sort_tasks
+from frost_planner.core.objective import ObjectiveWeights
 from frost_planner.core.schedule import ScheduledTask
-from frost_planner.solver import _schedule_by_order
 from frost_planner.solver.base_solver import BaseSolver
 
 
@@ -46,8 +45,9 @@ class StochasticSolver(BaseSolver):
         alpha: float = 0.4,
         t_idle: int = 10,
         machine_intervals: dict[str, list[tuple[int, int]]] | None = None,
+        objective: ObjectiveWeights | None = None,
     ) -> None:
-        super().__init__(instance, horizon, machine_intervals)
+        super().__init__(instance, horizon, machine_intervals, objective)
         self.T = T
         self.B = B
         self.R = R
@@ -55,80 +55,33 @@ class StochasticSolver(BaseSolver):
         self.t_idle = t_idle
 
     def _get_random_neighbor(self, jobs: list[Job]) -> list[Job]:
-        """Generate a random neighbor solution by swapping two jobs.
-
-        Args:
-            jobs (list[Job]):
-                List of jobs to generate a neighbor for.
-
-        Returns:
-            list[Job]:
-                A list of jobs with two jobs swapped.
-
-        """
+        """Swap two random jobs in-place and return the list."""
         if len(jobs) < 2:
             return jobs
-
         idx1, idx2 = random.sample(range(len(jobs)), 2)
         jobs[idx1], jobs[idx2] = jobs[idx2], jobs[idx1]
         return jobs
 
     def _get_local_neighbor(self, jobs: list[Job]) -> list[Job]:
-        """Generate a local neighbor by swapping two tasks within the same job.
-
-        Args:
-            jobs (list[Job]):
-                List of jobs to generate a neighbor for.
-
-        Returns:
-            list[Job]:
-                A list of jobs with two tasks swapped.
-        """
+        """Swap two tasks in a random job, then re-sort to keep deps valid."""
         if not jobs:
             return jobs
-
-        # Select a job to modify
         job_to_modify = random.choice(jobs)
-        job_index = jobs.index(job_to_modify)
-
         if len(job_to_modify.tasks) < 2:
             return jobs
 
-        # Create a mutable copy of the tasks list
         tasks_copy = list(job_to_modify.tasks)
-
-        # Swap two tasks in the copy
         idx1, idx2 = random.sample(range(len(tasks_copy)), 2)
         tasks_copy[idx1], tasks_copy[idx2] = tasks_copy[idx2], tasks_copy[idx1]
-
-        # Sort tasks and create a new Job instance
+        # Re-sort to keep dependencies satisfied after the swap.
         new_tasks = _sort_tasks(tasks_copy)
-        new_job = Job(
+        jobs[jobs.index(job_to_modify)] = Job(
             id=job_to_modify.id,
             name=job_to_modify.name,
             tasks=new_tasks,
             priority=job_to_modify.priority,
             due_date=job_to_modify.due_date,
         )
-
-        # Replace the old job with the new job in the jobs list
-        jobs[job_index] = new_job
-
-        return jobs
-
-    def _sort_jobs_random(self, jobs: list[Job]) -> list[Job]:
-        """Sort jobs randomly.
-
-        Args:
-            jobs (list[Job]):
-                List of jobs to sort.
-
-        Returns:
-            list[Job]:
-                Randomly sorted list of jobs.
-
-        """
-        random.shuffle(jobs)
         return jobs
 
     def _evaluate_solution(
@@ -136,42 +89,47 @@ class StochasticSolver(BaseSolver):
         jobs: list[Job],
         machine_intervals: dict[str, list[tuple[int, int]]],
         start_time: int = 0,
-    ) -> tuple[list[ScheduledTask], int]:
-        """Evaluate the quality of a solution based on the makespan.
-
-        Args:
-            jobs (list[Job]):
-                List of jobs to evaluate.
-            machine_intervals (dict[str, list[tuple[int, int]]]):
-                The availability intervals for each machine.
-            start_time (int):
-                The global lower bound for task start times.
-
-        Returns:
-            tuple[list[ScheduledTask], int]:
-                A tuple containing the scheduled tasks and the makespan.
-
-        """
-        machine_intervals = deepcopy(machine_intervals)
-        locked_tasks_map = {st.task.id: st for st in self.locked_tasks.values()}
-        scheduled_tasks = _schedule_by_order(
-            self.instance,
+    ) -> tuple[list[ScheduledTask], float]:
+        """Evaluate the quality of a solution using configured objectives."""
+        result = self._greedy_evaluate(
             jobs,
-            self.instance.machines,
             machine_intervals,
-            self.horizon,
-            self.instance.travel_times,
-            self.machine_id_map,
-            self.suitable_machines_map,
-            initial_scheduled_tasks=locked_tasks_map,
-            min_time=start_time,
+            start_time=start_time,
         )
+        return result.scheduled_tasks, result.objective
 
-        return scheduled_tasks, (
-            max(task.end_time for task in scheduled_tasks)
-            if scheduled_tasks
-            else 0
-        )
+    def _seed_from_structured_orderings(
+        self,
+        machine_intervals: dict[str, list[tuple[int, int]]],
+        start_time: int,
+    ) -> tuple[list[Job], list[ScheduledTask], float]:
+        """Pick the best of the analysis's structured orderings as seed.
+
+        Strictly better than a pure-random shuffle: SPT, LPT, EDD,
+        min-slack, instance-order, and three seeded shuffles get
+        evaluated; the best becomes the starting point for the
+        randomised local / remote-neighbour search.
+        """
+        best_jobs: list[Job] | None = None
+        best_solution: list[ScheduledTask] | None = None
+        best_score: float | None = None
+        for candidate in self.analysis.candidate_job_orderings():
+            solution, score = self._evaluate_solution(
+                candidate, machine_intervals, start_time=start_time
+            )
+            if best_score is None or score < best_score:
+                best_jobs = list(candidate)
+                best_solution = solution
+                best_score = score
+        if best_jobs is None or best_solution is None or best_score is None:
+            # Fallback: pure-random shuffle (no candidate scored).
+            jobs = list(self.instance.jobs)
+            random.shuffle(jobs)
+            solution, score = self._evaluate_solution(
+                jobs, machine_intervals, start_time=start_time
+            )
+            return jobs, solution, score
+        return best_jobs, best_solution, best_score
 
     @override
     def _allocate_tasks(
@@ -179,14 +137,12 @@ class StochasticSolver(BaseSolver):
         machine_intervals: dict[str, list[tuple[int, int]]],
         start_time: int = 0,
     ) -> list[ScheduledTask]:
-        # init random
         alpha = self.alpha
         B = self.B  # noqa: N806 — math convention (budget)
         R = self.R  # noqa: N806 — math convention (remote neighbors)
         local_iterations = round(((1 - alpha) * B) / R)
-        jobs = self._sort_jobs_random(list(self.instance.jobs))
-        solution, makespan = self._evaluate_solution(
-            jobs, machine_intervals, start_time=start_time
+        jobs, solution, best_score = self._seed_from_structured_orderings(
+            machine_intervals, start_time
         )
         idle_iterations = 0
 
@@ -196,17 +152,17 @@ class StochasticSolver(BaseSolver):
 
             local_jobs = jobs
             local_solution = solution
-            current_makespan = sys.maxsize
+            current_score = float("inf")
 
             # alpha*B local explorations
             for _ in range(int(self.alpha * B)):
                 local_neighbor = self._get_local_neighbor(local_jobs.copy())
-                local_solution, local_makespan = self._evaluate_solution(
+                local_solution, local_score = self._evaluate_solution(
                     local_neighbor, machine_intervals, start_time=start_time
                 )
-                if local_makespan < current_makespan:
+                if local_score < current_score:
                     local_jobs = local_neighbor
-                    current_makespan = local_makespan
+                    current_score = local_score
 
             for _ in range(R):
                 remote_neighbor = self._get_random_neighbor(local_jobs.copy())
@@ -215,17 +171,17 @@ class StochasticSolver(BaseSolver):
                     local_neighbor = self._get_local_neighbor(
                         remote_neighbor.copy()
                     )
-                    local_solution, local_makespan = self._evaluate_solution(
+                    local_solution, local_score = self._evaluate_solution(
                         local_neighbor, machine_intervals, start_time=start_time
                     )
-                    if local_makespan < current_makespan:
+                    if local_score < current_score:
                         local_jobs = local_neighbor
-                        current_makespan = local_makespan
+                        current_score = local_score
 
-            if current_makespan < makespan:
+            if current_score < best_score:
                 jobs = local_jobs
                 solution = local_solution
-                makespan = current_makespan
+                best_score = current_score
                 idle_iterations = 0
             else:
                 # number of idle iterations

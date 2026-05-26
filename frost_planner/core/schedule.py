@@ -22,6 +22,8 @@ class ScheduledTask(BaseModel):
             The task being scheduled.
         machine_id (int):
             The identifier of the machine this task is scheduled on.
+        break_time (int):
+            Time spent paused inside machine unavailable periods.
 
     """
 
@@ -38,6 +40,11 @@ class ScheduledTask(BaseModel):
     )
     machine: Machine = Field(
         description="The machine this task is scheduled on.",
+    )
+    break_time: int = Field(
+        default=0,
+        ge=0,
+        description="Time spent paused inside machine unavailable periods.",
     )
 
     @model_validator(mode="after")
@@ -60,11 +67,17 @@ class ScheduledTask(BaseModel):
                 f"Invalid time range: end_time ({self.end_time}) must be "
                 f"greater than or equal to start_time ({self.start_time})"
             )
-        duration = self.end_time - self.start_time
-        if duration != self.task.processing_time:
+        elapsed_duration = self.end_time - self.start_time
+        expected_duration = (
+            self.task.processing_time_on(self.machine) + self.break_time
+        )
+        if elapsed_duration != expected_duration:
             raise ValueError(
-                f"Task processing_time is {self.task.processing_time}, "
-                f"but scheduled duration is {duration}"
+                "Task processing_time on "
+                f"{self.machine.id} is "
+                f"{self.task.processing_time_on(self.machine)}, "
+                f"break_time is {self.break_time}, but scheduled duration "
+                f"is {elapsed_duration}"
             )
         return self
 
@@ -74,7 +87,8 @@ class ScheduledTask(BaseModel):
             f"start_time={self.start_time}, "
             f"end_time={self.end_time}, "
             f"task={self.task}, "
-            f"machine={self.machine})"
+            f"machine={self.machine}, "
+            f"break_time={self.break_time})"
         )
 
     def __repr__(self) -> str:

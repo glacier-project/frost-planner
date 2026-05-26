@@ -26,12 +26,14 @@ def _validate_scheduled_task_times(scheduled_task: ScheduledTask) -> bool:
             f"({scheduled_task.end_time})."
         )
         valid = False
-    if (
-        scheduled_task.end_time - scheduled_task.start_time
-    ) != scheduled_task.task.processing_time:
+    expected_duration = (
+        scheduled_task.task.processing_time_on(scheduled_task.machine)
+        + scheduled_task.break_time
+    )
+    if scheduled_task.end_time - scheduled_task.start_time != expected_duration:
         cerror(
             f"Scheduled task {scheduled_task.task.id} duration mismatch: "
-            f"expected {scheduled_task.task.processing_time}, got "
+            f"expected {expected_duration}, got "
             f"{scheduled_task.end_time - scheduled_task.start_time}."
         )
         valid = False

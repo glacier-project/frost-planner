@@ -30,6 +30,8 @@ class Task(BaseModel):
             The name of the task.
         processing_time (int):
             The time required to process the task.
+        machine_processing_times (dict[str, int]):
+            Optional processing time overrides by machine ID.
         dependencies (list[str]):
             The identifiers of the tasks that must be completed before this task
             can start.
@@ -39,6 +41,8 @@ class Task(BaseModel):
             The priority of the task. Lower values indicate higher priority.
         status (TaskStatus):
             The current status of the task.
+        allow_breaks (bool):
+            Whether the task can be interrupted by machine unavailable periods.
         job_id (str | None):
             Job ID of the parent job.
 
@@ -55,6 +59,13 @@ class Task(BaseModel):
     processing_time: int = Field(
         gt=1,
         description="The time required to process the task.",
+    )
+    machine_processing_times: dict[str, int] = Field(
+        default_factory=dict,
+        description=(
+            "Optional machine-specific processing times keyed by machine ID. "
+            "Missing machines use processing_time."
+        ),
     )
     dependencies: list[str] = Field(
         default_factory=list,
@@ -75,6 +86,13 @@ class Task(BaseModel):
         default=TaskStatus.WAITING,
         description="The current status of the task.",
     )
+    allow_breaks: bool = Field(
+        default=False,
+        description=(
+            "Whether the task can be interrupted by machine unavailable "
+            "periods and resume afterwards."
+        ),
+    )
     job_id: str | None = Field(
         default=None,
         description="Job ID of this task",
@@ -90,10 +108,12 @@ class Task(BaseModel):
             f"id={self.id}, "
             f"name={self.name}, "
             f"processing_time={self.processing_time}, "
+            f"machine_processing_times={self.machine_processing_times}, "
             f"dependencies={self.dependencies}, "
             f"requires={self.requires}, "
             f"priority={self.priority}, "
-            f"status={self.status})"
+            f"status={self.status}, "
+            f"allow_breaks={self.allow_breaks})"
         )
 
     def __repr__(self) -> str:
@@ -107,10 +127,12 @@ class Task(BaseModel):
                 self.id,
                 self.name,
                 self.processing_time,
+                tuple(sorted(self.machine_processing_times.items())),
                 tuple(self.dependencies),
                 tuple(self.requires),
                 self.priority,
                 self.status,
+                self.allow_breaks,
             )
         )
 
@@ -122,10 +144,39 @@ class Task(BaseModel):
             self.id == other.id
             and self.name == other.name
             and self.processing_time == other.processing_time
+            and self.machine_processing_times == other.machine_processing_times
             and self.dependencies == other.dependencies
             and self.requires == other.requires
             and self.priority == other.priority
             and self.status == other.status
+            and self.allow_breaks == other.allow_breaks
+        )
+
+    @field_validator("machine_processing_times", mode="after")
+    @classmethod
+    def _validate_machine_processing_times(
+        cls,
+        machine_processing_times: dict[str, int],
+    ) -> dict[str, int]:
+        """Validate machine-specific processing time overrides."""
+        invalid_machine_ids = [
+            machine_id
+            for machine_id, processing_time in machine_processing_times.items()
+            if not machine_id or processing_time <= 1
+        ]
+        if invalid_machine_ids:
+            raise ValueError(
+                "Machine-specific processing times must use non-empty "
+                "machine IDs and values greater than 1."
+            )
+        return machine_processing_times
+
+    def processing_time_on(self, machine: "Machine | str") -> int:
+        """Return this task's processing time on a machine."""
+        machine_id = machine.id if isinstance(machine, Machine) else machine
+        return self.machine_processing_times.get(
+            machine_id,
+            self.processing_time,
         )
 
 

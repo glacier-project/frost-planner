@@ -38,6 +38,10 @@ docs = [
     "myst-parser>=5.0.0,<6",
     "sphinx-copybutton>=0.5.2,<0.6",
 ]
+ortools = [
+    "ortools>=9.15,<10",
+    "pyjobshop>=0.0.9",
+]
 
 [build-system]
 requires = ["hatchling"]

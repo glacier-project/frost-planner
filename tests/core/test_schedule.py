@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: 2024 the Glacier project contributors
 # SPDX-License-Identifier: BSD-2-Clause
 
+import pytest
+from pydantic import ValidationError
+
 from frost_planner.core.base import Job, Machine, Task
 from frost_planner.core.schedule import Schedule, ScheduledTask
 
@@ -17,6 +20,47 @@ def test_scheduled_task_instantiation() -> None:
     assert scheduled_task.end_time == 10
     assert scheduled_task.task == task
     assert scheduled_task.machine == machine
+    assert scheduled_task.break_time == 0
+
+
+def test_scheduled_task_instantiation_with_break_time() -> None:
+    """Test ScheduledTask can represent interruptible processing."""
+    task = Task(
+        id="T1",
+        name="Task 1",
+        processing_time=10,
+        allow_breaks=True,
+    )
+    machine = Machine(id="M1", name="Machine 1")
+    scheduled_task = ScheduledTask(
+        start_time=0,
+        end_time=12,
+        task=task,
+        machine=machine,
+        break_time=2,
+    )
+
+    assert scheduled_task.break_time == 2
+
+
+def test_scheduled_task_rejects_invalid_break_time_duration() -> None:
+    """Test break_time must explain the scheduled elapsed duration."""
+    task = Task(
+        id="T1",
+        name="Task 1",
+        processing_time=10,
+        allow_breaks=True,
+    )
+    machine = Machine(id="M1", name="Machine 1")
+
+    with pytest.raises(ValidationError):
+        ScheduledTask(
+            start_time=0,
+            end_time=11,
+            task=task,
+            machine=machine,
+            break_time=2,
+        )
 
 
 def test_schedule_instantiation() -> None:
